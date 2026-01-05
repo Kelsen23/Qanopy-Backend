@@ -71,11 +71,11 @@ const createReport = asyncHandler(
 
     reportModerationQueue.add(
       "reportContent",
-      { report: newReport },
+      { reportId: newReport._id.toString() },
       { removeOnComplete: true, removeOnFail: false },
     );
 
-    res
+    return res
       .status(201)
       .json({ message: "Report successfully created", report: newReport });
   },

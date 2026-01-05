@@ -29,6 +29,20 @@ const mapSeverityToDecision = (severity: number) => {
   return "IGNORE";
 };
 
+async function removeTargetContent(report: any) {
+  switch (report.targetType) {
+    case "Question":
+      await Question.findByIdAndUpdate(report.targetId, { isActive: false });
+      break;
+    case "Answer":
+      await Answer.findByIdAndUpdate(report.targetId, { isActive: false });
+      break;
+    case "Reply":
+      await Reply.findByIdAndUpdate(report.targetId, { isActive: false });
+      break;
+  }
+}
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting moderation worker...");
@@ -37,27 +51,30 @@ async function startWorker() {
     "reportModerationQueue",
     async (job) => {
       try {
-        const { report } = job.data;
+        const { reportId } = job.data;
         let content = "";
 
-        const freshReport = await Report.findById(report._id);
-        if (!freshReport || freshReport.status !== "PENDING") return;
+        const freshReport = await Report.findById(reportId);
+        if (!freshReport || freshReport.status !== "PENDING") {
+          console.warn("Report already moderated or missing:", freshReport?._id);
+          return;
+        }
 
-        if (report.targetType === "Question") {
+        if (freshReport.targetType === "Question") {
           const cachedQuestion = await redisCacheClient.get(
-            `question:${report.targetId}`,
+            `question:${freshReport.targetId}`,
           );
           const question = cachedQuestion
             ? JSON.parse(cachedQuestion)
-            : await Question.findById(report.targetId).select("title body");
+            : await Question.findById(freshReport.targetId).select("title body");
 
           content = `Title: ${question?.title || ""}\nBody: ${question?.body || ""}`;
-        } else if (report.targetType === "Answer") {
-          const answer = await Answer.findById(report.targetId).select("body");
+        } else if (freshReport.targetType === "Answer") {
+          const answer = await Answer.findById(freshReport.targetId).select("body");
 
           content = `Body: ${answer?.body || ""}`;
-        } else if (report.targetType === "Reply") {
-          const reply = await Reply.findById(report.targetId).select("body");
+        } else if (freshReport.targetType === "Reply") {
+          const reply = await Reply.findById(freshReport.targetId).select("body");
 
           content = `Body: ${reply?.body || ""}`;
         }
@@ -75,7 +92,7 @@ async function startWorker() {
         if (aiDecision === "BAN_USER_PERM") {
           const newBan = await prisma.ban.create({
             data: {
-              userId: report.targetUserId as string,
+              userId: freshReport.targetUserId as string,
               title: "Permanent Account Suspension",
               reasons: aiReasons,
               banType: "PERM",
@@ -85,22 +102,22 @@ async function startWorker() {
           });
 
           await prisma.user.update({
-            where: { id: report.targetUserId as string },
+            where: { id: freshReport.targetUserId as string },
             data: { status: "TERMINATED" },
           });
 
           await publishSocketEvent(
-            report.targetUserId as string,
+            freshReport.targetUserId as string,
             "banUser",
             newBan,
           );
 
           redisPub.publish(
             "socket:disconnect",
-            JSON.stringify(report.targetUserId as string),
+            JSON.stringify(freshReport.targetUserId as string),
           );
 
-          await Report.findByIdAndUpdate(report._id, {
+          await Report.findByIdAndUpdate(freshReport._id, {
             severity,
             aiDecision,
             aiConfidence,
@@ -110,20 +127,24 @@ async function startWorker() {
             isRemovingContent: shouldRemoveContent,
           });
 
-          publishSocketEvent(
-            report.reportedBy as string,
+          await publishSocketEvent(
+            freshReport.reportedBy as string,
             "reportStatusChanged",
             {
               actionTaken: aiDecision,
               status: "RESOLVED",
             },
           );
+
+          if (shouldRemoveContent) await removeTargetContent(freshReport);
+
+          return;
         } else if (aiDecision === "BAN_USER_TEMP") {
           const tempBanMs = calculateTempBanMs(severity, aiConfidence);
 
           const newBan = await prisma.ban.create({
             data: {
-              userId: report.targetUserId as string,
+              userId: freshReport.targetUserId as string,
               title: "Temporary Account Suspension",
               reasons: aiReasons,
               banType: "TEMP",
@@ -135,22 +156,22 @@ async function startWorker() {
           });
 
           await prisma.user.update({
-            where: { id: report.targetUserId as string },
+            where: { id: freshReport.targetUserId as string },
             data: { status: "SUSPENDED" },
           });
 
           await publishSocketEvent(
-            report.targetUserId as string,
+            freshReport.targetUserId as string,
             "banUser",
             newBan,
           );
 
           redisPub.publish(
             "socket:disconnect",
-            JSON.stringify(report.targetUserId as string),
+            JSON.stringify(freshReport.targetUserId as string),
           );
 
-          await Report.findByIdAndUpdate(report._id, {
+          await Report.findByIdAndUpdate(freshReport._id, {
             severity,
             aiDecision,
             aiConfidence,
@@ -161,13 +182,17 @@ async function startWorker() {
           });
 
           publishSocketEvent(
-            report.reportedBy as string,
+            freshReport.reportedBy as string,
             "reportStatusChanged",
             {
               actionTaken: aiDecision,
               status: "RESOLVED",
             },
           );
+
+          if (shouldRemoveContent) await removeTargetContent(freshReport);
+
+          return;
         } else if (aiDecision === "WARN_USER") {
           const title =
             aiReasons.length > 0
@@ -176,7 +201,7 @@ async function startWorker() {
 
           const newWarning = await prisma.warning.create({
             data: {
-              userId: report.targetUserId as string,
+              userId: freshReport.targetUserId as string,
               title,
               reasons: aiReasons,
               severity,
@@ -186,12 +211,12 @@ async function startWorker() {
           });
 
           publishSocketEvent(
-            report.targetUserId as string,
+            freshReport.targetUserId as string,
             "warnUser",
             newWarning,
           );
 
-          await Report.findByIdAndUpdate(report._id, {
+          await Report.findByIdAndUpdate(freshReport._id, {
             severity,
             aiDecision,
             aiConfidence,
@@ -202,7 +227,7 @@ async function startWorker() {
           });
 
           publishSocketEvent(
-            report.reportedBy as string,
+            freshReport.reportedBy as string,
             "reportStatusChanged",
             {
               actionTaken: aiDecision,
@@ -210,7 +235,7 @@ async function startWorker() {
             },
           );
         } else if (aiDecision === "UNCERTAIN") {
-          await Report.findByIdAndUpdate(report._id, {
+          await Report.findByIdAndUpdate(freshReport._id, {
             severity,
             aiDecision,
             aiConfidence,
@@ -219,14 +244,14 @@ async function startWorker() {
           });
 
           publishSocketEvent(
-            report.reportedBy as string,
+            freshReport.reportedBy as string,
             "reportStatusChanged",
             {
               status: "REVIEWING",
             },
           );
         } else if (aiDecision === "IGNORE") {
-          await Report.findByIdAndUpdate(report._id, {
+          await Report.findByIdAndUpdate(freshReport._id, {
             severity,
             aiDecision,
             aiConfidence,
@@ -237,7 +262,7 @@ async function startWorker() {
           });
 
           publishSocketEvent(
-            report.reportedBy as string,
+            freshReport.reportedBy as string,
             "reportStatusChanged",
             {
               actionTaken: aiDecision,
@@ -245,27 +270,6 @@ async function startWorker() {
             },
           );
         }
-
-        if (aiDecision)
-          if (shouldRemoveContent) {
-            switch (report.targetType) {
-              case "Question":
-                await Question.findByIdAndUpdate(report.targetId, {
-                  isActive: false,
-                });
-                break;
-              case "Answer":
-                await Answer.findByIdAndUpdate(report.targetId, {
-                  isActive: false,
-                });
-                break;
-              case "Reply":
-                await Reply.findByIdAndUpdate(report.targetId, {
-                  isActive: false,
-                });
-                break;
-            }
-          }
       } catch (error) {
         console.error("Error processing moderation report:", error);
       }
