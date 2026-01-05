@@ -571,10 +571,7 @@ const questionResolvers = {
         cursor,
         limitCount = 10,
       }: { answerId: string; cursor?: string; limitCount: number },
-      {
-        loaders,
-        redisCacheClient,
-      }: { loaders: any; redisCacheClient: any },
+      { loaders, redisCacheClient }: { loaders: any; redisCacheClient: any },
     ) => {
       const cachedReplies = await redisCacheClient.get(
         `replies:${answerId}:${cursor || "initial"}`,

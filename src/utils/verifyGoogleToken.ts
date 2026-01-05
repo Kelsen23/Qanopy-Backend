@@ -33,7 +33,7 @@ async function verifyGoogleToken(idToken: string): Promise<{
 
     return { email, name, picture, email_verified, googleId: sub };
   } catch (error) {
-    console.error(error); 
+    console.error(error);
     throw new HttpError("Google ID token verification failed", 500);
   }
 }

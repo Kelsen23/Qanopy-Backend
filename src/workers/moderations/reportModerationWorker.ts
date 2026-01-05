@@ -35,7 +35,7 @@ async function startWorker() {
 
   new Worker(
     "reportModerationQueue",
-    async (job) => { 
+    async (job) => {
       try {
         const { report } = job.data;
         let content = "";
@@ -89,7 +89,11 @@ async function startWorker() {
             data: { status: "TERMINATED" },
           });
 
-          await publishSocketEvent(report.targetUserId as string, "banUser", newBan);
+          await publishSocketEvent(
+            report.targetUserId as string,
+            "banUser",
+            newBan,
+          );
 
           redisPub.publish(
             "socket:disconnect",
@@ -135,7 +139,11 @@ async function startWorker() {
             data: { status: "SUSPENDED" },
           });
 
-          await publishSocketEvent(report.targetUserId as string, "banUser", newBan);
+          await publishSocketEvent(
+            report.targetUserId as string,
+            "banUser",
+            newBan,
+          );
 
           redisPub.publish(
             "socket:disconnect",
