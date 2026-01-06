@@ -9,6 +9,7 @@ const QuestionSchema: Schema = new Schema(
     upvoteCount: { type: Number, default: 0 },
     downvoteCount: { type: Number, default: 0 },
     answerCount: { type: Number, default: 0 },
+    currentVersion: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },
