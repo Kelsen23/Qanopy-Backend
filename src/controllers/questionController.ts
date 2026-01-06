@@ -54,7 +54,12 @@ const createAnswerOnQuestion = asyncHandler(
     if (foundQuestion.isDeleted || !foundQuestion.isActive)
       throw new HttpError("Question not active", 410);
 
-    const newAnswer = await Answer.create({ questionId, body, userId });
+    const newAnswer = await Answer.create({
+      questionId,
+      body,
+      userId,
+      questionVersion: foundQuestion.currentVersion,
+    });
     await Question.findByIdAndUpdate(foundQuestion._id, {
       $inc: { answerCount: 1 },
     });
