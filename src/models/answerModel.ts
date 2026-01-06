@@ -14,6 +14,7 @@ const AnswerSchema: Schema = new Schema(
     upvoteCount: { type: Number, default: 0 },
     downvoteCount: { type: Number, default: 0 },
     replyCount: { type: Number, default: 0 },
+    isAccepted: { type: Boolean, default: false },
     isBestAnswerByAsker: { type: Boolean, default: false },
 
     questionVersion: { type: Number, required: true },
