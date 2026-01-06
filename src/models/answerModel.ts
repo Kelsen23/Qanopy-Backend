@@ -16,6 +16,8 @@ const AnswerSchema: Schema = new Schema(
     replyCount: { type: Number, default: 0 },
     isBestAnswerByAsker: { type: Boolean, default: false },
 
+    questionVersion: { type: Number, required: true },
+
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },
