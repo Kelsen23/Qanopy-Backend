@@ -40,7 +40,7 @@ const moderateReportSchema = z.object({
     .max(100, "Severity mus be from 0 to 100"),
   banDurationMs: z
     .number()
-    .min(1 * 60 * 60 * 1000, "Banning for less than 1 hout not allowed")
+    .min(1 * 60 * 60 * 1000, "Banning for less than 1 hour not allowed")
     .max(30 * 24 * 60 * 60 * 1000, "Banning for more than 30 days not allowed")
     .optional(),
 });

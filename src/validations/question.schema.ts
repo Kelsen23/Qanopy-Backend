@@ -11,12 +11,12 @@ const createQuestionSchema = z
   .object({
     title: z
       .string()
-      .min(3, "Title must be at least 3 characters")
-      .max(200, "Title must be at most 200 characters"),
+      .min(10, "Title must be at least 10 characters")
+      .max(150, "Title must be at most 150 characters"),
     body: z
       .string()
-      .min(10, "Body must be at least 10 characters")
-      .max(5000, "Body must be at most 5000 characters"),
+      .min(20, "Body must be at least 20 characters")
+      .max(20000, "Body must be at most 20000 characters"),
     tags: z.array(z.string()).superRefine((arr, ctx) => {
       const invalid = arr.filter((i) => !interests.includes(i));
       if (invalid.length > 0) {
@@ -49,8 +49,8 @@ const createAnswerOnQuestionSchema = z
   .object({
     body: z
       .string()
-      .min(10, "Answer must be at least 10 characters")
-      .max(5000, "Answer must be at most 5000 characters"),
+      .min(20, "Answer must be at least 20 characters")
+      .max(20000, "Answer must be at most 20000 characters"),
   })
   .superRefine((data, ctx) => {
     if (leoProfanity.check(data.body)) {
@@ -67,7 +67,7 @@ const createReplyOnAnswerSchema = z
     body: z
       .string()
       .min(1, "Reply must be at least 1 character")
-      .max(2000, "Reply must be at most 2000 characters"),
+      .max(150, "Reply must be at most 150 characters"),
   })
   .superRefine((data, ctx) => {
     if (leoProfanity.check(data.body)) {

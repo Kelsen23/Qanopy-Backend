@@ -8,11 +8,14 @@ const AnswerSchema: Schema = new Schema(
       required: true,
     },
     userId: { type: String, required: true },
-    body: { type: String, required: true, maxlength: 5000 },
-    isBestAnswerByAsker: { type: Boolean, default: false },
+
+    body: { type: String, minlength: 20, maxlength: 20000, required: true },
+
     upvoteCount: { type: Number, default: 0 },
     downvoteCount: { type: Number, default: 0 },
     replyCount: { type: Number, default: 0 },
+    isBestAnswerByAsker: { type: Boolean, default: false },
+
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },

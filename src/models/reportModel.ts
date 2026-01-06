@@ -1,9 +1,9 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const ReportSchema = new mongoose.Schema(
+const ReportSchema: Schema = new Schema(
   {
     reportedBy: { type: String, required: true },
-    targetId: { type: String, required: true },
+    targetId: { type: Schema.Types.ObjectId, required: true },
     targetUserId: { type: String, required: true },
     targetType: {
       type: String,
