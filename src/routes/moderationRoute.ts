@@ -30,6 +30,7 @@ const router = express.Router();
 router
   .route("/report/create")
   .post(
+    createReportLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
