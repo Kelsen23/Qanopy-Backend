@@ -15,7 +15,7 @@ import Report from "../models/reportModel.js";
 
 import prisma from "../config/prisma.js";
 
-import reportModerationQueue from "../queues/moderations/reportModerationQueue.js";
+import reportModerationQueue from "../queues/reportModerationQueue.js";
 
 import { redisPub } from "../redis/pubsub.js";
 
