@@ -906,6 +906,7 @@ export {
   vote,
   unvote,
   acceptAnswer,
+  unacceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
   deleteContent,
