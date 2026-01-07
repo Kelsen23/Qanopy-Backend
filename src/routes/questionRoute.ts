@@ -7,6 +7,7 @@ import {
   vote,
   unvote,
   acceptAnswer,
+  unacceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
   deleteContent,
@@ -87,6 +88,10 @@ router
 router
   .route("/answer/:answerId/accept")
   .patch(isAuthenticated, isVerified, requireActiveUser, acceptAnswer);
+
+router
+  .route("/answer/:answerId/unaccept")
+  .patch(isAuthenticated, isVerified, requireActiveUser, unacceptAnswer);
 
 router
   .route("/answer/markAsBest/:answerId")
