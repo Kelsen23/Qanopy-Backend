@@ -71,7 +71,7 @@ const createReport = asyncHandler(
 
     reportModerationQueue.add(
       "reportContent",
-      { reportId: newReport._id.toString() },
+      { reportId: newReport._id?.toString() },
       { removeOnComplete: true, removeOnFail: false },
     );
 
@@ -113,7 +113,7 @@ const moderateReport = asyncHandler(
     if (actionTaken === "BAN_USER_PERM") {
       const newBan = await prisma.ban.create({
         data: {
-          userId: report.targetUserId,
+          userId: report.targetUserId as string,
           title,
           reasons: adminReasons,
           banType: "PERM",
@@ -123,7 +123,7 @@ const moderateReport = asyncHandler(
       });
 
       await prisma.user.update({
-        where: { id: report.targetUserId },
+        where: { id: report.targetUserId as string },
         data: { status: "TERMINATED" },
       });
 
@@ -164,7 +164,7 @@ const moderateReport = asyncHandler(
 
       const newBan = await prisma.ban.create({
         data: {
-          userId: report.targetUserId,
+          userId: report.targetUserId as string,
           title,
           reasons: adminReasons,
           banType: "TEMP",
@@ -176,7 +176,7 @@ const moderateReport = asyncHandler(
       });
 
       await prisma.user.update({
-        where: { id: report.targetUserId },
+        where: { id: report.targetUserId as string },
         data: { status: "SUSPENDED" },
       });
 
@@ -211,7 +211,7 @@ const moderateReport = asyncHandler(
     } else if (actionTaken === "WARN_USER") {
       const newWarning = await prisma.warning.create({
         data: {
-          userId: report.targetUserId,
+          userId: report.targetUserId as string,
           title,
           reasons: adminReasons,
           severity,
