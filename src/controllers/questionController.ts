@@ -513,6 +513,134 @@ const unvote = asyncHandler(
   },
 );
 
+const acceptAnswer = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { answerId } = req.params;
+
+    const foundAnswer = await Answer.findById(answerId);
+
+    if (!foundAnswer) throw new HttpError("Answer not found", 404);
+
+    if (foundAnswer.isDeleted || !foundAnswer.isActive)
+      throw new HttpError("Answer not active", 410);
+
+    const cachedQuestion = await redisCacheClient.get(
+      `question:${foundAnswer.questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(foundAnswer.questionId);
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+
+    if (foundQuestion.isDeleted || !foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+
+    if (foundQuestion.userId?.toString() !== userId)
+      throw new HttpError("Unauthorized to accept answer", 403);
+
+    if (foundAnswer.isAccepted) {
+      return res.status(200).json({
+        message: "Answer already accepted",
+        answer: foundAnswer,
+      });
+    }
+
+    const acceptedAnswer = await Answer.findByIdAndUpdate(
+      answerId,
+      { isAccepted: true },
+      { new: true },
+    );
+
+    await prisma.user.update({
+      where: { id: foundAnswer.userId as string },
+      data: {
+        acceptedAnswers: { increment: 1 },
+        reputationPoints: { increment: 10 },
+      },
+    });
+
+    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await clearAnswerCache(foundAnswer.questionId as string);
+
+    return res
+      .status(200)
+      .json({ message: "Successfully accepted answer", acceptedAnswer });
+  },
+);
+
+const unacceptAnswer = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { answerId } = req.params;
+
+    const foundAnswer = await Answer.findById(answerId);
+
+    if (!foundAnswer) throw new HttpError("Answer not found", 404);
+
+    if (foundAnswer.isDeleted || !foundAnswer.isActive)
+      throw new HttpError("Answer not active", 410);
+
+    const cachedQuestion = await redisCacheClient.get(
+      `question:${foundAnswer.questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(foundAnswer.questionId);
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+
+    if (foundQuestion.isDeleted || !foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+
+    if (foundQuestion.userId?.toString() !== userId)
+      throw new HttpError("Unauthorized to unaccept answer", 403);
+
+    if (!foundAnswer.isAccepted) {
+      return res.status(200).json({
+        message: "Answer already unaccepted",
+        answer: foundAnswer,
+      });
+    }
+
+    const unacceptedAnswer = await Answer.findByIdAndUpdate(
+      foundAnswer._id,
+      {
+        isAccepted: false,
+        isBestAnswerByAsker: false,
+      },
+      { new: true },
+    );
+
+    if (foundAnswer.isBestAnswerByAsker) {
+      await prisma.user.update({
+        where: { id: foundAnswer.userId as string },
+        data: {
+          acceptedAnswers: { decrement: 1 },
+          bestAnswers: { decrement: 1 },
+          reputationPoints: { decrement: 25 },
+        },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: foundAnswer.userId as string },
+        data: {
+          acceptedAnswers: { decrement: 1 },
+          reputationPoints: { decrement: 10 },
+        },
+      });
+    }
+
+    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await clearAnswerCache(foundAnswer.questionId as string);
+
+    return res
+      .status(200)
+      .json({ message: "Successfully unaccepted answer", unacceptedAnswer });
+  },
+);
+
 const markAnswerAsBest = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -524,6 +652,12 @@ const markAnswerAsBest = asyncHandler(
 
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
+
+    if (!foundAnswer.isAccepted)
+      throw new HttpError(
+        "Answer first needs to be accepted before marking it best",
+        400,
+      );
 
     if (foundAnswer.isBestAnswerByAsker) {
       return res.status(200).json({
@@ -771,6 +905,8 @@ export {
   createReplyOnAnswer,
   vote,
   unvote,
+  acceptAnswer,
+  unacceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
   deleteContent,

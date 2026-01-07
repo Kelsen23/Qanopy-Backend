@@ -15,7 +15,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon --watch src --exec tsx src/index.ts",
     "start": "node dist/index.js",
     "dev:verification-worker": "tsx src/workers/emails/verificationWorker.ts",
     "dev:reset-worker": "tsx src/workers/emails/resetPasswordWorker.ts",

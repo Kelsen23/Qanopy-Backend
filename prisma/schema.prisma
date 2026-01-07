@@ -112,6 +112,7 @@ model User {
   role             Role          @default(USER)
   questionsAsked   Int           @default(0)
   answersGiven     Int           @default(0)
+  acceptedAnswers  Int           @default(0)
   bestAnswers      Int           @default(0)
   achievements     Achievement[]
   status           Status        @default(ACTIVE)
