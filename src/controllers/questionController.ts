@@ -6,6 +6,7 @@ import AuthenticatedRequest from "../types/authenticatedRequest.js";
 
 import invalidateCacheOnUnvote from "../utils/invalidateCacheOnUnvote.js";
 import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.js";
+
 import HttpError from "../utils/httpError.js";
 
 import mongoose from "mongoose";
@@ -16,6 +17,8 @@ import Vote from "../models/voteModel.js";
 
 import prisma from "../config/prisma.js";
 import { redisCacheClient } from "../config/redis.js";
+
+import questionVersioningQueue from "../queues/questionVersioningQueue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -34,10 +37,92 @@ const createQuestion = asyncHandler(
       data: { questionsAsked: { increment: 1 } },
     });
 
+    await questionVersioningQueue.add(
+      "createNewQuestionVersion",
+      {
+        questionId: createdQuestion._id,
+        title,
+        body,
+        tags,
+        editorId: userId,
+        version: 1,
+        basedOnVersion: 1,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+
     return res.status(201).json({
       message: "Successfully created question",
       question: createdQuestion,
     });
+  },
+);
+
+const editQuestion = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { title, body, tags } = req.body;
+
+    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId);
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+
+    if (foundQuestion.isDeleted || !foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+
+    const sameTags =
+      tags.length === foundQuestion.tags.length &&
+      [...tags].sort().join(",") === [...foundQuestion.tags].sort().join(",");
+
+    if (
+      title === foundQuestion.title &&
+      body === foundQuestion.body &&
+      sameTags
+    )
+      throw new HttpError(
+        "In order to edit the question, at least one field must be different from the old one",
+        400,
+      );
+
+    if (foundQuestion.userId?.toString() !== userId)
+      throw new HttpError("Unauthorized to edit question", 403);
+
+    const newVersion = Number(foundQuestion.currentVersion) + 1;
+
+    const editedQuestion = await Question.findByIdAndUpdate(
+      foundQuestion._id,
+      {
+        title,
+        body,
+        tags,
+        currentVersion: newVersion,
+      },
+      { new: true },
+    );
+
+    await questionVersioningQueue.add(
+      "createNewQuestionVersion",
+      {
+        questionId,
+        title,
+        body,
+        tags,
+        editorId: userId,
+        version: newVersion,
+        basedOnVersion: foundQuestion.currentVersion,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+
+    await redisCacheClient.del(`question:${editedQuestion?._id}`);
+
+    return res
+      .status(200)
+      .json({ message: "Successfully edited question", editedQuestion });
   },
 );
 
@@ -901,6 +986,7 @@ const deleteContent = asyncHandler(
 
 export {
   createQuestion,
+  editQuestion,
   createAnswerOnQuestion,
   createReplyOnAnswer,
   vote,
