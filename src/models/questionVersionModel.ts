@@ -19,6 +19,7 @@ const QuestionVersionSchema: Schema = new Schema(
     supersededByRollback: { type: Boolean, default: false, required: true },
     version: { type: Number, required: true },
     basedOnVersion: { type: Number, required: true },
+    isActive: { type: Boolean, required: true, index: true },
   },
   {
     timestamps: true,
@@ -34,6 +35,9 @@ const QuestionVersionSchema: Schema = new Schema(
   },
 );
 
-QuestionVersionSchema.index({ questionId: 1, version: 1 }, { unique: true });
+QuestionVersionSchema.index(
+  { questionId: 1, isActive: 1 },
+  { unique: true, partialFilterExpression: { isActive: true } },
+);
 
 export default mongoose.model("QuestionVersion", QuestionVersionSchema);
