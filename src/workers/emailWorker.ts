@@ -1,17 +1,17 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../../config/redis.js";
+import { redisMessagingClientConnection } from "../config/redis.js";
 
-import transporter from "../../config/nodemailer.js";
+import transporter from "../config/nodemailer.js";
 
 new Worker(
-  "verificationQueue",
+  "emailQueue",
   async (job) => {
-    const { email, htmlContent } = job.data;
+    const { email, subject, htmlContent } = job.data;
 
     await transporter.sendMail({
       from: `'QANOPY' <${process.env.QANOPY_EMAIL}>`,
       to: email,
-      subject: "Verify Email",
+      subject,
       html: htmlContent,
     });
   },

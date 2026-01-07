@@ -3,23 +3,23 @@ import { Worker } from "bullmq";
 import {
   redisMessagingClientConnection,
   redisCacheClient,
-} from "../../config/redis.js";
+} from "../config/redis.js";
 
-import aiModerateReport from "../../services/aiModerationService.js";
+import aiModerateReport from "../services/aiModerationService.js";
 
-import calculateTempBanMs from "../../utils/calculateTempBanMs.js";
-import publishSocketEvent from "../../utils/publishSocketEvent.js";
+import calculateTempBanMs from "../utils/calculateTempBanMs.js";
+import publishSocketEvent from "../utils/publishSocketEvent.js";
 
-import Question from "../../models/questionModel.js";
-import Answer from "../../models/answerModel.js";
-import Reply from "../../models/replyModel.js";
-import Report from "../../models/reportModel.js";
+import Question from "../models/questionModel.js";
+import Answer from "../models/answerModel.js";
+import Reply from "../models/replyModel.js";
+import Report from "../models/reportModel.js";
 
-import prisma from "../../config/prisma.js";
+import prisma from "../config/prisma.js";
 
-import { redisPub } from "../../redis/pubsub.js";
+import { redisPub } from "../redis/pubsub.js";
 
-import connectMongoDB from "../../config/mongoDB.js";
+import connectMongoDB from "../config/mongoDB.js";
 
 const mapSeverityToDecision = (severity: number) => {
   if (severity >= 90) return "BAN_USER_PERM";
