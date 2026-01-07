@@ -17,12 +17,10 @@
   "scripts": {
     "dev": "nodemon --watch src --exec tsx src/index.ts",
     "start": "node dist/index.js",
-    "dev:verification-worker": "tsx src/workers/emails/verificationWorker.ts",
-    "dev:reset-worker": "tsx src/workers/emails/resetPasswordWorker.ts",
-    "dev:moderation-worker": "tsx src/workers/moderations/reportModerationWorker.ts",
-    "dev:emails": "concurrently \"npm run dev:verification-worker\" \"npm run dev:reset-worker\"",
-    "dev:moderation": "npm run dev:moderation-worker",
-    "dev:all-workers": "concurrently \"npm run dev:emails\" \"npm run dev:moderation\"",
+    "dev:email-worker": "tsx src/workers/emailWorker.ts",
+    "dev:moderation-worker": "tsx src/workers/reportModerationWorker.ts",
+    "dev:questionVersioning-worker": "tsx src/workers/questionVersioningWorker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\" \"npm run dev:questionVersioning-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"

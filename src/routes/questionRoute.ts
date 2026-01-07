@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   createQuestion,
+  editQuestion,
   createAnswerOnQuestion,
   createReplyOnAnswer,
   vote,
@@ -22,6 +23,7 @@ import {
 
 import {
   createQuestionLimiterMiddleware,
+  editQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
   voteLimiterMiddleware,
@@ -46,6 +48,17 @@ router
     requireActiveUser,
     validate(createQuestionSchema),
     createQuestion,
+  );
+
+router
+  .route("/:questionId/edit")
+  .patch(
+    editQuestionLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(createQuestionSchema),
+    editQuestion,
   );
 
 router
