@@ -31,6 +31,13 @@ const voteLimiter = new RateLimiterRedis({
   duration: 60 * 15,
 });
 
+const acceptAnswerLimiter = new RateLimiterRedis({
+  storeClient: redisMessagingClient,
+  keyPrefix: "acceptAnswer",
+  points: 10,
+  duration: 60 * 30,
+});
+
 const markAnswerAsBestLimiter = new RateLimiterRedis({
   storeClient: redisMessagingClient,
   keyPrefix: "markAnswerAsBest",
@@ -58,6 +65,11 @@ const voteLimiterMiddleware = createRateLimiterMiddleware(
   "Too many votes, try again after 15 minutes",
 );
 
+const acceptAnswerLimiterMiddleware = createRateLimiterMiddleware(
+  acceptAnswerLimiter,
+  "Too many answers accepted, try again after half an hour",
+);
+
 const markAnswerAsBestLimiterMiddleware = createRateLimiterMiddleware(
   markAnswerAsBestLimiter,
   "Too many answers marked, try again after half an hour",
@@ -68,5 +80,6 @@ export {
   createAnswerOnQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
   voteLimiterMiddleware,
+  acceptAnswerLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
 };
