@@ -40,4 +40,4 @@ QuestionVersionSchema.index(
   { unique: true, partialFilterExpression: { isActive: true } },
 );
 
-export default mongoose.model("QuestionVersion", QuestionVersionSchema);
+export default mongoose.model("QuestionVersion", QuestionVersionSchema, "question_versions");
