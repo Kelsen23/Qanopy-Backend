@@ -6,6 +6,7 @@ import {
   createReplyOnAnswer,
   vote,
   unvote,
+  acceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
   deleteContent,
@@ -82,6 +83,10 @@ router
 router
   .route("/unvote/:targetType/:targetId")
   .delete(isAuthenticated, isVerified, requireActiveUser, unvote);
+
+router
+  .route("/answer/:answerId/accept")
+  .patch(isAuthenticated, isVerified, requireActiveUser, acceptAnswer);
 
 router
   .route("/answer/markAsBest/:answerId")
