@@ -19,7 +19,8 @@
     "start": "node dist/index.js",
     "dev:email-worker": "tsx src/workers/emailWorker.ts",
     "dev:moderation-worker": "tsx src/workers/reportModerationWorker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\"",
+    "dev:questionVersioning-worker": "tsx src/workers/questionVersioningWorker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\" \"npm run dev:questionVersioning-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
