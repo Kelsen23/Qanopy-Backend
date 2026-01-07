@@ -22,8 +22,7 @@ import HttpError from "../utils/httpError.js";
 import prisma from "../config/prisma.js";
 import { redisCacheClient } from "../config/redis.js";
 
-import verificationQueue from "../queues/emails/verificationQueue.js";
-import resetPasswordQueue from "../queues/emails/resetPasswordQueue.js";
+import emailQueue from "../queues/emailQueue.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
@@ -63,10 +62,11 @@ const register = asyncHandler(async (req: Request, res: Response) => {
     deviceInfo.ip || "Unknown IP",
   );
 
-  await verificationQueue.add(
+  await emailQueue.add(
     "sendVerificationEmail",
     {
       email: updatedUser.email,
+      subject: "Verify Email",
       htmlContent,
     },
     { removeOnComplete: true, removeOnFail: true },
@@ -370,10 +370,11 @@ const resendVerificationEmail = asyncHandler(
       deviceInfo.ip || "Unknown IP",
     );
 
-    await verificationQueue.add(
+    await emailQueue.add(
       "resendVerificationEmail",
       {
         email: updatedUser.email,
+        subject: "Verify Email",
         htmlContent,
       },
       { removeOnComplete: true, removeOnFail: true },
@@ -432,10 +433,11 @@ const sendResetPasswordEmail = asyncHandler(
       deviceInfo.ip || "Unknown IP",
     );
 
-    await resetPasswordQueue.add(
+    await emailQueue.add(
       "sendResetPasswordEmail",
       {
         email: updatedUser.email,
+        subject: "Reset Password Request",
         htmlContent,
       },
       { removeOnComplete: true, removeOnFail: true },
@@ -502,10 +504,11 @@ const resendResetPasswordEmail = asyncHandler(
       deviceInfo.ip || "Unknown IP",
     );
 
-    await resetPasswordQueue.add(
+    await emailQueue.add(
       "resendResetPasswordEmail",
       {
         email: updatedUser.email,
+        subject: "Reset Password Request",
         htmlContent,
       },
       { removeOnComplete: true, removeOnFail: true },
