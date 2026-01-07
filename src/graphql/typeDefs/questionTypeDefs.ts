@@ -10,6 +10,7 @@ const questionTypeDefs = gql`
     downvotes: Int!
     tags: [String]!
     answerCount: Int!
+    currentVersion: Int!
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
@@ -38,6 +39,7 @@ const questionTypeDefs = gql`
     replies: [Reply!]!
     isAccepted: Boolean!
     isBestAnswerByAsker: Boolean!
+    questionVersion: Int!
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
@@ -54,6 +56,7 @@ const questionTypeDefs = gql`
     downvotes: Int!
     answerCount: Int!
     topAnswer: Answer
+    currentVersion: Int!
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
