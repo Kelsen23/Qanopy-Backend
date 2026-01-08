@@ -22,8 +22,8 @@ import { saveInterestsLimiterMiddleware } from "../middlewares/rateLimiters/user
 const router = express.Router();
 
 router
-  .route("/updateProfile")
-  .put(
+  .route("/update/profile")
+  .patch(
     updateProfileLimiterMiddleware,
     isAuthenticated,
     isVerified,
@@ -42,8 +42,8 @@ router
     getInterests,
   );
 router
-  .route("/saveInterests")
-  .put(
+  .route("/save/interests")
+  .patch(
     saveInterestsLimiterMiddleware,
     isAuthenticated,
     isVerified,
