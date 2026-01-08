@@ -10,6 +10,7 @@ import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.js";
 import HttpError from "../utils/httpError.js";
 
 import mongoose from "mongoose";
+
 import Question from "../models/questionModel.js";
 import Answer from "../models/answerModel.js";
 import Reply from "../models/replyModel.js";
@@ -226,7 +227,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id, {
+        await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
           $inc: { upvoteCount: 1, downvoteCount: -1 },
         });
 
@@ -237,7 +238,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
       }
 
       if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id, {
+        await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
           $inc: { upvoteCount: -1, downvoteCount: 1 },
         });
 
@@ -270,7 +271,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         data: { reputationPoints: { increment: 10 } },
       });
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $inc: { upvoteCount: 1 },
       });
     }
@@ -281,7 +282,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         data: { reputationPoints: { decrement: 10 } },
       });
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $inc: { downvoteCount: 1 },
       });
     }
