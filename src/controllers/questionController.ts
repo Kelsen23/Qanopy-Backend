@@ -95,7 +95,7 @@ const editQuestion = asyncHandler(
     const newVersion = Number(foundQuestion.currentVersion) + 1;
 
     const editedQuestion = await Question.findByIdAndUpdate(
-      foundQuestion._id,
+      foundQuestion._id || foundQuestion.id,
       {
         title,
         body,
@@ -146,7 +146,7 @@ const createAnswerOnQuestion = asyncHandler(
       userId,
       questionVersion: foundQuestion.currentVersion,
     });
-    await Question.findByIdAndUpdate(foundQuestion._id, {
+    await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
       $inc: { answerCount: 1 },
     });
 
@@ -227,9 +227,12 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-          $inc: { upvoteCount: 1, downvoteCount: -1 },
-        });
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { upvoteCount: 1, downvoteCount: -1 },
+          },
+        );
 
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
@@ -238,9 +241,12 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
       }
 
       if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-          $inc: { upvoteCount: -1, downvoteCount: 1 },
-        });
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { upvoteCount: -1, downvoteCount: 1 },
+          },
+        );
 
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
@@ -519,7 +525,7 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Question.findByIdAndUpdate(foundQuestion._id, updateField);
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, updateField);
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
@@ -900,7 +906,7 @@ const deleteContent = asyncHandler(
       if (foundQuestion.isDeleted || !foundQuestion.isActive)
         throw new HttpError("Question not active", 410);
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $set: { isDeleted: true, isActive: false },
       });
 
