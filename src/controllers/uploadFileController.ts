@@ -22,14 +22,14 @@ const bucketName = process.env.BUCKET_NAME;
 const bucketRegion = process.env.BUCKET_REGION;
 const accessKey = process.env.ACCESS_KEY;
 const secretAccessKey = process.env.SECRET_ACCESS_KEY;
-const cloudfrondDomain = process.env.CLOUDFRONT_DOMAIN;
+const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN;
 
 if (
   !bucketName ||
   !bucketRegion ||
   !accessKey ||
   !secretAccessKey ||
-  !cloudfrondDomain
+  !cloudfrontDomain
 )
   throw new Error("Missing AWS S3 environment variables");
 
@@ -96,7 +96,7 @@ const changeProfilePicture = asyncHandler(
     try {
       await s3.send(putCommand);
 
-      const imageUrl = `${cloudfrondDomain}/${objectKey}`;
+      const imageUrl = `${cloudfrontDomain}/${objectKey}`;
 
       const updatedUser = await prisma.user.update({
         where: { id: userId },
