@@ -47,7 +47,7 @@ router
   .post(registerLimiterMiddleware, validate(oauthSchema), registerOrLogin);
 
 router
-  .route("/verifyEmail")
+  .route("/email/verify")
   .post(
     emailVerificationLimiterMiddleware,
     isAuthenticated,
@@ -55,32 +55,32 @@ router
     verifyEmail,
   );
 router
-  .route("/resendVerificationEmail")
+  .route("/verificationEmail/resend")
   .post(resendEmailLimiterMiddleware, isAuthenticated, resendVerificationEmail);
 
 router
-  .route("/sendResetPasswordEmail")
+  .route("/resetPasswordEmail/send")
   .post(
     resetPasswordLimiterMiddleware,
     validate(sendResetPasswordEmailSchema),
     sendResetPasswordEmail,
   );
 router
-  .route("/resendResetPasswordEmail")
+  .route("/resetPasswordEmail/resend")
   .post(
     resendEmailLimiterMiddleware,
     validate(sendResetPasswordEmailSchema),
     resendResetPasswordEmail,
   );
 router
-  .route("/verifyResetPasswordOtp")
+  .route("/resetPasswordOtp/verify")
   .post(
     emailVerificationLimiterMiddleware,
     validate(verifyEmailSchema),
     verifyResetPasswordOtp,
   );
 router
-  .route("/resetPassword")
+  .route("/password/reset")
   .post(
     resetPasswordLimiterMiddleware,
     validate(resetPasswordSchema),
