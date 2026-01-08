@@ -100,6 +100,12 @@ const questionTypeDefs = gql`
     isActive: Boolean!
   }
 
+  type QuestionVersionConnection {
+    questionVersions: [QuestionVersion!]!
+    nextCursor: String
+    hasMore: Boolean!
+  }
+
   type Query {
     getRecommendedQuestions(
       cursor: String
@@ -122,7 +128,7 @@ const questionTypeDefs = gql`
     ): ReplyConnection!
 
     getSearchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
-
+ 
     searchQuestions(
       searchKeyword: String!
       tags: [String]!
@@ -131,7 +137,7 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): QuestionConnection!
 
-    getVersionHistory(questionId: String! cursor: ID limitCount: Int): QuestionVersion!
+    getVersionHistory(questionId: String! cursor: ID limitCount: Int): QuestionVersionConnection!
   }
 `;
 
