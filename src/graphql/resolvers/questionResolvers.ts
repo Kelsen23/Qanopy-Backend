@@ -912,6 +912,8 @@ const questionResolvers = {
       const foundVersionHistory = await QuestionVersion.aggregate([
         { $match: matchStage },
 
+        { $sort: { _id: -1 } },
+
         { $limit: limitCount },
 
         {
@@ -935,7 +937,7 @@ const questionResolvers = {
         ...new Set(foundVersionHistory.map((v) => v.editorId)),
       ];
 
-      const users = loaders.userLoader.loadMore(uniqueUserIds);
+      const users = await loaders.userLoader.loadMore(uniqueUserIds);
 
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
@@ -963,17 +965,28 @@ const questionResolvers = {
           }
 
           return { ...v, user };
+        } else {
+          return { ...v, user: null };
         }
       });
 
+      const result = {
+        questionVersions: versionHistoryWithUser,
+        nextCursor:
+          versionHistoryWithUser.length === limitCount
+            ? versionHistoryWithUser[versionHistoryWithUser.length - 1].id
+            : null,
+        hasMore: versionHistoryWithUser.length === limitCount,
+      };
+
       await redisCacheClient.set(
         `v:question:${questionId}:${cursor || "initial"}`,
-        JSON.stringify(versionHistoryWithUser),
+        JSON.stringify(result),
         "EX",
         60 * 60,
       );
 
-      return versionHistoryWithUser;
+      return result;
     },
   },
 };
