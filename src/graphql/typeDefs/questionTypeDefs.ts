@@ -138,6 +138,7 @@ const questionTypeDefs = gql`
     ): QuestionConnection!
 
     getVersionHistory(questionId: String! cursor: ID limitCount: Int): QuestionVersionConnection!
+    getQuestionVersion(questionId: String! version: Int!): QuestionVersion!
   }
 `;
 
