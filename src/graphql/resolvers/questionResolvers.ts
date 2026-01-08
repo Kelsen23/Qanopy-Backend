@@ -90,6 +90,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             title: 1,
             body: 1,
             tags: 1,
@@ -258,6 +259,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             title: 1,
             body: 1,
@@ -505,6 +507,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             body: 1,
             replies: [],
@@ -617,6 +620,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             body: 1,
             upvotes: "$upvoteCount",
@@ -713,7 +717,7 @@ const questionResolvers = {
 
         { $limit: limitCount },
 
-        { $project: { _id: 0, title: 1 } },
+        { $project: { id: "$_id", _id: 0, title: 1 } },
       ]);
 
       const suggestions = results.map((r) => r.title);
@@ -821,6 +825,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             title: 1,
             body: 1,
             tags: 1,
@@ -919,6 +924,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             questionId: 1,
             title: 1,
             body: 1,
@@ -981,6 +987,65 @@ const questionResolvers = {
 
       await redisCacheClient.set(
         `v:question:${questionId}:${cursor || "initial"}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 60,
+      );
+
+      return result;
+    },
+
+    getQuestionVersion: async (
+      _: any,
+      { questionId, version }: { questionId: string; version: number },
+      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+    ) => {
+      const cachedVersion = await redisCacheClient.get(
+        `v:${version}:question:${questionId}`,
+      );
+
+      if (cachedVersion) return JSON.parse(cachedVersion);
+
+      const foundVersion = await QuestionVersion.findOne({
+        questionId: new mongoose.Types.ObjectId(questionId),
+        version,
+      }).lean();
+
+      if (!foundVersion) throw new HttpError("Version not found", 404);
+
+      let user = null;
+
+      if (foundVersion.editedBy === "USER" && foundVersion.editorId) {
+        user = await loaders.userLoader.load(foundVersion.editorId);
+
+        if (!user) {
+          user = {
+            id: foundVersion.editorId,
+            username: "Deleted User",
+            email: "deleted@user.com",
+            profilePictureUrl: null,
+            bio: null,
+            reputationPoints: 0,
+            role: "USER",
+            questionsAsked: 0,
+            answersGiven: 0,
+            bestAnswers: 0,
+            achievements: [],
+            status: "TERMINATED",
+            isVerified: false,
+            createdAt: new Date(0).toISOString(),
+          };
+        }
+      }
+
+      const result = {
+        ...foundVersion,
+        id: foundVersion._id,
+        user,
+      };
+
+      await redisCacheClient.set(
+        `v:${version}:question:${questionId}`,
         JSON.stringify(result),
         "EX",
         60 * 60,
