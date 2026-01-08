@@ -98,6 +98,7 @@ const questionTypeDefs = gql`
     version: Int!
     basedOnVersion: Int!
     isActive: Boolean!
+    user: User!
   }
 
   type QuestionVersionConnection {
