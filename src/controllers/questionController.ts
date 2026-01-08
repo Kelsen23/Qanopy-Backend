@@ -5,7 +5,11 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 import AuthenticatedRequest from "../types/authenticatedRequest.js";
 
 import invalidateCacheOnUnvote from "../utils/invalidateCacheOnUnvote.js";
-import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.js";
+import {
+  clearAnswerCache,
+  clearReplyCache,
+  clearVersionHistoryCache,
+} from "../utils/clearCache.js";
 
 import HttpError from "../utils/httpError.js";
 
@@ -120,6 +124,7 @@ const editQuestion = asyncHandler(
     );
 
     await redisCacheClient.del(`question:${editedQuestion?._id}`);
+    await clearVersionHistoryCache(questionId);
 
     return res
       .status(200)
@@ -525,7 +530,10 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, updateField);
+      await Question.findByIdAndUpdate(
+        foundQuestion._id || foundQuestion.id,
+        updateField,
+      );
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
