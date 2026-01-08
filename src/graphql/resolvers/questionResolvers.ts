@@ -943,7 +943,7 @@ const questionResolvers = {
         ...new Set(foundVersionHistory.map((v) => v.editorId)),
       ];
 
-      const users = await loaders.userLoader.loadMore(uniqueUserIds);
+      const users = await loaders.userLoader.ladMany(uniqueUserIds);
 
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
