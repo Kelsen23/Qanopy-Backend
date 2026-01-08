@@ -81,6 +81,25 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  enum EditedBy {
+    USER
+    AI
+  }
+
+  type QuestionVersion {
+    id: ID!
+    questionId: ID!
+    title: String!
+    body: String!
+    tags: [String]!
+    editedBy: EditedBy!
+    editorId: ID
+    supersededByRollback: Boolean!
+    version: Int!
+    basedOnVersion: Int!
+    isActive: Boolean!
+  }
+
   type Query {
     getRecommendedQuestions(
       cursor: String
@@ -111,6 +130,8 @@ const questionTypeDefs = gql`
       cursor: String
       limitCount: Int
     ): QuestionConnection!
+
+    getVersionHistory(questionId: String! cursor: ID limitCount: Int): QuestionVersion!
   }
 `;
 
