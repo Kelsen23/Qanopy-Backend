@@ -9,7 +9,7 @@ new Worker(
     const { email, subject, htmlContent } = job.data;
 
     await transporter.sendMail({
-      from: `'QANOPY' <${process.env.QANOPY_EMAIL}>`,
+      from: `'Qanopy' <${process.env.QANOPY_EMAIL}>`,
       to: email,
       subject,
       html: htmlContent,
