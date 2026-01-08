@@ -62,7 +62,7 @@ router
   );
 
 router
-  .route("/create/answer/:questionId")
+  .route("/create/:questionId/answer")
   .post(
     createAnswerOnQuestionLimiterMiddleware,
     isAuthenticated,
@@ -73,7 +73,7 @@ router
   );
 
 router
-  .route("/create/reply/:answerId")
+  .route("/create/:answerId/reply")
   .post(
     createReplyOnAnswerLimiterMiddleware,
     isAuthenticated,
@@ -107,7 +107,7 @@ router
   .patch(isAuthenticated, isVerified, requireActiveUser, unacceptAnswer);
 
 router
-  .route("/answer/markAsBest/:answerId")
+  .route("/answer/:answerId/mark/asBest")
   .patch(
     markAnswerAsBestLimiterMiddleware,
     isAuthenticated,
@@ -117,7 +117,7 @@ router
   );
 
 router
-  .route("/answer/unmarkAsBest/:answerId")
+  .route("/answer/:answerId/unmark/asBest")
   .patch(isAuthenticated, isVerified, requireActiveUser, unmarkAnswerAsBest);
 
 router
