@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Question from "../../models/questionModel.js";
 import Answer from "../../models/answerModel.js";
 import Reply from "../../models/replyModel.js";
+import QuestionVersion from "../../models/questionVersionModel.js";
 
 import UserWithoutSensitiveInfo from "../../types/userWithoutSensitiveInfo.js";
 
@@ -883,6 +884,96 @@ const questionResolvers = {
       );
 
       return result;
+    },
+
+    getVersionHistory: async (
+      _: any,
+      {
+        questionId,
+        cursor,
+        limitCount = 10,
+      }: { questionId: string; cursor?: string; limitCount: number },
+      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+    ) => {
+      const cachedVersionHistory = await redisCacheClient.get(
+        `v:question:${questionId}:${cursor || "initial"}`,
+      );
+
+      if (cachedVersionHistory) return JSON.parse(cachedVersionHistory);
+
+      const matchStage: any = {
+        questionId: new mongoose.Types.ObjectId(questionId),
+      };
+
+      if (cursor) {
+        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+      }
+
+      const foundVersionHistory = await QuestionVersion.aggregate([
+        { $match: matchStage },
+
+        { $limit: limitCount },
+
+        {
+          $project: {
+            id: "$_id",
+            questionId: 1,
+            title: 1,
+            body: 1,
+            tags: 1,
+            editedBy: 1,
+            editorId: 1,
+            supersededByRollback: 1,
+            version: 1,
+            basedOnVersion: 1,
+            isActive: 1,
+          },
+        },
+      ]);
+
+      const uniqueUserIds = [
+        ...new Set(foundVersionHistory.map((v) => v.editorId)),
+      ];
+
+      const users = loaders.userLoader.loadMore(uniqueUserIds);
+
+      const userMap = new Map(users.map((u: any) => [u?.id, u]));
+
+      const versionHistoryWithUser = foundVersionHistory.map((v) => {
+        if (v.editedBy === "USER" && v.editorId) {
+          let user = userMap.get(v.editorId);
+
+          if (!user) {
+            user = {
+              id: v.editorId,
+              username: "Deleted User",
+              email: "deleted@user.com",
+              profilePictureUrl: null,
+              bio: null,
+              reputationPoints: 0,
+              role: "USER",
+              questionsAsked: 0,
+              answersGiven: 0,
+              bestAnswers: 0,
+              achievements: [],
+              status: "TERMINATED",
+              isVerified: false,
+              createdAt: new Date(0).toISOString(),
+            };
+          }
+
+          return { ...v, user };
+        }
+      });
+
+      await redisCacheClient.set(
+        `v:question:${questionId}:${cursor || "initial"}`,
+        JSON.stringify(versionHistoryWithUser),
+        "EX",
+        60 * 60,
+      );
+
+      return versionHistoryWithUser;
     },
   },
 };
