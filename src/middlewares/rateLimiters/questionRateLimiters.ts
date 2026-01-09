@@ -10,13 +10,6 @@ const createQuestionLimiter = new RateLimiterRedis({
   duration: 60 * 30,
 });
 
-const editQuestionLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
-  keyPrefix: "editQuestion",
-  points: 5,
-  duration: 60 * 30,
-});
-
 const createAnswerOnQuestionLimiter = new RateLimiterRedis({
   storeClient: redisMessagingClient,
   keyPrefix: "createAnswerOnQuestion",
@@ -52,15 +45,24 @@ const markAnswerAsBestLimiter = new RateLimiterRedis({
   duration: 60 * 30,
 });
 
+const editQuestionLimiter = new RateLimiterRedis({
+  storeClient: redisMessagingClient,
+  keyPrefix: "editQuestion",
+  points: 5,
+  duration: 60 * 30,
+});
+
+const rollbackVersionLimiter = new RateLimiterRedis({
+  storeClient: redisMessagingClient,
+  keyPrefix: "rollbackVersion",
+  points: 3,
+  duration: 60 * 30,
+});
+
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
   "Too many questions created, try again after half an hour",
 );
-
-const editQuestionLimiterMiddleware = createRateLimiterMiddleware(
-  editQuestionLimiter,
-  "Too many edits, try again later"
-)
 
 const createAnswerOnQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createAnswerOnQuestionLimiter,
@@ -87,12 +89,23 @@ const markAnswerAsBestLimiterMiddleware = createRateLimiterMiddleware(
   "Too many answers marked, try again after half an hour",
 );
 
+const editQuestionLimiterMiddleware = createRateLimiterMiddleware(
+  editQuestionLimiter,
+  "Too many edits, try again later",
+);
+
+const rollbackVersionLimiterMiddleware = createRateLimiterMiddleware(
+  rollbackVersionLimiter,
+  "Too many rollbacks, try again later",
+);
+
 export {
   createQuestionLimiterMiddleware,
-  editQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
   voteLimiterMiddleware,
   acceptAnswerLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
+  editQuestionLimiterMiddleware,
+  rollbackVersionLimiterMiddleware,
 };
