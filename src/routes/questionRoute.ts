@@ -2,7 +2,6 @@ import express from "express";
 
 import {
   createQuestion,
-  editQuestion,
   createAnswerOnQuestion,
   createReplyOnAnswer,
   vote,
@@ -11,6 +10,8 @@ import {
   unacceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
+  editQuestion,
+  rollbackVersion,
   deleteContent,
 } from "../controllers/questionController.js";
 
@@ -28,6 +29,7 @@ import {
   createReplyOnAnswerLimiterMiddleware,
   voteLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
+  rollbackVersionLimiterMiddleware,
 } from "../middlewares/rateLimiters/questionRateLimiters.js";
 
 import isAuthenticated, {
@@ -48,17 +50,6 @@ router
     requireActiveUser,
     validate(createQuestionSchema),
     createQuestion,
-  );
-
-router
-  .route("/:questionId/edit")
-  .patch(
-    editQuestionLimiterMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    validate(createQuestionSchema),
-    editQuestion,
   );
 
 router
@@ -119,6 +110,27 @@ router
 router
   .route("/answer/:answerId/unmark/asBest")
   .patch(isAuthenticated, isVerified, requireActiveUser, unmarkAnswerAsBest);
+
+router
+  .route("/:questionId/edit")
+  .patch(
+    editQuestionLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(createQuestionSchema),
+    editQuestion,
+  );
+
+router
+  .route("/:questionId/versions/:version/rollback")
+  .post(
+    rollbackVersionLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    rollbackVersion,
+  );
 
 router
   .route("/:targetType/:targetId")
