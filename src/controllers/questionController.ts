@@ -5,15 +5,21 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 import AuthenticatedRequest from "../types/authenticatedRequest.js";
 
 import invalidateCacheOnUnvote from "../utils/invalidateCacheOnUnvote.js";
-import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.js";
+import {
+  clearAnswerCache,
+  clearReplyCache,
+  clearVersionHistoryCache,
+} from "../utils/clearCache.js";
 
 import HttpError from "../utils/httpError.js";
 
 import mongoose from "mongoose";
+
 import Question from "../models/questionModel.js";
 import Answer from "../models/answerModel.js";
 import Reply from "../models/replyModel.js";
 import Vote from "../models/voteModel.js";
+import QuestionVersion from "../models/questionVersionModel.js";
 
 import prisma from "../config/prisma.js";
 import { redisCacheClient } from "../config/redis.js";
@@ -58,74 +64,6 @@ const createQuestion = asyncHandler(
   },
 );
 
-const editQuestion = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-    const { questionId } = req.params;
-    const { title, body, tags } = req.body;
-
-    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
-    const foundQuestion = cachedQuestion
-      ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId);
-
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
-
-    if (foundQuestion.isDeleted || !foundQuestion.isActive)
-      throw new HttpError("Question not active", 410);
-
-    const sameTags =
-      tags.length === foundQuestion.tags.length &&
-      [...tags].sort().join(",") === [...foundQuestion.tags].sort().join(",");
-
-    if (
-      title === foundQuestion.title &&
-      body === foundQuestion.body &&
-      sameTags
-    )
-      throw new HttpError(
-        "In order to edit the question, at least one field must be different from the old one",
-        400,
-      );
-
-    if (foundQuestion.userId?.toString() !== userId)
-      throw new HttpError("Unauthorized to edit question", 403);
-
-    const newVersion = Number(foundQuestion.currentVersion) + 1;
-
-    const editedQuestion = await Question.findByIdAndUpdate(
-      foundQuestion._id,
-      {
-        title,
-        body,
-        tags,
-        currentVersion: newVersion,
-      },
-      { new: true },
-    );
-
-    await questionVersioningQueue.add(
-      "createNewQuestionVersion",
-      {
-        questionId,
-        title,
-        body,
-        tags,
-        editorId: userId,
-        version: newVersion,
-        basedOnVersion: foundQuestion.currentVersion,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-
-    await redisCacheClient.del(`question:${editedQuestion?._id}`);
-
-    return res
-      .status(200)
-      .json({ message: "Successfully edited question", editedQuestion });
-  },
-);
-
 const createAnswerOnQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -145,7 +83,7 @@ const createAnswerOnQuestion = asyncHandler(
       userId,
       questionVersion: foundQuestion.currentVersion,
     });
-    await Question.findByIdAndUpdate(foundQuestion._id, {
+    await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
       $inc: { answerCount: 1 },
     });
 
@@ -226,9 +164,12 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id, {
-          $inc: { upvoteCount: 1, downvoteCount: -1 },
-        });
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { upvoteCount: 1, downvoteCount: -1 },
+          },
+        );
 
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
@@ -237,9 +178,12 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
       }
 
       if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Question.findByIdAndUpdate(foundQuestion._id, {
-          $inc: { upvoteCount: -1, downvoteCount: 1 },
-        });
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { upvoteCount: -1, downvoteCount: 1 },
+          },
+        );
 
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
@@ -270,7 +214,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         data: { reputationPoints: { increment: 10 } },
       });
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $inc: { upvoteCount: 1 },
       });
     }
@@ -281,7 +225,7 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         data: { reputationPoints: { decrement: 10 } },
       });
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $inc: { downvoteCount: 1 },
       });
     }
@@ -518,7 +462,10 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Question.findByIdAndUpdate(foundQuestion._id, updateField);
+      await Question.findByIdAndUpdate(
+        foundQuestion._id || foundQuestion.id,
+        updateField,
+      );
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
@@ -865,6 +812,158 @@ const unmarkAnswerAsBest = asyncHandler(
   },
 );
 
+const editQuestion = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { title, body, tags } = req.body;
+
+    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId);
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+
+    if (foundQuestion.isDeleted || !foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+
+    const sameTags =
+      tags.length === foundQuestion.tags.length &&
+      [...tags].sort().join(",") === [...foundQuestion.tags].sort().join(",");
+
+    if (
+      title === foundQuestion.title &&
+      body === foundQuestion.body &&
+      sameTags
+    )
+      throw new HttpError(
+        "In order to edit the question, at least one field must be different from the old one",
+        400,
+      );
+
+    if (foundQuestion.userId?.toString() !== userId)
+      throw new HttpError("Unauthorized to edit question", 403);
+
+    const newVersion = Number(foundQuestion.currentVersion) + 1;
+
+    const editedQuestion = await Question.findByIdAndUpdate(
+      foundQuestion._id || foundQuestion.id,
+      {
+        title,
+        body,
+        tags,
+        currentVersion: newVersion,
+      },
+      { new: true },
+    );
+
+    await questionVersioningQueue.add(
+      "createNewQuestionVersion",
+      {
+        questionId,
+        title,
+        body,
+        tags,
+        editorId: userId,
+        version: newVersion,
+        basedOnVersion: foundQuestion.currentVersion,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+
+    await redisCacheClient.del(`question:${editedQuestion?._id}`);
+    await clearVersionHistoryCache(questionId);
+
+    return res
+      .status(200)
+      .json({ message: "Successfully edited question", editedQuestion });
+  },
+);
+
+const rollbackVersion = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId, version } = req.params;
+
+    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId);
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+
+    if (foundQuestion.isDeleted || !foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+
+    if (foundQuestion.userId !== userId)
+      throw new HttpError("Unauthorized to edit question", 403);
+
+    if (foundQuestion.currentVersion <= version)
+      throw new HttpError("Invalid passed version", 400);
+
+    const cachedVersion = await redisCacheClient.get(
+      `v:${version}:question:${questionId}`,
+    );
+    const foundVersion = cachedVersion
+      ? JSON.parse(cachedVersion)
+      : await QuestionVersion.findOne({ questionId, version });
+
+    if (!foundVersion) throw new HttpError("Version not found", 404);
+
+    if (foundVersion.isActive)
+      throw new HttpError("Could not rollback to active version", 400);
+
+    await QuestionVersion.updateOne(
+      { questionId, isActive: true },
+      { $set: { isActive: false } },
+    );
+
+    await QuestionVersion.updateMany(
+      {
+        questionId,
+        version: { $gt: foundVersion.version },
+        isActive: false,
+      },
+      {
+        $set: { supersededByRollback: true },
+      },
+    );
+
+    const newVersionNumber = Number(foundQuestion.currentVersion) + 1;
+
+    const newVersion = await QuestionVersion.create({
+      questionId,
+      version: newVersionNumber,
+      title: foundVersion.title,
+      body: foundVersion.body,
+      tags: foundVersion.tags,
+      editedBy: foundVersion.editedBy,
+      editorId: foundVersion.editorId,
+      basedOnVersion: foundVersion.version,
+      isActive: true,
+    });
+
+    await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
+      title: newVersion.title,
+      body: newVersion.body,
+      tags: newVersion.tags,
+      currentVersion: newVersion.version,
+    });
+
+    await redisCacheClient.del(
+      `question:${questionId}`,
+      `v:${version}:question:${questionId}`,
+      `v:${foundQuestion.currentVersion}:question:${questionId}`,
+    );
+    await clearVersionHistoryCache(questionId);
+
+    return res
+      .status(200)
+      .json({ message: "Successfully rolled back", newVersion });
+  },
+);
+
 const deleteContent = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -899,7 +998,7 @@ const deleteContent = asyncHandler(
       if (foundQuestion.isDeleted || !foundQuestion.isActive)
         throw new HttpError("Question not active", 410);
 
-      await Question.findByIdAndUpdate(foundQuestion._id, {
+      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
         $set: { isDeleted: true, isActive: false },
       });
 
@@ -986,7 +1085,6 @@ const deleteContent = asyncHandler(
 
 export {
   createQuestion,
-  editQuestion,
   createAnswerOnQuestion,
   createReplyOnAnswer,
   vote,
@@ -995,5 +1093,7 @@ export {
   unacceptAnswer,
   markAnswerAsBest,
   unmarkAnswerAsBest,
+  editQuestion,
+  rollbackVersion,
   deleteContent,
 };

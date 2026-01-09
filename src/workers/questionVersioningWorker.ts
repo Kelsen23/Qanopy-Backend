@@ -1,5 +1,8 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../config/redis.js";
+import {
+  redisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.js";
 
 import connectMongoDB from "../config/mongoDB.js";
 
@@ -22,9 +25,14 @@ async function startWorker() {
         basedOnVersion,
       } = job.data;
 
+      const activeVersion = await QuestionVersion.findOne(
+        { questionId, isActive: true },
+        { version: 1 },
+      );
+
       await QuestionVersion.updateMany(
         { questionId, isActive: true },
-        { isActive: false },
+        { $set: { isActive: false } },
       );
 
       await QuestionVersion.create({
@@ -38,6 +46,13 @@ async function startWorker() {
         basedOnVersion,
         isActive: true,
       });
+
+      if (activeVersion) {
+        await redisCacheClient.del(
+          `question:${questionId}`,
+          `v:${activeVersion.version}:question:${questionId}`,
+        );
+      }
     },
     { connection: redisMessagingClientConnection, concurrency: 5 },
   );

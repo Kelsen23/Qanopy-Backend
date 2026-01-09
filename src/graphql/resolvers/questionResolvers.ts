@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Question from "../../models/questionModel.js";
 import Answer from "../../models/answerModel.js";
 import Reply from "../../models/replyModel.js";
+import QuestionVersion from "../../models/questionVersionModel.js";
 
 import UserWithoutSensitiveInfo from "../../types/userWithoutSensitiveInfo.js";
 
@@ -89,6 +90,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             title: 1,
             body: 1,
             tags: 1,
@@ -257,6 +259,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             title: 1,
             body: 1,
@@ -504,6 +507,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             body: 1,
             replies: [],
@@ -616,6 +620,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             userId: 1,
             body: 1,
             upvotes: "$upvoteCount",
@@ -712,7 +717,7 @@ const questionResolvers = {
 
         { $limit: limitCount },
 
-        { $project: { _id: 0, title: 1 } },
+        { $project: { id: "$_id", _id: 0, title: 1 } },
       ]);
 
       const suggestions = results.map((r) => r.title);
@@ -820,6 +825,7 @@ const questionResolvers = {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             title: 1,
             body: 1,
             tags: 1,
@@ -880,6 +886,169 @@ const questionResolvers = {
         JSON.stringify(result),
         "EX",
         60 * 15,
+      );
+
+      return result;
+    },
+
+    getVersionHistory: async (
+      _: any,
+      {
+        questionId,
+        cursor,
+        limitCount = 10,
+      }: { questionId: string; cursor?: string; limitCount: number },
+      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+    ) => {
+      const cachedVersionHistory = await redisCacheClient.get(
+        `v:question:${questionId}:${cursor || "initial"}`,
+      );
+
+      if (cachedVersionHistory) return JSON.parse(cachedVersionHistory);
+
+      const matchStage: any = {
+        questionId: new mongoose.Types.ObjectId(questionId),
+      };
+
+      if (cursor) {
+        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+      }
+
+      const foundVersionHistory = await QuestionVersion.aggregate([
+        { $match: matchStage },
+
+        { $sort: { _id: -1 } },
+
+        { $limit: limitCount },
+
+        {
+          $project: {
+            id: "$_id",
+            _id: 0,
+            questionId: 1,
+            title: 1,
+            body: 1,
+            tags: 1,
+            editedBy: 1,
+            editorId: 1,
+            supersededByRollback: 1,
+            version: 1,
+            basedOnVersion: 1,
+            isActive: 1,
+          },
+        },
+      ]);
+
+      const uniqueUserIds = [
+        ...new Set(foundVersionHistory.map((v) => v.editorId)),
+      ];
+
+      const users = await loaders.userLoader.loadMany(uniqueUserIds);
+
+      const userMap = new Map(users.map((u: any) => [u?.id, u]));
+
+      const versionHistoryWithUser = foundVersionHistory.map((v) => {
+        if (v.editedBy === "USER" && v.editorId) {
+          let user = userMap.get(v.editorId);
+
+          if (!user) {
+            user = {
+              id: v.editorId,
+              username: "Deleted User",
+              email: "deleted@user.com",
+              profilePictureUrl: null,
+              bio: null,
+              reputationPoints: 0,
+              role: "USER",
+              questionsAsked: 0,
+              answersGiven: 0,
+              bestAnswers: 0,
+              achievements: [],
+              status: "TERMINATED",
+              isVerified: false,
+              createdAt: new Date(0).toISOString(),
+            };
+          }
+
+          return { ...v, user };
+        } else {
+          return { ...v, user: null };
+        }
+      });
+
+      const result = {
+        questionVersions: versionHistoryWithUser,
+        nextCursor:
+          versionHistoryWithUser.length === limitCount
+            ? versionHistoryWithUser[versionHistoryWithUser.length - 1].id
+            : null,
+        hasMore: versionHistoryWithUser.length === limitCount,
+      };
+
+      await redisCacheClient.set(
+        `v:question:${questionId}:${cursor || "initial"}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 60,
+      );
+
+      return result;
+    },
+
+    getQuestionVersion: async (
+      _: any,
+      { questionId, version }: { questionId: string; version: number },
+      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+    ) => {
+      const cachedVersion = await redisCacheClient.get(
+        `v:${version}:question:${questionId}`,
+      );
+
+      if (cachedVersion) return JSON.parse(cachedVersion);
+
+      const foundVersion = await QuestionVersion.findOne({
+        questionId: new mongoose.Types.ObjectId(questionId),
+        version,
+      }).lean();
+
+      if (!foundVersion) throw new HttpError("Version not found", 404);
+
+      let user = null;
+
+      if (foundVersion.editedBy === "USER" && foundVersion.editorId) {
+        user = await loaders.userLoader.load(foundVersion.editorId);
+
+        if (!user) {
+          user = {
+            id: foundVersion.editorId,
+            username: "Deleted User",
+            email: "deleted@user.com",
+            profilePictureUrl: null,
+            bio: null,
+            reputationPoints: 0,
+            role: "USER",
+            questionsAsked: 0,
+            answersGiven: 0,
+            bestAnswers: 0,
+            achievements: [],
+            status: "TERMINATED",
+            isVerified: false,
+            createdAt: new Date(0).toISOString(),
+          };
+        }
+      }
+
+      const result = {
+        ...foundVersion,
+        id: foundVersion._id,
+        user,
+      };
+
+      await redisCacheClient.set(
+        `v:${version}:question:${questionId}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 60,
       );
 
       return result;
