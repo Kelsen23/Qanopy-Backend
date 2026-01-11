@@ -282,7 +282,7 @@ async function startWorker() {
   );
 }
 
-startWorker().catch((err) => {
-  console.error("Failed to start moderation worker:", err);
+startWorker().catch((error) => {
+  console.error("Failed to start moderation worker:", error);
   process.exit(1);
 });
