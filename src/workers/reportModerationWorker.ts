@@ -56,7 +56,10 @@ async function startWorker() {
 
         const freshReport = await Report.findById(reportId);
         if (!freshReport || freshReport.status !== "PENDING") {
-          console.warn("Report already moderated or missing:", freshReport?._id);
+          console.warn(
+            "Report already moderated or missing:",
+            freshReport?._id,
+          );
           return;
         }
 
@@ -66,15 +69,21 @@ async function startWorker() {
           );
           const question = cachedQuestion
             ? JSON.parse(cachedQuestion)
-            : await Question.findById(freshReport.targetId).select("title body");
+            : await Question.findById(freshReport.targetId).select(
+                "title body",
+              );
 
           content = `Title: ${question?.title || ""}\nBody: ${question?.body || ""}`;
         } else if (freshReport.targetType === "Answer") {
-          const answer = await Answer.findById(freshReport.targetId).select("body");
+          const answer = await Answer.findById(freshReport.targetId).select(
+            "body",
+          );
 
           content = `Body: ${answer?.body || ""}`;
         } else if (freshReport.targetType === "Reply") {
-          const reply = await Reply.findById(freshReport.targetId).select("body");
+          const reply = await Reply.findById(freshReport.targetId).select(
+            "body",
+          );
 
           content = `Body: ${reply?.body || ""}`;
         }
@@ -90,20 +99,24 @@ async function startWorker() {
         const shouldRemoveContent = severity >= 70 ? true : false;
 
         if (aiDecision === "BAN_USER_PERM") {
-          const newBan = await prisma.ban.create({
-            data: {
-              userId: freshReport.targetUserId as string,
-              title: "Permanent Account Suspension",
-              reasons: aiReasons,
-              banType: "PERM",
-              severity,
-              bannedBy: "AI_MODERATION",
-            },
-          });
+          const newBan = await prisma.$transaction(async (tx) => {
+            const createdBan = await tx.ban.create({
+              data: {
+                userId: freshReport.targetUserId as string,
+                title: "Permanent Account Suspension",
+                reasons: aiReasons,
+                banType: "PERM",
+                severity,
+                bannedBy: "AI_MODERATION",
+              },
+            });
 
-          await prisma.user.update({
-            where: { id: freshReport.targetUserId as string },
-            data: { status: "TERMINATED" },
+            await tx.user.update({
+              where: { id: freshReport.targetUserId as string },
+              data: { status: "TERMINATED" },
+            });
+
+            return createdBan;
           });
 
           await publishSocketEvent(
@@ -142,22 +155,26 @@ async function startWorker() {
         } else if (aiDecision === "BAN_USER_TEMP") {
           const tempBanMs = calculateTempBanMs(severity, aiConfidence);
 
-          const newBan = await prisma.ban.create({
-            data: {
-              userId: freshReport.targetUserId as string,
-              title: "Temporary Account Suspension",
-              reasons: aiReasons,
-              banType: "TEMP",
-              severity,
-              bannedBy: "AI_MODERATION",
-              expiresAt: new Date(Date.now() + tempBanMs),
-              durationMs: tempBanMs,
-            },
-          });
+          const newBan = await prisma.$transaction(async (tx) => {
+            const createdBan = await tx.ban.create({
+              data: {
+                userId: freshReport.targetUserId as string,
+                title: "Temporary Account Suspension",
+                reasons: aiReasons,
+                banType: "TEMP",
+                severity,
+                bannedBy: "AI_MODERATION",
+                expiresAt: new Date(Date.now() + tempBanMs),
+                durationMs: tempBanMs,
+              },
+            });
 
-          await prisma.user.update({
-            where: { id: freshReport.targetUserId as string },
-            data: { status: "SUSPENDED" },
+            await tx.user.update({
+              where: { id: freshReport.targetUserId as string },
+              data: { status: "SUSPENDED" },
+            });
+
+            return createdBan;
           });
 
           await publishSocketEvent(
