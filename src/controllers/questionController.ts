@@ -164,73 +164,113 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Question.findByIdAndUpdate(
-          foundQuestion._id || foundQuestion.id,
-          {
-            $inc: { upvoteCount: 1, downvoteCount: -1 },
-          },
-        );
-
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
           data: { reputationPoints: { increment: 20 } },
         });
-      }
-
-      if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Question.findByIdAndUpdate(
-          foundQuestion._id || foundQuestion.id,
-          {
-            $inc: { upvoteCount: -1, downvoteCount: 1 },
-          },
-        );
-
+      } else if (
+        existingVote.voteType === "upvote" &&
+        voteType === "downvote"
+      ) {
         await prisma.user.update({
           where: { id: foundQuestion.userId as string },
           data: { reputationPoints: { decrement: 20 } },
         });
       }
 
-      existingVote.voteType = voteType;
-      await existingVote.save();
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.findByIdAndUpdate(
+          existingVote._id,
+          { voteType },
+          { session },
+        );
+
+        if (existingVote.voteType === "downvote" && voteType === "upvote") {
+          await Question.findByIdAndUpdate(
+            foundQuestion._id || foundQuestion.id,
+            {
+              $inc: { upvoteCount: 1, downvoteCount: -1 },
+            },
+            { session },
+          );
+        } else if (
+          existingVote.voteType === "upvote" &&
+          voteType === "downvote"
+        ) {
+          await Question.findByIdAndUpdate(
+            foundQuestion._id || foundQuestion.id,
+            {
+              $inc: { upvoteCount: -1, downvoteCount: 1 },
+            },
+            { session },
+          );
+        }
+      });
+
+      session.endSession();
 
       await redisCacheClient.del(`question:${targetId}`);
+      await redisCacheClient.del(`user:${userId}`);
 
       return res
         .status(200)
         .json({ message: "Vote updated", vote: existingVote });
     }
 
-    const newVote = await Vote.create({
-      userId,
-      targetType,
-      targetId,
-      voteType,
+    const session = await mongoose.startSession();
+    let newVote;
+
+    await session.withTransaction(async () => {
+      const [createdVote] = await Vote.create(
+        [
+          {
+            userId,
+            targetType,
+            targetId,
+            voteType,
+          },
+        ],
+        { session },
+      );
+      newVote = createdVote;
+
+      if (voteType === "upvote") {
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { upvoteCount: 1 },
+          },
+          { session },
+        );
+      } else if (voteType === "downvote") {
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          {
+            $inc: { downvoteCount: 1 },
+          },
+          { session },
+        );
+      }
     });
+
+    session.endSession();
 
     if (voteType === "upvote") {
       await prisma.user.update({
         where: { id: foundQuestion.userId as string },
         data: { reputationPoints: { increment: 10 } },
       });
-
-      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-        $inc: { upvoteCount: 1 },
-      });
-    }
-
-    if (voteType === "downvote") {
+    } else if (voteType === "downvote") {
       await prisma.user.update({
         where: { id: foundQuestion.userId as string },
         data: { reputationPoints: { decrement: 10 } },
       });
-
-      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-        $inc: { downvoteCount: 1 },
-      });
     }
 
     await redisCacheClient.del(`question:${targetId}`);
+    await redisCacheClient.del(`user:${userId}`);
 
     return res.status(200).json({
       message: `Successfully ${voteType === "upvote" ? "upvoted" : "downvoted"} question`,
@@ -254,69 +294,118 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Answer.findByIdAndUpdate(foundAnswer._id, {
-          $inc: { upvoteCount: 1, downvoteCount: -1 },
-        });
-
         await prisma.user.update({
           where: { id: foundAnswer.userId as string },
           data: { reputationPoints: { increment: 20 } },
         });
-      }
-
-      if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Answer.findByIdAndUpdate(foundAnswer._id, {
-          $inc: { upvoteCount: -1, downvoteCount: 1 },
-        });
-
+      } else if (
+        existingVote.voteType === "upvote" &&
+        voteType === "downvote"
+      ) {
         await prisma.user.update({
           where: { id: foundAnswer.userId as string },
           data: { reputationPoints: { decrement: 20 } },
         });
       }
 
-      existingVote.voteType = voteType;
-      await existingVote.save();
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.findByIdAndUpdate(
+          existingVote._id,
+          { voteType },
+          { session },
+        );
+
+        if (existingVote.voteType === "downvote" && voteType === "upvote") {
+          await Answer.findByIdAndUpdate(
+            foundAnswer._id,
+            {
+              $inc: { upvoteCount: 1, downvoteCount: -1 },
+            },
+            { session },
+          );
+        } else if (
+          existingVote.voteType === "upvote" &&
+          voteType === "downvote"
+        ) {
+          await Answer.findByIdAndUpdate(
+            foundAnswer._id,
+            {
+              $inc: { upvoteCount: -1, downvoteCount: 1 },
+            },
+            { session },
+          );
+        }
+      });
+
+      session.endSession();
 
       await redisCacheClient.del(`question:${foundAnswer.questionId}`);
       await clearAnswerCache(foundAnswer.questionId as string);
+      await redisCacheClient.del(`user:${userId}`);
 
       return res
         .status(200)
         .json({ message: "Vote updated", vote: existingVote });
     }
 
-    const newVote = await Vote.create({
-      userId,
-      targetType,
-      targetId,
-      voteType,
+    const session = await mongoose.startSession();
+
+    let newVote;
+
+    await session.withTransaction(async () => {
+      const [createdVote] = await Vote.create(
+        [
+          {
+            userId,
+            targetType,
+            targetId,
+            voteType,
+          },
+        ],
+        { session },
+      );
+      newVote = createdVote;
+
+      if (voteType === "upvote") {
+        await Answer.findByIdAndUpdate(
+          foundAnswer._id,
+          {
+            $inc: { upvoteCount: 1 },
+          },
+          { session },
+        );
+      } else if (voteType === "downvote") {
+        await Answer.findByIdAndUpdate(
+          foundAnswer._id,
+          {
+            $inc: { downvoteCount: 1 },
+          },
+          { session },
+        );
+      }
+
+      newVote = createdVote;
     });
+
+    session.endSession();
 
     if (voteType === "upvote") {
       await prisma.user.update({
         where: { id: foundAnswer.userId as string },
         data: { reputationPoints: { increment: 10 } },
       });
-
-      await Answer.findByIdAndUpdate(foundAnswer._id, {
-        $inc: { upvoteCount: 1 },
-      });
-    }
-
-    if (voteType === "downvote") {
+    } else if (voteType === "downvote") {
       await prisma.user.update({
         where: { id: foundAnswer.userId as string },
         data: { reputationPoints: { decrement: 10 } },
-      });
-
-      await Answer.findByIdAndUpdate(foundAnswer._id, {
-        $inc: { downvoteCount: 1 },
       });
     }
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
+    await redisCacheClient.del(`user:${userId}`);
 
     return res.status(200).json({
       message: `Successfully ${voteType === "upvote" ? "upvoted" : "downvoted"} answer`,
@@ -343,71 +432,118 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 
     if (existingVote) {
       if (existingVote.voteType === "downvote" && voteType === "upvote") {
-        await Reply.findByIdAndUpdate(foundReply._id, {
-          $inc: { upvoteCount: 1, downvoteCount: -1 },
-        });
-
         await prisma.user.update({
           where: { id: foundReply.userId as string },
           data: { reputationPoints: { increment: 10 } },
         });
-      }
-
-      if (existingVote.voteType === "upvote" && voteType === "downvote") {
-        await Reply.findByIdAndUpdate(foundReply._id, {
-          $inc: { upvoteCount: -1, downvoteCount: 1 },
-        });
-
+      } else if (
+        existingVote.voteType === "upvote" &&
+        voteType === "downvote"
+      ) {
         await prisma.user.update({
           where: { id: foundReply.userId as string },
           data: { reputationPoints: { decrement: 10 } },
         });
       }
 
-      existingVote.voteType = voteType;
-      await existingVote.save();
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.findByIdAndUpdate(
+          existingVote._id,
+          { voteType },
+          { session },
+        );
+
+        if (existingVote.voteType === "downvote" && voteType === "upvote") {
+          await Reply.findByIdAndUpdate(
+            foundReply._id,
+            {
+              $inc: { upvoteCount: 1, downvoteCount: -1 },
+            },
+            { session },
+          );
+        } else if (
+          existingVote.voteType === "upvote" &&
+          voteType === "downvote"
+        ) {
+          await Reply.findByIdAndUpdate(
+            foundReply._id,
+            {
+              $inc: { upvoteCount: -1, downvoteCount: 1 },
+            },
+            { session },
+          );
+        }
+      });
+
+      session.endSession();
 
       await redisCacheClient.del(`question:${foundAnswer.questionId}`);
       await clearAnswerCache(foundAnswer.questionId as string);
       await clearReplyCache(foundAnswer._id as string);
+      await redisCacheClient.del(`user:${userId}`);
 
       return res
         .status(200)
         .json({ message: "Vote updated", vote: existingVote });
     }
 
-    const newVote = await Vote.create({
-      userId,
-      targetType,
-      targetId,
-      voteType,
+    const session = await mongoose.startSession();
+
+    let newVote;
+
+    await session.withTransaction(async () => {
+      const [createdVote] = await Vote.create(
+        [
+          {
+            userId,
+            targetType,
+            targetId,
+            voteType,
+          },
+        ],
+        { session },
+      );
+      newVote = createdVote;
+
+      if (voteType === "upvote") {
+        await Reply.findByIdAndUpdate(
+          foundReply._id,
+          {
+            $inc: { upvoteCount: 1 },
+          },
+          { session },
+        );
+      } else if (voteType === "downvote") {
+        await Reply.findByIdAndUpdate(
+          foundReply._id,
+          {
+            $inc: { downvoteCount: 1 },
+          },
+          { session },
+        );
+      }
     });
+
+    session.endSession();
 
     if (voteType === "upvote") {
       await prisma.user.update({
         where: { id: foundReply.userId as string },
         data: { reputationPoints: { increment: 5 } },
       });
-
-      await Reply.findByIdAndUpdate(foundReply._id, {
-        $inc: { upvoteCount: 1 },
-      });
-    }
-
-    if (voteType === "downvote") {
+    } else if (voteType === "downvote") {
       await prisma.user.update({
         where: { id: foundReply.userId as string },
         data: { reputationPoints: { decrement: 5 } },
-      });
-
-      await Reply.findByIdAndUpdate(foundReply._id, {
-        $inc: { downvoteCount: 1 },
       });
     }
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
+    await redisCacheClient.del(`user:${userId}`);
 
     return res.status(200).json({
       message: `Successfully ${voteType === "upvote" ? "upvoted" : "downvoted"} reply`,
@@ -443,8 +579,6 @@ const unvote = asyncHandler(
 
     if (!foundVote) throw new HttpError("Vote not found", 404);
 
-    await Vote.deleteOne({ userId, targetType, targetId });
-
     if (targetType === "Question") {
       const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
 
@@ -462,10 +596,19 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Question.findByIdAndUpdate(
-        foundQuestion._id || foundQuestion.id,
-        updateField,
-      );
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.deleteOne({ userId, targetType, targetId }, { session });
+
+        await Question.findByIdAndUpdate(
+          foundQuestion._id || foundQuestion.id,
+          updateField,
+          { session },
+        );
+      });
+
+      session.endSession();
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
@@ -493,7 +636,17 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Answer.findByIdAndUpdate(foundAnswer._id, updateField);
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.deleteOne({ userId, targetType, targetId }, { session });
+
+        await Answer.findByIdAndUpdate(foundAnswer._id, updateField, {
+          session,
+        });
+      });
+
+      session.endSession();
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
@@ -521,7 +674,15 @@ const unvote = asyncHandler(
           ? { $inc: { upvoteCount: -1 } }
           : { $inc: { downvoteCount: -1 } };
 
-      await Reply.findByIdAndUpdate(foundReply._id, updateField);
+      const session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await Vote.deleteOne({ userId, targetType, targetId }, { session });
+
+        await Reply.findByIdAndUpdate(foundReply._id, updateField, { session });
+      });
+
+      session.endSession();
 
       if (foundVote.voteType === "upvote") {
         await prisma.user.update({
@@ -914,42 +1075,62 @@ const rollbackVersion = asyncHandler(
     if (foundVersion.isActive)
       throw new HttpError("Could not rollback to active version", 400);
 
-    await QuestionVersion.updateOne(
-      { questionId, isActive: true },
-      { $set: { isActive: false } },
-    );
+    const session = await mongoose.startSession();
+    let newVersion;
 
-    await QuestionVersion.updateMany(
-      {
-        questionId,
-        version: { $gt: foundVersion.version },
-        isActive: false,
-      },
-      {
-        $set: { supersededByRollback: true },
-      },
-    );
+    await session.withTransaction(async () => {
+      await QuestionVersion.updateOne(
+        { questionId, isActive: true },
+        { $set: { isActive: false } },
+        { session },
+      );
 
-    const newVersionNumber = Number(foundQuestion.currentVersion) + 1;
+      await QuestionVersion.updateMany(
+        {
+          questionId,
+          version: { $gt: foundVersion.version },
+          isActive: false,
+        },
+        {
+          $set: { supersededByRollback: true },
+        },
+        { session },
+      );
 
-    const newVersion = await QuestionVersion.create({
-      questionId,
-      version: newVersionNumber,
-      title: foundVersion.title,
-      body: foundVersion.body,
-      tags: foundVersion.tags,
-      editedBy: foundVersion.editedBy,
-      editorId: foundVersion.editorId,
-      basedOnVersion: foundVersion.version,
-      isActive: true,
+      const newVersionNumber = Number(foundQuestion.currentVersion) + 1;
+
+      const [createdVersion] = await QuestionVersion.create(
+        [
+          {
+            questionId,
+            version: newVersionNumber,
+            title: foundVersion.title,
+            body: foundVersion.body,
+            tags: foundVersion.tags,
+            editedBy: foundVersion.editedBy,
+            editorId: foundVersion.editorId,
+            basedOnVersion: foundVersion.version,
+            isActive: true,
+          },
+        ],
+        { session },
+      );
+
+      newVersion = createdVersion;
+
+      await Question.findByIdAndUpdate(
+        foundQuestion._id || foundQuestion.id,
+        {
+          title: foundVersion.title,
+          body: foundVersion.body,
+          tags: foundVersion.tags,
+          currentVersion: newVersionNumber,
+        },
+        { session },
+      );
     });
 
-    await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-      title: newVersion.title,
-      body: newVersion.body,
-      tags: newVersion.tags,
-      currentVersion: newVersion.version,
-    });
+    session.endSession();
 
     await redisCacheClient.del(
       `question:${questionId}`,
