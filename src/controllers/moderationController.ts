@@ -111,20 +111,24 @@ const moderateReport = asyncHandler(
       throw new HttpError("Report not available for manual moderation", 403);
 
     if (actionTaken === "BAN_USER_PERM") {
-      const newBan = await prisma.ban.create({
-        data: {
-          userId: report.targetUserId as string,
-          title,
-          reasons: adminReasons,
-          banType: "PERM",
-          severity,
-          bannedBy: "ADMIN_MODERATION",
-        },
-      });
+      const newBan = await prisma.$transaction(async (tx) => {
+        const createdBan = await tx.ban.create({
+          data: {
+            userId: report.targetUserId as string,
+            title,
+            reasons: adminReasons,
+            banType: "PERM",
+            severity,
+            bannedBy: "ADMIN_MODERATION",
+          },
+        });
 
-      await prisma.user.update({
-        where: { id: report.targetUserId as string },
-        data: { status: "TERMINATED" },
+        await tx.user.update({
+          where: { id: report.targetUserId as string },
+          data: { status: "TERMINATED" },
+        });
+
+        return createdBan;
       });
 
       await publishSocketEvent(
@@ -162,22 +166,26 @@ const moderateReport = asyncHandler(
           400,
         );
 
-      const newBan = await prisma.ban.create({
-        data: {
-          userId: report.targetUserId as string,
-          title,
-          reasons: adminReasons,
-          banType: "TEMP",
-          severity,
-          bannedBy: "ADMIN_MODERATION",
-          expiresAt: new Date(Date.now() + banDurationMs),
-          durationMs: banDurationMs,
-        },
-      });
+      const newBan = await prisma.$transaction(async (tx) => {
+        const createdBan = await tx.ban.create({
+          data: {
+            userId: report.targetUserId as string,
+            title,
+            reasons: adminReasons,
+            banType: "TEMP",
+            severity,
+            bannedBy: "ADMIN_MODERATION",
+            expiresAt: new Date(Date.now() + banDurationMs),
+            durationMs: banDurationMs,
+          },
+        });
 
-      await prisma.user.update({
-        where: { id: report.targetUserId as string },
-        data: { status: "SUSPENDED" },
+        await tx.user.update({
+          where: { id: report.targetUserId as string },
+          data: { status: "SUSPENDED" },
+        });
+
+        return createdBan;
       });
 
       await publishSocketEvent(
