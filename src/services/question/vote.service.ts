@@ -98,8 +98,8 @@ const vote = async (
       userId: foundQuestion.userId as string,
       action: existingVote
         ? voteType === "upvote"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE"
+          ? "CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION"
+          : "CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION"
         : voteType === "upvote"
           ? "RECEIVE_UPVOTE_QUESTION"
           : "RECEIVE_DOWNVOTE_QUESTION",
@@ -164,8 +164,8 @@ const vote = async (
       userId: foundAnswer.userId as string,
       action: existingVote
         ? voteType === "upvote"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE"
+          ? "CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER"
+          : "CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER"
         : voteType === "upvote"
           ? "RECEIVE_UPVOTE_ANSWER"
           : "RECEIVE_DOWNVOTE_ANSWER",
@@ -231,8 +231,8 @@ const vote = async (
       userId: foundReply.userId as string,
       action: existingVote
         ? voteType === "upvote"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE"
+          ? "CHANGE_DOWNVOTE_TO_UPVOTE_REPLY"
+          : "CHANGE_UPVOTE_TO_DOWNVOTE_REPLY"
         : voteType === "upvote"
           ? "RECEIVE_UPVOTE_REPLY"
           : "RECEIVE_DOWNVOTE_REPLY",
