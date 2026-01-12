@@ -8,6 +8,8 @@ import Answer from "../models/answer.model.js";
 
 import prisma from "../config/prisma.config.js";
 
+import connectMongoDB from "../config/mongodb.config.js";
+
 interface StatsUpdate {
   prisma?: any;
   mongo?: {
@@ -101,31 +103,41 @@ const actionMap: Record<string, StatsUpdate> = {
 const modelMap: Record<"Question" | "Answer", typeof Question | typeof Answer> =
   { Question, Answer };
 
-new Worker(
-  "statsQueue",
-  async (job) => {
-    const { userId, action, mongoTargetId } = job.data;
-    const stats = actionMap[action];
+async function startWorker() {
+  await connectMongoDB(process.env.MONGO_URI as string);
+  console.log("Mongo connected, starting stats worker...");
 
-    if (!stats) throw new HttpError(`Unknown action: ${action}`, 400);
+  new Worker(
+    "statsQueue",
+    async (job) => {
+      const { userId, action, mongoTargetId } = job.data;
+      const stats = actionMap[action];
 
-    if (stats.prisma) {
-      const { data } = stats.prisma;
-      await prisma.user.update({ where: { id: userId }, data });
-    }
+      if (!stats) throw new HttpError(`Unknown action: ${action}`, 400);
 
-    if (stats.mongo) {
-      const { model, idKey, update } = stats.mongo;
+      if (stats.prisma) {
+        const { data } = stats.prisma;
+        await prisma.user.update({ where: { id: userId }, data });
+      }
 
-      const mongoModel = modelMap[model];
-      const id = mongoTargetId || job.data[idKey];
-      if (!id) throw new HttpError("Mongo target ID missing for action", 400);
+      if (stats.mongo) {
+        const { model, idKey, update } = stats.mongo;
 
-      await mongoModel.findByIdAndUpdate(id, update);
-    }
-  },
-  {
-    connection: redisMessagingClientConnection,
-    concurrency: 5,
-  },
-);
+        const mongoModel = modelMap[model];
+        const id = mongoTargetId || job.data[idKey];
+        if (!id) throw new HttpError("Mongo target ID missing for action", 400);
+
+        await mongoModel.findByIdAndUpdate(id, update);
+      }
+    },
+    {
+      connection: redisMessagingClientConnection,
+      concurrency: 5,
+    },
+  );
+}
+
+startWorker().catch((error) => {
+  console.error("Failed to start stats worker:", error);
+  process.exit(1);
+});
