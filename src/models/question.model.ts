@@ -8,11 +8,11 @@ const QuestionSchema: Schema = new Schema(
     body: { type: String, minlength: 20, maxlength: 20000, required: true },
     tags: { type: [String], default: [] },
 
-    upvoteCount: { type: Number, default: 0 },
-    downvoteCount: { type: Number, default: 0 },
-    answerCount: { type: Number, default: 0 },
+    upvoteCount: { type: Number, default: 0, min: 0 },
+    downvoteCount: { type: Number, default: 0, min: 0 },
+    answerCount: { type: Number, default: 0, min: 0 },
 
-    currentVersion: { type: Number, default: 1 },
+    currentVersion: { type: Number, default: 1, min: 1 },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
