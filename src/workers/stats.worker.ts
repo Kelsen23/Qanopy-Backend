@@ -1,5 +1,8 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../config/redis.config.js";
+import {
+  redisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.config.js";
 
 import HttpError from "../utils/httpError.util.js";
 
@@ -130,6 +133,8 @@ async function startWorker() {
       if (stats.prisma) {
         const { data } = stats.prisma;
         await prisma.user.update({ where: { id: userId }, data });
+
+        await redisCacheClient.del(`user:${userId}`);
       }
 
       if (stats.mongo) {
@@ -140,6 +145,8 @@ async function startWorker() {
         if (!id) throw new HttpError("Mongo target ID missing for action", 400);
 
         await mongoModel.findByIdAndUpdate(id, update);
+
+        if (model === "Question") await redisCacheClient.del(`question:${id}`);
       }
     },
     {
