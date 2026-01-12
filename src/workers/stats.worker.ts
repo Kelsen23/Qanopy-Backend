@@ -128,6 +128,16 @@ const actionMap: Record<string, StatsUpdate> = {
       },
     },
   },
+  UNACCEPT_BEST_ANSWER: {
+    prisma: {
+      userIdKey: "userId",
+      data: {
+        acceptedAnswers: { decrement: 1 },
+        bestAnswers: { decrement: 1 },
+        reputationPoints: { decrement: 25 },
+      },
+    },
+  },
   UNACCEPT_ANSWER: {
     prisma: {
       userIdKey: "userId",
@@ -135,6 +145,53 @@ const actionMap: Record<string, StatsUpdate> = {
         acceptedAnswers: { decrement: 1 },
         reputationPoints: { decrement: 10 },
       },
+    },
+  },
+  MARK_ANSWER_AS_BEST: {
+    prisma: {
+      userIdKey: "userId",
+      data: {
+        reputationPoints: { increment: 15 },
+        bestAnswers: { increment: 1 },
+      },
+    },
+  },
+  UNMARK_ANSWER_AS_BEST: {
+    prisma: {
+      userIdKey: "userId",
+      data: {
+        reputationPoints: { decrement: 15 },
+        bestAnswers: { decrement: 1 },
+      },
+    },
+  },
+  DELETE_QUESTION: {
+    prisma: {
+      userIdKey: "userId",
+      data: {
+        questionsAsked: { decrement: 1 },
+      },
+    },
+  },
+  DELETE_ANSWER: {
+    prisma: {
+      userIdKey: "userId",
+      data: {
+        answersGiven: { decrement: 1 },
+        reputationPoints: { decrement: 2 },
+      },
+    },
+    mongo: {
+      model: "Question",
+      idKey: "questionId",
+      update: { $inc: { answerCount: -1 } },
+    },
+  },
+  DELETE_REPLY: {
+    mongo: {
+      model: "Answer",
+      idKey: "answerId",
+      update: { $inc: { replyCount: -1 } },
     },
   },
 };
