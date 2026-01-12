@@ -2,7 +2,7 @@ import { createRequire } from "module";
 
 import z from "zod";
 
-import interests from "../utils/interests.js";
+import interests from "../utils/interests.util.js";
 
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");

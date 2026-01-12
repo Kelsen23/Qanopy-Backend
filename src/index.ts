@@ -11,27 +11,27 @@ import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
 import bodyParser from "body-parser";
 
-import authenticateGraphQLUser from "./middlewares/graphqlAuth.js";
+import authenticateGraphQLUser from "./middlewares/graphqlAuth.middleware.js";
 
-import UserWithoutSensitiveInfo from "./types/userWithoutSensitiveInfo.js";
+import UserWithoutSensitiveInfo from "./types/userWithoutSensitiveInfo.type.js";
 
-import createUserLoader from "./dataloaders/userLoader.js";
+import createUserLoader from "./dataloaders/user.loader.js";
 
 import typeDefs from "./graphql/typeDefs/index.js";
 import resolvers from "./graphql/resolvers/index.js";
 
-import authRoute from "./routes/authRoute.js";
-import uploadFileRoute from "./routes/uploadFileRoute.js";
-import userRoute from "./routes/userRoute.js";
-import questionRoute from "./routes/questionRoute.js";
-import moderationRoute from "./routes/moderationRoute.js";
+import authRoute from "./routes/auth.route.js";
+import uploadFileRoute from "./routes/uploadFile.route.js";
+import userRoute from "./routes/user.route.js";
+import questionRoute from "./routes/question.route.js";
+import moderationRoute from "./routes/moderation.route.js";
 
 import cookieParser from "cookie-parser";
 
-import prisma from "./config/prisma.js";
+import prisma from "./config/prisma.config.js";
 
-import connectMongoDB from "./config/mongoDB.js";
-import { checkRedisConnection, redisCacheClient } from "./config/redis.js";
+import connectMongoDB from "./config/mongodb.config.js";
+import { checkRedisConnection, redisCacheClient } from "./config/redis.config.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 

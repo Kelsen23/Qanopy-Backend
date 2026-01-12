@@ -17,9 +17,9 @@
   "scripts": {
     "dev": "nodemon --watch src --exec tsx src/index.ts",
     "start": "node dist/index.js",
-    "dev:email-worker": "tsx src/workers/emailWorker.ts",
-    "dev:moderation-worker": "tsx src/workers/reportModerationWorker.ts",
-    "dev:questionVersioning-worker": "tsx src/workers/questionVersioningWorker.ts",
+    "dev:email-worker": "tsx src/workers/email.worker.ts",
+    "dev:moderation-worker": "tsx src/workers/reportModeration.worker.ts",
+    "dev:questionVersioning-worker": "tsx src/workers/questionVersioning.worker.ts",
     "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\" \"npm run dev:questionVersioning-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",

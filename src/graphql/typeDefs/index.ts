@@ -1,7 +1,7 @@
 import { mergeTypeDefs } from "@graphql-tools/merge";
 
-import userTypeDefs from "./userTypeDefs.js";
-import questionTypeDefs from "./questionTypeDefs.js";
+import userTypeDefs from "./user.typeDefs.js";
+import questionTypeDefs from "./question.typeDefs.js";
 
 const typeDefs = mergeTypeDefs([userTypeDefs, questionTypeDefs]);
 

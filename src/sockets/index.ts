@@ -1,10 +1,10 @@
 import http from "http";
 
 import { Server as SocketServer, Socket } from "socket.io";
-import { addUserSocket, removeUserSocket } from "../redis/presence.js";
+import { addUserSocket, removeUserSocket } from "../redis/presence.service.js";
 
-import initSocketEmitSubscriber from "./subscribers/socketEmitSubscriber.js";
-import initSocketDisconnectSubscriber from "./subscribers/socketDisconnectSubscriber.js";
+import initSocketEmitSubscriber from "./subscribers/socketEmit.subscriber.js";
+import initSocketDisconnectSubscriber from "./subscribers/socketDisconnect.subscriber.js";
 
 export let io: SocketServer;
 
