@@ -19,10 +19,6 @@ import prisma from "../config/prisma.config.js";
 
 import reportModerationQueue from "../queues/reportModeration.queue.js";
 
-import { redisPub } from "../redis/redis.pubsub.js";
-
-import publishSocketEvent from "../utils/publishSocketEvent.util.js";
-
 const createReport = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const { id: reportedBy } = req.user;
