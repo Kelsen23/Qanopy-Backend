@@ -109,7 +109,7 @@ const createReplyOnAnswer = asyncHandler(
     const { body } = req.body;
     const answerId = req.params.answerId;
 
-    const foundAnswer = await Answer.findById(answerId);
+    const foundAnswer = await Answer.findById(answerId).lean();
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -224,7 +224,7 @@ const unvote = asyncHandler(
     }
 
     if (targetType === "Answer") {
-      const foundAnswer = await Answer.findById(targetId);
+      const foundAnswer = await Answer.findById(targetId).lean();
 
       if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -262,7 +262,7 @@ const unvote = asyncHandler(
     }
 
     if (targetType === "Reply") {
-      const foundReply = await Reply.findById(targetId);
+      const foundReply = await Reply.findById(targetId).lean();
 
       if (!foundReply) throw new HttpError("Reply not found", 404);
 
@@ -362,7 +362,7 @@ const unacceptAnswer = asyncHandler(
     const userId = req.user.id;
     const { answerId } = req.params;
 
-    const foundAnswer = await Answer.findById(answerId);
+    const foundAnswer = await Answer.findById(answerId).lean();
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -426,7 +426,7 @@ const markAnswerAsBest = asyncHandler(
     const userId = req.user.id;
     const { answerId } = req.params;
 
-    const foundAnswer = await Answer.findById(answerId);
+    const foundAnswer = await Answer.findById(answerId).lean();
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -505,7 +505,7 @@ const unmarkAnswerAsBest = asyncHandler(
     const userId = req.user.id;
     const { answerId } = req.params;
 
-    const foundAnswer = await Answer.findById(answerId);
+    const foundAnswer = await Answer.findById(answerId).lean();
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -774,7 +774,7 @@ const deleteContent = asyncHandler(
     }
 
     if (targetType === "answer") {
-      const foundAnswer = await Answer.findById(targetId);
+      const foundAnswer = await Answer.findById(targetId).lean();
 
       if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -803,7 +803,7 @@ const deleteContent = asyncHandler(
     }
 
     if (targetType === "reply") {
-      const foundReply = await Reply.findById(targetId);
+      const foundReply = await Reply.findById(targetId).lean();
 
       if (!foundReply) throw new HttpError("Reply not found", 404);
 
@@ -817,7 +817,7 @@ const deleteContent = asyncHandler(
         $set: { isDeleted: true, isActive: false },
       });
 
-      const foundAnswer = await Answer.findById(foundReply.answerId);
+      const foundAnswer = await Answer.findById(foundReply.answerId).lean();
 
       if (!foundAnswer) throw new HttpError("Parent answer not found", 404);
 
