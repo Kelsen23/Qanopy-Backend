@@ -5,7 +5,7 @@ import {
   redisCacheClient,
 } from "../config/redis.config.js";
 
-import aiModerateReport from "../services/aiModeration.service.js";
+import aiModerateReport from "../services/moderation/aiModeration.service.js";
 
 import calculateTempBanMs from "../utils/calculateTempBanMs.util.js";
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";

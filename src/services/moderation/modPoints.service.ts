@@ -1,5 +1,5 @@
-import { redisCacheClient } from "../config/redis.config.js";
-import HttpError from "./httpError.util.js";
+import { redisCacheClient } from "../../config/redis.config.js";
+import HttpError from "../../utils/httpError.util.js";
 
 const MOD_POINTS = {
   BAN_USER_PERM: 10,

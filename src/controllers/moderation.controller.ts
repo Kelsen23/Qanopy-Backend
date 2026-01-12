@@ -5,7 +5,7 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import HttpError from "../utils/httpError.util.js";
-import addAdminModPoints from "../utils/addAdminModPoints.util.js";
+import addAdminModPoints from "../services/moderation/modPoints.service.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
