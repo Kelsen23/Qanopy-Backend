@@ -28,6 +28,7 @@ import prisma from "../config/prisma.config.js";
 import { redisCacheClient } from "../config/redis.config.js";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
+import statsQueue from "../queues/stats.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -41,9 +42,9 @@ const createQuestion = asyncHandler(
       tags,
     });
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { questionsAsked: { increment: 1 } },
+    await statsQueue.add("askQuestion", {
+      userId,
+      action: "ASK_QUESTION",
     });
 
     await questionVersioningQueue.add(
@@ -73,7 +74,7 @@ const createAnswerOnQuestion = asyncHandler(
     const { body } = req.body;
     const { questionId } = req.params;
 
-    const foundQuestion = await Question.findById(questionId);
+    const foundQuestion = await Question.findById(questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -86,20 +87,15 @@ const createAnswerOnQuestion = asyncHandler(
       userId,
       questionVersion: foundQuestion.currentVersion,
     });
-    await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-      $inc: { answerCount: 1 },
+
+    await statsQueue.add("giveAnswer", {
+      userId,
+      action: "GIVE_ANSWER",
+      mongoTargetId: foundQuestion._id || foundQuestion.id,
     });
 
     await redisCacheClient.del(`question:${questionId}`);
     await clearAnswerCache(questionId);
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        answersGiven: { increment: 1 },
-        reputationPoints: { increment: 2 },
-      },
-    });
 
     return res
       .status(201)
@@ -120,7 +116,7 @@ const createReplyOnAnswer = asyncHandler(
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
 
-    const foundQuestion = await Question.findById(foundAnswer.questionId);
+    const foundQuestion = await Question.findById(foundAnswer.questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -129,8 +125,10 @@ const createReplyOnAnswer = asyncHandler(
 
     const newReply = await Reply.create({ answerId, userId, body });
 
-    await Answer.findByIdAndUpdate(foundAnswer._id, {
-      $inc: { replyCount: 1 },
+    await statsQueue.add("giveReply", {
+      userId,
+      action: "GIVE_REPLY",
+      mongoTargetId: foundAnswer._id || foundAnswer.id,
     });
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
@@ -186,7 +184,7 @@ const unvote = asyncHandler(
 
       const foundQuestion = cachedQuestion
         ? JSON.parse(cachedQuestion)
-        : await Question.findById(targetId);
+        : await Question.findById(targetId).lean();
 
       if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -313,7 +311,7 @@ const acceptAnswer = asyncHandler(
     const userId = req.user.id;
     const { answerId } = req.params;
 
-    const foundAnswer = await Answer.findById(answerId);
+    const foundAnswer = await Answer.findById(answerId).lean();
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
@@ -325,7 +323,7 @@ const acceptAnswer = asyncHandler(
     );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(foundAnswer.questionId);
+      : await Question.findById(foundAnswer.questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -348,13 +346,7 @@ const acceptAnswer = asyncHandler(
       { new: true },
     );
 
-    await prisma.user.update({
-      where: { id: foundAnswer.userId as string },
-      data: {
-        acceptedAnswers: { increment: 1 },
-        reputationPoints: { increment: 10 },
-      },
-    });
+    await statsQueue.add("acceptAnswer", { userId, action: "ACCEPT_ANSWER" });
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
@@ -382,7 +374,7 @@ const unacceptAnswer = asyncHandler(
     );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(foundAnswer.questionId);
+      : await Question.findById(foundAnswer.questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -409,21 +401,14 @@ const unacceptAnswer = asyncHandler(
     );
 
     if (foundAnswer.isBestAnswerByAsker) {
-      await prisma.user.update({
-        where: { id: foundAnswer.userId as string },
-        data: {
-          acceptedAnswers: { decrement: 1 },
-          bestAnswers: { decrement: 1 },
-          reputationPoints: { decrement: 25 },
-        },
+      await statsQueue.add("unacceptBestAnswer", {
+        userId,
+        action: "UNACCEPT_BEST_ANSWER",
       });
     } else {
-      await prisma.user.update({
-        where: { id: foundAnswer.userId as string },
-        data: {
-          acceptedAnswers: { decrement: 1 },
-          reputationPoints: { decrement: 10 },
-        },
+      await statsQueue.add("unacceptAnswer", {
+        userId,
+        action: "UNACCEPT_ANSWER",
       });
     }
 
@@ -467,7 +452,7 @@ const markAnswerAsBest = asyncHandler(
 
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(foundAnswer.questionId);
+      : await Question.findById(foundAnswer.questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -487,12 +472,9 @@ const markAnswerAsBest = asyncHandler(
         $set: { isBestAnswerByAsker: false },
       });
 
-      await prisma.user.update({
-        where: { id: bestAnswer.userId as string },
-        data: {
-          reputationPoints: { decrement: 15 },
-          bestAnswers: { decrement: 1 },
-        },
+      await statsQueue.add("unmarkAsBest", {
+        userId: bestAnswer.userId as string,
+        action: "UNMARK_ANSWER_AS_BEST",
       });
     }
 
@@ -503,12 +485,9 @@ const markAnswerAsBest = asyncHandler(
     if (!newBestAnswer)
       throw new HttpError("Error marking answer as best", 500);
 
-    await prisma.user.update({
-      where: { id: newBestAnswer.userId as string },
-      data: {
-        reputationPoints: { increment: 15 },
-        bestAnswers: { increment: 1 },
-      },
+    await statsQueue.add("unmarkAsBest", {
+      userId: newBestAnswer.userId as string,
+      action: "MARK_ANSWER_AS_BEST",
     });
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
@@ -535,7 +514,7 @@ const unmarkAnswerAsBest = asyncHandler(
     );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(foundAnswer.questionId);
+      : await Question.findById(foundAnswer.questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -557,12 +536,9 @@ const unmarkAnswerAsBest = asyncHandler(
       { new: true },
     );
 
-    await prisma.user.update({
-      where: { id: foundAnswer.userId as string },
-      data: {
-        reputationPoints: { decrement: 15 },
-        bestAnswers: { decrement: 1 },
-      },
+    await statsQueue.add("unmarkAsBest", {
+      userId: foundAnswer.userId as string,
+      action: "UNMARK_ANSWER_AS_BEST",
     });
 
     await redisCacheClient.del(`question:${foundAnswer.questionId}`);
@@ -584,7 +560,7 @@ const editQuestion = asyncHandler(
     const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId);
+      : await Question.findById(questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -652,7 +628,7 @@ const rollbackVersion = asyncHandler(
     const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId);
+      : await Question.findById(questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -771,7 +747,7 @@ const deleteContent = asyncHandler(
 
       const foundQuestion = cachedQuestion
         ? JSON.parse(cachedQuestion)
-        : await Question.findById(targetId);
+        : await Question.findById(targetId).lean();
 
       if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -785,9 +761,9 @@ const deleteContent = asyncHandler(
         $set: { isDeleted: true, isActive: false },
       });
 
-      await prisma.user.update({
-        where: { id: userId as string },
-        data: { questionsAsked: { decrement: 1 } },
+      await statsQueue.add("deleteQuestion", {
+        userId,
+        action: "DELETE_QUESTION",
       });
 
       await redisCacheClient.del(`question:${targetId}`);
@@ -812,16 +788,10 @@ const deleteContent = asyncHandler(
         $set: { isDeleted: true, isActive: false },
       });
 
-      await Question.findByIdAndUpdate(foundAnswer.questionId, {
-        $inc: { answerCount: -1 },
-      });
-
-      await prisma.user.update({
-        where: { id: userId as string },
-        data: {
-          answersGiven: { decrement: 1 },
-          reputationPoints: { decrement: 2 },
-        },
+      await statsQueue.add("deleteAnswer", {
+        userId,
+        action: "DELETE_ANSWER",
+        mongoTargetId: foundAnswer.questionId as string,
       });
 
       await redisCacheClient.del(`question:${foundAnswer.questionId}`);
@@ -851,8 +821,9 @@ const deleteContent = asyncHandler(
 
       if (!foundAnswer) throw new HttpError("Parent answer not found", 404);
 
-      await Answer.findByIdAndUpdate(foundAnswer._id, {
-        $inc: { replyCount: -1 },
+      await statsQueue.add("deleteReply", {
+        action: "DELETE_REPLY",
+        mongoTargetId: foundAnswer._id,
       });
 
       await redisCacheClient.del(`question:${foundAnswer.questionId}`);
