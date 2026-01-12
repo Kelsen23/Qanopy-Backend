@@ -44,6 +44,18 @@ const actionMap: Record<string, StatsUpdate> = {
       update: { $inc: { replyCount: 1 } },
     },
   },
+  CHANGE_DOWNVOTE_TO_UPVOTE: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { increment: 20 } },
+    },
+  },
+  CHANGE_UPVOTE_TO_DOWNVOTE: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { decrement: 20 } },
+    },
+  },
   RECEIVE_UPVOTE_QUESTION: {
     prisma: {
       userIdKey: "userId",
