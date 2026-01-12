@@ -10,7 +10,7 @@ import QuestionVersion from "../models/questionVersion.model.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting moderation worker...");
+  console.log("Mongo connected, starting question versioning worker...");
 
   new Worker(
     "questionVersioningQueue",
@@ -59,6 +59,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start moderation worker:", error);
+  console.error("Failed to start question versioning worker:", error);
   process.exit(1);
 });
