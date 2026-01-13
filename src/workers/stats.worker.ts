@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import {
-  redisCacheClient,
+  getRedisCacheClient,
   redisMessagingClientConnection,
 } from "../config/redis.config.js";
 
@@ -251,7 +251,7 @@ async function startWorker() {
         const { data } = stats.prisma;
         await prisma.user.update({ where: { id: userId }, data });
 
-        await redisCacheClient.del(`user:${userId}`);
+        await getRedisCacheClient().del(`user:${userId}`);
       }
 
       if (stats.mongo) {
@@ -263,7 +263,7 @@ async function startWorker() {
 
         await mongoModel.findByIdAndUpdate(id, update);
 
-        if (model === "Question") await redisCacheClient.del(`question:${id}`);
+        if (model === "Question") await getRedisCacheClient().del(`question:${id}`);
       }
     },
     {

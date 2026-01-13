@@ -6,7 +6,7 @@ import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 
-import { redisCacheClient } from "../../config/redis.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
   clearAnswerCache,
   clearReplyCache,
@@ -50,7 +50,7 @@ const deleteContent = async (
   let foundContent: any;
 
   if (targetType === "question") {
-    const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
     foundContent = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Model.findById(targetId).lean();
@@ -82,14 +82,14 @@ const deleteContent = async (
       userId,
       action: actionMap.question,
     });
-    await redisCacheClient.del(`question:${targetId}`);
+    await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "answer") {
     await statsQueue.add("deleteAnswer", {
       userId,
       action: actionMap.answer,
       mongoTargetId: foundContent.questionId as string,
     });
-    await redisCacheClient.del(`question:${foundContent.questionId}`);
+    await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
   } else if (targetType === "reply") {
     const foundAnswer = await Answer.findById(foundContent.answerId).lean();
@@ -103,7 +103,7 @@ const deleteContent = async (
       mongoTargetId: foundAnswer._id,
     });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
   }

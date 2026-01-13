@@ -6,7 +6,7 @@ import deactivateContent from "../../utils/deactivateContent.util.js";
 
 import prisma from "../../config/prisma.config.js";
 
-import { redisPub } from "../../redis/redis.pubsub.js";
+import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 const moderateReport = async (
   reportId: string,
@@ -58,7 +58,7 @@ const moderateReport = async (
       newBan,
     );
 
-    redisPub.publish(
+    getRedisPub().publish(
       "socket:disconnect",
       JSON.stringify(report.targetUserId as string),
     );
@@ -112,7 +112,7 @@ const moderateReport = async (
       newBan,
     );
 
-    redisPub.publish(
+    getRedisPub().publish(
       "socket:disconnect",
       JSON.stringify(report.targetUserId as string),
     );

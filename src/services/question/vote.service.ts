@@ -1,6 +1,6 @@
 import HttpError from "../../utils/httpError.util.js";
 
-import { redisCacheClient } from "../../config/redis.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
   clearAnswerCache,
   clearReplyCache,
@@ -44,7 +44,7 @@ const vote = async (
   }
 
   if (targetType === "Question") {
-    const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Question.findById(targetId);
@@ -105,7 +105,7 @@ const vote = async (
           : "RECEIVE_DOWNVOTE_QUESTION",
     });
 
-    await redisCacheClient.del(`question:${targetId}`);
+    await getRedisCacheClient().del(`question:${targetId}`);
 
     return {
       message: "Vote processed",
@@ -171,7 +171,7 @@ const vote = async (
           : "RECEIVE_DOWNVOTE_ANSWER",
     });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
     return {

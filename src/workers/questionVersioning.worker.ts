@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import {
-  redisCacheClient,
+  getRedisCacheClient,
   redisMessagingClientConnection,
 } from "../config/redis.config.js";
 
@@ -48,7 +48,7 @@ async function startWorker() {
       });
 
       if (activeVersion) {
-        await redisCacheClient.del(
+        await getRedisCacheClient().del(
           `question:${questionId}`,
           `v:${activeVersion.version}:question:${questionId}`,
         );

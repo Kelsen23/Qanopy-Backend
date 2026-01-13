@@ -1,41 +1,40 @@
 import { Redis } from "ioredis";
+import createRedisClient from "../utils/createRedisClient.util.js";
 
 import dotenv from "dotenv";
 dotenv.config();
 
-const redisCacheClient = new Redis(
-  process.env.REDIS_CACHE_URL || "redis://localhost:6379",
-);
+let redisCacheClient: Redis | null = null;
+let redisMessagingClient: Redis | null = null;
 
-const redisMessagingClient = new Redis(
-  process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
-);
+const getRedisCacheClient = (): Redis => {
+  if (!redisCacheClient) {
+    redisCacheClient = createRedisClient(
+      process.env.REDIS_CACHE_URL || "redis://localhost:6379",
+      "CACHE",
+    );
+  }
+  return redisCacheClient;
+};
+
+const getRedisMessagingClient = (): Redis => {
+  if (!redisMessagingClient) {
+    redisMessagingClient = createRedisClient(
+      process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
+      "MESSAGING",
+    );
+  }
+  return redisMessagingClient;
+};
 
 const redisMessagingClientConnection = {
   url: process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
 };
 
-redisCacheClient.on("error", (err) => {
-  console.error("Redis cache error:", err);
-});
-redisMessagingClient.on("error", (err) => {
-  console.error("Redis messaging error:", err);
-});
-
-const checkRedisConnection = async () => {
-  try {
-    await redisCacheClient.ping();
-    await redisMessagingClient.ping();
-    console.log("Redis connection established 🟥");
-  } catch (error) {
-    console.error("Failed to connect to Redis ❌:", error);
-    process.exit(1);
-  }
-};
-
 export {
   redisCacheClient,
   redisMessagingClient,
+  getRedisCacheClient,
+  getRedisMessagingClient,
   redisMessagingClientConnection,
-  checkRedisConnection,
 };

@@ -31,7 +31,8 @@ import cookieParser from "cookie-parser";
 import prisma from "./config/prisma.config.js";
 
 import connectMongoDB from "./config/mongodb.config.js";
-import { checkRedisConnection, redisCacheClient } from "./config/redis.config.js";
+import { getRedisCacheClient } from "./config/redis.config.js";
+import closeAllRedisConnections from "./utils/closeAllRedisConnections.util.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
@@ -48,7 +49,6 @@ const server = http.createServer(app);
 initSocket(server);
 
 connectMongoDB(process.env.MONGO_URI as string);
-checkRedisConnection();
 
 const port = Number(process.env.PORT) || 5000;
 
@@ -79,7 +79,7 @@ app.use(
       return {
         token: req.headers.authorization,
         prisma,
-        redisCacheClient,
+        getRedisCacheClient,
         user,
         loaders: {
           userLoader: createUserLoader(),
@@ -92,6 +92,16 @@ app.use(
 server.on("error", (err) => {
   console.error("Server failed to start:", err);
   process.exit(1);
+});
+
+process.on("SIGTERM", async () => {
+  await closeAllRedisConnections();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  await closeAllRedisConnections();
+  process.exit(0);
 });
 
 server.listen(port, () =>

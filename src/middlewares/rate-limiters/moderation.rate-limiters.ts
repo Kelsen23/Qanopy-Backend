@@ -1,10 +1,10 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
-import { redisMessagingClient } from "../../config/redis.config.js";
+import { getRedisMessagingClient } from "../../config/redis.config.js";
 
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
 const createReportLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "createReport",
   points: 5,
   duration: 60 * 10,

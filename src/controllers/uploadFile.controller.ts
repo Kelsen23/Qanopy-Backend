@@ -16,7 +16,7 @@ import HttpError from "../utils/httpError.util.js";
 import makeCircle from "../utils/makeCircle.util.js";
 
 import prisma from "../config/prisma.config.js";
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 const bucketName = process.env.BUCKET_NAME;
 const bucketRegion = process.env.BUCKET_REGION;
@@ -116,7 +116,7 @@ const changeProfilePicture = asyncHandler(
         ...userWithoutSensitiveInfo
       } = updatedUser;
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `user:${updatedUser.id}`,
         JSON.stringify(userWithoutSensitiveInfo),
         "EX",

@@ -7,7 +7,8 @@ import { NextFunction, Request, Response } from "express";
 import HttpError from "../utils/httpError.util.js";
 
 import prisma from "../config/prisma.config.js";
-import { redisCacheClient } from "../config/redis.config.js";
+
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 interface AuthenticatedRequest extends Request {
   cookies: {
@@ -31,7 +32,7 @@ const isAuthenticated = asyncHandler(
       throw new HttpError("Not authenticated, token failed", 401);
     }
 
-    const cachedUser = await redisCacheClient.get(`user:${decoded.userId}`);
+    const cachedUser = await getRedisCacheClient().get(`user:${decoded.userId}`);
 
     const user = cachedUser
       ? JSON.parse(cachedUser)

@@ -1,3 +1,4 @@
+import { Redis } from "ioredis";
 import HttpError from "../../utils/httpError.util.js";
 
 const userResolvers = {
@@ -5,9 +6,9 @@ const userResolvers = {
     getUserById: async (
       _: any,
       { id }: { id: string },
-      { prisma, redisCacheClient }: { prisma: any; redisCacheClient: any },
+      { prisma, getRedisCacheClient }: { prisma: any; getRedisCacheClient: () => Redis },
     ) => {
-      const cachedUser = await redisCacheClient.get(`user:${id}`);
+      const cachedUser = await getRedisCacheClient().get(`user:${id}`);
 
       if (cachedUser) return JSON.parse(cachedUser);
 
@@ -27,7 +28,7 @@ const userResolvers = {
         ...userWithoutSensitiveInfo
       } = foundUser;
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `user:${id}`,
         JSON.stringify(userWithoutSensitiveInfo),
         "EX",

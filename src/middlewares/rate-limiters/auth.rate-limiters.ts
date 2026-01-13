@@ -1,45 +1,45 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
-import { redisMessagingClient } from "../../config/redis.config.js";
+import { getRedisMessagingClient } from "../../config/redis.config.js";
 
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
 const loginLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "login",
   points: 5,
   duration: 15 * 60,
 });
 
 const registerLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "register",
   points: 5,
   duration: 30 * 60,
 });
 
 const resetPasswordLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "resetPassword",
   points: 5,
   duration: 60 * 60,
 });
 
 const emailVerificationLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "emailVerification",
   points: 10,
   duration: 60 * 60,
 });
 
 const resendEmailLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "resendEmail",
   points: 3,
   duration: 5 * 60,
 });
 
 const generalLimiter = new RateLimiterRedis({
-  storeClient: redisMessagingClient,
+  storeClient: getRedisMessagingClient(),
   keyPrefix: "general",
   points: 1000,
   duration: 10 * 60,

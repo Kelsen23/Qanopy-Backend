@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import HttpError from "../utils/httpError.util.js";
 
 import prisma from "../config/prisma.config.js";
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
@@ -23,7 +23,7 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
 
   const userId = decoded.userId;
 
-  const cachedUser = await redisCacheClient.get(`user:${userId}`);
+  const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
 
   if (cachedUser) {
     const cachedUserObj = JSON.parse(cachedUser);
@@ -53,7 +53,7 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
     ...userWithoutSensitiveInfo
   } = foundUser;
 
-  await redisCacheClient.set(
+  await getRedisCacheClient().set(
     `user:${userId}`,
     JSON.stringify(userWithoutSensitiveInfo),
     "EX",

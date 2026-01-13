@@ -23,7 +23,7 @@ import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
 import QuestionVersion from "../models/questionVersion.model.js";
 
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
 import statsQueue from "../queues/stats.queue.js";
@@ -92,7 +92,7 @@ const createAnswerOnQuestion = asyncHandler(
       mongoTargetId: foundQuestion._id || foundQuestion.id,
     });
 
-    await redisCacheClient.del(`question:${questionId}`);
+    await getRedisCacheClient().del(`question:${questionId}`);
     await clearAnswerCache(questionId);
 
     return res
@@ -114,7 +114,9 @@ const createReplyOnAnswer = asyncHandler(
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
 
-    const foundQuestion = await Question.findById(foundAnswer.questionId).lean();
+    const foundQuestion = await Question.findById(
+      foundAnswer.questionId,
+    ).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -129,7 +131,7 @@ const createReplyOnAnswer = asyncHandler(
       mongoTargetId: foundAnswer._id || foundAnswer.id,
     });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
 
@@ -173,7 +175,7 @@ const acceptAnswer = asyncHandler(
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
 
-    const cachedQuestion = await redisCacheClient.get(
+    const cachedQuestion = await getRedisCacheClient().get(
       `question:${foundAnswer.questionId}`,
     );
     const foundQuestion = cachedQuestion
@@ -203,7 +205,7 @@ const acceptAnswer = asyncHandler(
 
     await statsQueue.add("acceptAnswer", { userId, action: "ACCEPT_ANSWER" });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
     return res
@@ -224,7 +226,7 @@ const unacceptAnswer = asyncHandler(
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
 
-    const cachedQuestion = await redisCacheClient.get(
+    const cachedQuestion = await getRedisCacheClient().get(
       `question:${foundAnswer.questionId}`,
     );
     const foundQuestion = cachedQuestion
@@ -267,7 +269,7 @@ const unacceptAnswer = asyncHandler(
       });
     }
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
     return res
@@ -301,7 +303,7 @@ const markAnswerAsBest = asyncHandler(
       });
     }
 
-    const cachedQuestion = await redisCacheClient.get(
+    const cachedQuestion = await getRedisCacheClient().get(
       `question:${foundAnswer.questionId}`,
     );
 
@@ -345,7 +347,7 @@ const markAnswerAsBest = asyncHandler(
       action: "MARK_ANSWER_AS_BEST",
     });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
     return res.status(200).json({
@@ -364,7 +366,7 @@ const unmarkAnswerAsBest = asyncHandler(
 
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
 
-    const cachedQuestion = await redisCacheClient.get(
+    const cachedQuestion = await getRedisCacheClient().get(
       `question:${foundAnswer.questionId}`,
     );
     const foundQuestion = cachedQuestion
@@ -396,7 +398,7 @@ const unmarkAnswerAsBest = asyncHandler(
       action: "UNMARK_ANSWER_AS_BEST",
     });
 
-    await redisCacheClient.del(`question:${foundAnswer.questionId}`);
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
     return res.status(200).json({
@@ -412,7 +414,9 @@ const editQuestion = asyncHandler(
     const { questionId } = req.params;
     const { title, body, tags } = req.body;
 
-    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Question.findById(questionId).lean();
@@ -466,7 +470,7 @@ const editQuestion = asyncHandler(
       { removeOnComplete: true, removeOnFail: false },
     );
 
-    await redisCacheClient.del(`question:${editedQuestion?._id}`);
+    await getRedisCacheClient().del(`question:${editedQuestion?._id}`);
     await clearVersionHistoryCache(questionId);
 
     return res
@@ -480,7 +484,9 @@ const rollbackVersion = asyncHandler(
     const userId = req.user.id;
     const { questionId, version } = req.params;
 
-    const cachedQuestion = await redisCacheClient.get(`question:${questionId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Question.findById(questionId).lean();
@@ -496,7 +502,7 @@ const rollbackVersion = asyncHandler(
     if (foundQuestion.currentVersion <= version)
       throw new HttpError("Invalid passed version", 400);
 
-    const cachedVersion = await redisCacheClient.get(
+    const cachedVersion = await getRedisCacheClient().get(
       `v:${version}:question:${questionId}`,
     );
     const foundVersion = cachedVersion
@@ -565,7 +571,7 @@ const rollbackVersion = asyncHandler(
 
     session.endSession();
 
-    await redisCacheClient.del(
+    await getRedisCacheClient().del(
       `question:${questionId}`,
       `v:${version}:question:${questionId}`,
       `v:${foundQuestion.currentVersion}:question:${questionId}`,
@@ -583,7 +589,11 @@ const deleteContent = asyncHandler(
     const userId = req.user.id;
     const { targetType, targetId } = req.params;
 
-    const { message } = await deleteContentService(userId, targetType, targetId);
+    const { message } = await deleteContentService(
+      userId,
+      targetType,
+      targetId,
+    );
 
     return res.status(200).json({ message });
   },

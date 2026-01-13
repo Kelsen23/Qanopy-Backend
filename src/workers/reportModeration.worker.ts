@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 
 import {
   redisMessagingClientConnection,
-  redisCacheClient,
+  getRedisCacheClient,
 } from "../config/redis.config.js";
 
 import aiModerateReport from "../services/moderation/aiModeration.service.js";
@@ -17,7 +17,7 @@ import Report from "../models/report.model.js";
 
 import prisma from "../config/prisma.config.js";
 
-import { redisPub } from "../redis/redis.pubsub.js";
+import { getRedisPub } from "../redis/redis.pubsub.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
@@ -64,7 +64,7 @@ async function startWorker() {
         }
 
         if (freshReport.targetType === "Question") {
-          const cachedQuestion = await redisCacheClient.get(
+          const cachedQuestion = await getRedisCacheClient().get(
             `question:${freshReport.targetId}`,
           );
           const question = cachedQuestion
@@ -125,7 +125,7 @@ async function startWorker() {
             newBan,
           );
 
-          redisPub.publish(
+          getRedisPub().publish(
             "socket:disconnect",
             JSON.stringify(freshReport.targetUserId as string),
           );
@@ -183,7 +183,7 @@ async function startWorker() {
             newBan,
           );
 
-          redisPub.publish(
+          getRedisPub().publish(
             "socket:disconnect",
             JSON.stringify(freshReport.targetUserId as string),
           );

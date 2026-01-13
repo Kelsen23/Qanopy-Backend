@@ -1,4 +1,4 @@
-import { redisCacheClient } from "../../config/redis.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 import HttpError from "../../utils/httpError.util.js";
 
 const MOD_POINTS = {
@@ -34,7 +34,7 @@ async function addAdminModPoints(
     end
 `;
 
-  const newPoints = await redisCacheClient.eval(
+  const newPoints = await getRedisCacheClient().eval(
     luaScript,
     1,
     key,

@@ -1,5 +1,4 @@
 import HttpError from "../../utils/httpError.util.js";
-import invalidateCacheOnUnvote from "../../utils/invalidateCacheOnUnvote.util.js";
 
 import mongoose from "mongoose";
 
@@ -8,7 +7,8 @@ import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import Vote from "../../models/vote.model.js";
 
-import { redisCacheClient } from "../../config/redis.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+import invalidateCacheOnUnvote from "../../utils/invalidateCacheOnUnvote.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
@@ -69,7 +69,7 @@ const unvote = async (
   let foundContent: any;
 
   if (normalizedTargetType === "Question") {
-    const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
     foundContent = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Model.findById(targetId).lean();
