@@ -4,7 +4,6 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import invalidateCacheOnUnvote from "../utils/invalidateCacheOnUnvote.util.js";
 import {
   clearAnswerCache,
   clearReplyCache,
@@ -14,16 +13,15 @@ import {
 import HttpError from "../utils/httpError.util.js";
 
 import voteService from "../services/question/vote.service.js";
+import unvoteService from "../services/question/unvote.service.js";
+import deleteContentService from "../services/question/deleteContent.service.js";
 
 import mongoose from "mongoose";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
-import Vote from "../models/vote.model.js";
 import QuestionVersion from "../models/questionVersion.model.js";
-
-import prisma from "../config/prisma.config.js";
 
 import { redisCacheClient } from "../config/redis.config.js";
 
@@ -155,154 +153,11 @@ const vote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
 const unvote = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
+    const { targetType, targetId } = req.params;
 
-    let { targetType } = req.params;
-    const { targetId } = req.params;
+    const { message } = await unvoteService(userId, targetType, targetId);
 
-    if (
-      targetType !== "question" &&
-      targetType !== "answer" &&
-      targetType !== "reply"
-    )
-      throw new HttpError("Invalid target type", 400);
-
-    targetType = targetType.charAt(0).toUpperCase() + targetType.slice(1);
-
-    if (
-      typeof targetId !== "string" ||
-      !mongoose.Types.ObjectId.isValid(targetId)
-    ) {
-      throw new HttpError("Invalid targetId", 400);
-    }
-
-    const foundVote = await Vote.findOne({ userId, targetType, targetId });
-
-    if (!foundVote) throw new HttpError("Vote not found", 404);
-
-    if (targetType === "Question") {
-      const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
-
-      const foundQuestion = cachedQuestion
-        ? JSON.parse(cachedQuestion)
-        : await Question.findById(targetId).lean();
-
-      if (!foundQuestion) throw new HttpError("Question not found", 404);
-
-      if (foundQuestion.isDeleted || !foundQuestion.isActive)
-        throw new HttpError("Question not active", 410);
-
-      const updateField =
-        foundVote.voteType === "upvote"
-          ? { $inc: { upvoteCount: -1 } }
-          : { $inc: { downvoteCount: -1 } };
-
-      const session = await mongoose.startSession();
-
-      await session.withTransaction(async () => {
-        await Vote.deleteOne({ userId, targetType, targetId }, { session });
-
-        await Question.findByIdAndUpdate(
-          foundQuestion._id || foundQuestion.id,
-          updateField,
-          { session },
-        );
-      });
-
-      session.endSession();
-
-      if (foundVote.voteType === "upvote") {
-        await prisma.user.update({
-          where: { id: foundQuestion.userId as string },
-          data: { reputationPoints: { decrement: 10 } },
-        });
-      } else {
-        await prisma.user.update({
-          where: { id: foundQuestion.userId as string },
-          data: { reputationPoints: { increment: 10 } },
-        });
-      }
-    }
-
-    if (targetType === "Answer") {
-      const foundAnswer = await Answer.findById(targetId).lean();
-
-      if (!foundAnswer) throw new HttpError("Answer not found", 404);
-
-      if (foundAnswer.isDeleted || !foundAnswer.isActive)
-        throw new HttpError("Answer not active", 410);
-
-      const updateField =
-        foundVote.voteType === "upvote"
-          ? { $inc: { upvoteCount: -1 } }
-          : { $inc: { downvoteCount: -1 } };
-
-      const session = await mongoose.startSession();
-
-      await session.withTransaction(async () => {
-        await Vote.deleteOne({ userId, targetType, targetId }, { session });
-
-        await Answer.findByIdAndUpdate(foundAnswer._id, updateField, {
-          session,
-        });
-      });
-
-      session.endSession();
-
-      if (foundVote.voteType === "upvote") {
-        await prisma.user.update({
-          where: { id: foundAnswer.userId as string },
-          data: { reputationPoints: { decrement: 10 } },
-        });
-      } else {
-        await prisma.user.update({
-          where: { id: foundAnswer.userId as string },
-          data: { reputationPoints: { increment: 10 } },
-        });
-      }
-    }
-
-    if (targetType === "Reply") {
-      const foundReply = await Reply.findById(targetId).lean();
-
-      if (!foundReply) throw new HttpError("Reply not found", 404);
-
-      if (foundReply.isDeleted || !foundReply.isActive)
-        throw new HttpError("Reply not active", 410);
-
-      const updateField =
-        foundVote.voteType === "upvote"
-          ? { $inc: { upvoteCount: -1 } }
-          : { $inc: { downvoteCount: -1 } };
-
-      const session = await mongoose.startSession();
-
-      await session.withTransaction(async () => {
-        await Vote.deleteOne({ userId, targetType, targetId }, { session });
-
-        await Reply.findByIdAndUpdate(foundReply._id, updateField, { session });
-      });
-
-      session.endSession();
-
-      if (foundVote.voteType === "upvote") {
-        await prisma.user.update({
-          where: { id: foundReply.userId as string },
-          data: { reputationPoints: { decrement: 5 } },
-        });
-      } else {
-        await prisma.user.update({
-          where: { id: foundReply.userId as string },
-          data: { reputationPoints: { increment: 5 } },
-        });
-      }
-    }
-
-    await invalidateCacheOnUnvote(
-      targetType as "Question" | "Answer" | "Reply",
-      targetId,
-    );
-
-    return res.status(200).json({ message: "Successfully unvoted" });
+    return res.status(200).json({ message });
   },
 );
 
@@ -728,112 +583,9 @@ const deleteContent = asyncHandler(
     const userId = req.user.id;
     const { targetType, targetId } = req.params;
 
-    const validTargetTypes = ["question", "answer", "reply"] as const;
-    type TargetType = (typeof validTargetTypes)[number];
+    const { message } = await deleteContentService(userId, targetType, targetId);
 
-    if (!validTargetTypes.includes(targetType as TargetType)) {
-      throw new HttpError("Invalid target type", 400);
-    }
-
-    if (
-      typeof targetId !== "string" ||
-      !mongoose.Types.ObjectId.isValid(targetId)
-    ) {
-      throw new HttpError("Invalid targetId", 400);
-    }
-
-    if (targetType === "question") {
-      const cachedQuestion = await redisCacheClient.get(`question:${targetId}`);
-
-      const foundQuestion = cachedQuestion
-        ? JSON.parse(cachedQuestion)
-        : await Question.findById(targetId).lean();
-
-      if (!foundQuestion) throw new HttpError("Question not found", 404);
-
-      if (foundQuestion.userId.toString() !== userId)
-        throw new HttpError("Unauthorized to delete question", 403);
-
-      if (foundQuestion.isDeleted || !foundQuestion.isActive)
-        throw new HttpError("Question not active", 410);
-
-      await Question.findByIdAndUpdate(foundQuestion._id || foundQuestion.id, {
-        $set: { isDeleted: true, isActive: false },
-      });
-
-      await statsQueue.add("deleteQuestion", {
-        userId,
-        action: "DELETE_QUESTION",
-      });
-
-      await redisCacheClient.del(`question:${targetId}`);
-
-      return res.status(200).json({
-        message: "Successfully deleted question",
-      });
-    }
-
-    if (targetType === "answer") {
-      const foundAnswer = await Answer.findById(targetId).lean();
-
-      if (!foundAnswer) throw new HttpError("Answer not found", 404);
-
-      if (foundAnswer.userId?.toString() !== userId)
-        throw new HttpError("Unauthorized to delete answer", 403);
-
-      if (foundAnswer.isDeleted || !foundAnswer.isActive)
-        throw new HttpError("Answer not active", 410);
-
-      await Answer.findByIdAndUpdate(foundAnswer._id, {
-        $set: { isDeleted: true, isActive: false },
-      });
-
-      await statsQueue.add("deleteAnswer", {
-        userId,
-        action: "DELETE_ANSWER",
-        mongoTargetId: foundAnswer.questionId as string,
-      });
-
-      await redisCacheClient.del(`question:${foundAnswer.questionId}`);
-      await clearAnswerCache(foundAnswer.questionId as string);
-
-      return res.status(200).json({
-        message: "Successfully deleted answer",
-      });
-    }
-
-    if (targetType === "reply") {
-      const foundReply = await Reply.findById(targetId).lean();
-
-      if (!foundReply) throw new HttpError("Reply not found", 404);
-
-      if (foundReply.userId?.toString() !== userId)
-        throw new HttpError("Unauthorized to delete reply", 403);
-
-      if (foundReply.isDeleted || !foundReply.isActive)
-        throw new HttpError("Reply not active", 410);
-
-      await Reply.findByIdAndUpdate(foundReply._id, {
-        $set: { isDeleted: true, isActive: false },
-      });
-
-      const foundAnswer = await Answer.findById(foundReply.answerId).lean();
-
-      if (!foundAnswer) throw new HttpError("Parent answer not found", 404);
-
-      await statsQueue.add("deleteReply", {
-        action: "DELETE_REPLY",
-        mongoTargetId: foundAnswer._id,
-      });
-
-      await redisCacheClient.del(`question:${foundAnswer.questionId}`);
-      await clearAnswerCache(foundAnswer.questionId as string);
-      await clearReplyCache(foundAnswer._id as string);
-
-      return res.status(200).json({
-        message: "Successfully deleted reply",
-      });
-    }
+    return res.status(200).json({ message });
   },
 );
 
