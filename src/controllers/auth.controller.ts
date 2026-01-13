@@ -238,7 +238,10 @@ const verifyEmail = asyncHandler(
     const userId = req.user.id;
     const { otp: inputOtp } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+    const cachedUser = await redisCacheClient.get(`user:${userId}`);
+    const foundUser = cachedUser
+      ? JSON.parse(cachedUser)
+      : await prisma.user.findUnique({ where: { id: userId } });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -643,13 +646,6 @@ const isAuth = asyncHandler(
       60 * 20,
     );
 
-    if (cachedUser) {
-      return res.status(200).json({
-        message: "Successfully authenticated",
-        user: JSON.parse(cachedUser),
-      });
-    }
-
     return res.status(200).json({
       message: "Successfully authenticated",
       user: userWithoutSensitiveInfo,
@@ -658,11 +654,7 @@ const isAuth = asyncHandler(
 );
 
 const logout = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-
-    await redisCacheClient.del(`user:${userId}`);
-
+  async (req: Request, res: Response) => {
     res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
