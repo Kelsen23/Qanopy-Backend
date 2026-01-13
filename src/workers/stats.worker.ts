@@ -119,6 +119,42 @@ const actionMap: Record<string, StatsUpdate> = {
       data: { reputationPoints: { decrement: 5 } },
     },
   },
+  UNVOTE_UPVOTE_QUESTION: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { decrement: 10 } },
+    },
+  },
+  UNVOTE_DOWNVOTE_QUESTION: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { increment: 10 } },
+    },
+  },
+  UNVOTE_UPVOTE_ANSWER: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { decrement: 10 } },
+    },
+  },
+  UNVOTE_DOWNVOTE_ANSWER: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { increment: 10 } },
+    },
+  },
+  UNVOTE_UPVOTE_REPLY: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { decrement: 5 } },
+    },
+  },
+  UNVOTE_DOWNVOTE_REPLY: {
+    prisma: {
+      userIdKey: "userId",
+      data: { reputationPoints: { increment: 5 } },
+    },
+  },
   ACCEPT_ANSWER: {
     prisma: {
       userIdKey: "userId",
