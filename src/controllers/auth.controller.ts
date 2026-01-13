@@ -33,25 +33,24 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   const usernameExists = await prisma.user.findUnique({ where: { username } });
   if (usernameExists) throw new HttpError("Username is taken", 400);
 
-  const passwordSalt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, passwordSalt);
-
-  const newUser = await prisma.user.create({
-    data: { username, email, password: hashedPassword },
-  });
-  generateToken(res, newUser.id);
-
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
   const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-  const otpSalt = await bcrypt.genSalt(8);
-  const hashedOtp = await bcrypt.hash(otp, otpSalt);
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { email },
-    data: { otp: hashedOtp, otpExpireAt, otpResendAvailableAt },
+  const newUser = await prisma.user.create({
+    data: {
+      username,
+      email,
+      password: hashedPassword,
+      otp: hashedOtp,
+      otpExpireAt,
+      otpResendAvailableAt,
+    },
   });
+  generateToken(res, newUser.id);
 
   const deviceInfo = getDeviceInfo(req);
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
@@ -65,7 +64,7 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   await emailQueue.add(
     "sendVerificationEmail",
     {
-      email: updatedUser.email,
+      email: newUser.email,
       subject: "Verify Email",
       htmlContent,
     },
@@ -75,11 +74,11 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json({
     message: "Successfully registered",
     user: {
-      username: updatedUser.username,
-      email: updatedUser.email,
-      otpExpireAt: updatedUser.otpExpireAt,
-      otpResendAvailableAt: updatedUser.otpResendAvailableAt,
-      isVerified: updatedUser.isVerified,
+      username: newUser.username,
+      email: newUser.email,
+      otpExpireAt: newUser.otpExpireAt,
+      otpResendAvailableAt: newUser.otpResendAvailableAt,
+      isVerified: newUser.isVerified,
     },
   });
 });
@@ -351,8 +350,7 @@ const resendVerificationEmail = asyncHandler(
     const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedOtp = await bcrypt.hash(otp, salt);
+    const hashedOtp = await bcrypt.hash(otp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -408,8 +406,7 @@ const sendResetPasswordEmail = asyncHandler(
     const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, salt);
+    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { email },
@@ -479,8 +476,7 @@ const resendResetPasswordEmail = asyncHandler(
     const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, salt);
+    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { email },
@@ -600,8 +596,7 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
       400,
     );
 
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(newPassword, salt);
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
 
   await prisma.user.update({
     where: { email },
