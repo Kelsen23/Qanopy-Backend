@@ -32,7 +32,9 @@ const isAuthenticated = asyncHandler(
       throw new HttpError("Not authenticated, token failed", 401);
     }
 
-    const cachedUser = await getRedisCacheClient().get(`user:${decoded.userId}`);
+    const cachedUser = await getRedisCacheClient().get(
+      `user:${decoded.userId}`,
+    );
 
     const user = cachedUser
       ? JSON.parse(cachedUser)
