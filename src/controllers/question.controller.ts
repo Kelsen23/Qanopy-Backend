@@ -7,7 +7,6 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 import {
   clearAnswerCache,
   clearReplyCache,
-  clearVersionHistoryCache,
 } from "../utils/clearCache.util.js";
 
 import HttpError from "../utils/httpError.util.js";
