@@ -7,7 +7,7 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 import HttpError from "../utils/httpError.util.js";
 import interests from "../utils/interests.util.js";
 
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 import prisma from "../config/prisma.config.js";
 
 const updateProfile = asyncHandler(
@@ -15,7 +15,7 @@ const updateProfile = asyncHandler(
     const userId = req.user.id;
     const { username, bio } = req.body;
 
-    const cachedUser = await redisCacheClient.get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });
@@ -50,7 +50,7 @@ const updateProfile = asyncHandler(
       ...userWithoutSensitiveInfo
     } = updatedUser;
 
-    await redisCacheClient.set(
+    await getRedisCacheClient().set(
       `user:${updatedUser.id}`,
       JSON.stringify(userWithoutSensitiveInfo),
       "EX",
@@ -91,7 +91,7 @@ const saveInterests = asyncHandler(
       ...userWithoutSensitiveInfo
     } = updatedUser;
 
-    await redisCacheClient.set(
+    await getRedisCacheClient().set(
       `user:${updatedUser.id}`,
       JSON.stringify(userWithoutSensitiveInfo),
       "EX",

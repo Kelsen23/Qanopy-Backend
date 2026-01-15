@@ -1,4 +1,4 @@
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
@@ -11,7 +11,7 @@ async function invalidateCacheOnUnvote(
 ) {
   switch (targetType) {
     case "Question":
-      await redisCacheClient.del(`question:${targetId}`);
+      await getRedisCacheClient().del(`question:${targetId}`);
       break;
 
     case "Answer": {
@@ -20,7 +20,7 @@ async function invalidateCacheOnUnvote(
 
       const questionId = String(foundAnswer.questionId);
       await Promise.all([
-        redisCacheClient.del(`question:${questionId}`),
+        getRedisCacheClient().del(`question:${questionId}`),
         clearAnswerCache(questionId),
       ]);
       break;
@@ -39,7 +39,7 @@ async function invalidateCacheOnUnvote(
       const answerId = String(foundAnswer._id);
 
       await Promise.all([
-        redisCacheClient.del(`question:${questionId}`),
+        getRedisCacheClient().del(`question:${questionId}`),
         clearAnswerCache(questionId),
         clearReplyCache(answerId),
       ]);

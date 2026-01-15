@@ -1,30 +1,30 @@
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 const addUserSocket = async (userId: string, socketId: string) => {
-  await redisCacheClient.sadd(`online:users`, userId);
-  await redisCacheClient.sadd(`online:user:${userId}`, socketId);
-  await redisCacheClient.set(`socket:${socketId}`, userId);
+  await getRedisCacheClient().sadd(`online:users`, userId);
+  await getRedisCacheClient().sadd(`online:user:${userId}`, socketId);
+  await getRedisCacheClient().set(`socket:${socketId}`, userId);
 };
 
 const removeUserSocket = async (socketId: string) => {
-  const userId = await redisCacheClient.get(`socket:${socketId}`);
+  const userId = await getRedisCacheClient().get(`socket:${socketId}`);
 
   if (userId) {
-    await redisCacheClient.srem(`online:user:${userId}`, socketId);
+    await getRedisCacheClient().srem(`online:user:${userId}`, socketId);
 
-    const socketsLeft = await redisCacheClient.scard(`online:user:${userId}`);
+    const socketsLeft = await getRedisCacheClient().scard(`online:user:${userId}`);
 
     if (socketsLeft === 0) {
-      await redisCacheClient.del(`online:user:${userId}`);
-      await redisCacheClient.srem(`online:users`, userId);
+      await getRedisCacheClient().del(`online:user:${userId}`);
+      await getRedisCacheClient().srem(`online:users`, userId);
     }
 
-    await redisCacheClient.del(`socket:${socketId}`);
+    await getRedisCacheClient().del(`socket:${socketId}`);
   }
 };
 
 const getUserSockets = async (userId: string) => {
-  const sockets = await redisCacheClient.smembers(`online:user:${userId}`);
+  const sockets = await getRedisCacheClient().smembers(`online:user:${userId}`);
 
   return sockets || [];
 };

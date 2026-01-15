@@ -11,9 +11,9 @@ const AnswerSchema: Schema = new Schema(
 
     body: { type: String, minlength: 20, maxlength: 20000, required: true },
 
-    upvoteCount: { type: Number, default: 0 },
-    downvoteCount: { type: Number, default: 0 },
-    replyCount: { type: Number, default: 0 },
+    upvoteCount: { type: Number, default: 0, min: 0 },
+    downvoteCount: { type: Number, default: 0, min: 0 },
+    replyCount: { type: Number, default: 0, min: 0 },
     isAccepted: { type: Boolean, default: false },
     isBestAnswerByAsker: { type: Boolean, default: false },
 

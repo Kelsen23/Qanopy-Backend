@@ -1,9 +1,9 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import { OAuth2Client, TokenPayload } from "google-auth-library";
 
 import HttpError from "./httpError.util.js";
+
+import dotenv from "dotenv";
+dotenv.config();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 

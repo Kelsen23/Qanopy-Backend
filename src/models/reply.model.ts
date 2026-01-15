@@ -7,8 +7,8 @@ const ReplySchema: Schema = new Schema(
 
     body: { type: String, minlength: 1, maxlength: 150, required: true },
 
-    upvoteCount: { type: Number, default: 0 },
-    downvoteCount: { type: Number, default: 0 },
+    upvoteCount: { type: Number, default: 0, min: 0 },
+    downvoteCount: { type: Number, default: 0, min: 0 },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

@@ -1,4 +1,4 @@
-import client from "../config/openai.config.js";
+import client from "../../config/openai.config.js";
 
 interface AiModerationResult {
   confidence: number;

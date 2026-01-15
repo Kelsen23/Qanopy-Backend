@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { Redis } from "ioredis";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -28,18 +29,18 @@ const questionResolvers = {
       { cursor, limitCount = 10 }: { cursor?: string; limitCount: number },
       {
         user,
-        redisCacheClient,
+        getRedisCacheClient,
         loaders,
       }: {
         user: UserWithoutSensitiveInfo;
-        redisCacheClient: any;
+        getRedisCacheClient: () => Redis;
         loaders: any;
       },
     ) => {
       const interests = user.interests || [];
       const sortedInterests = [...interests].sort().join(",");
 
-      const cachedQuestions = await redisCacheClient.get(
+      const cachedQuestions = await getRedisCacheClient().get(
         `recommendedQuestions:${sortedInterests}:${cursor || "initial"}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
@@ -148,7 +149,7 @@ const questionResolvers = {
         hasMore: questionsWithUsers.length === limitCount,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `recommendedQuestions:${sortedInterests}:${cursor || "initial"}`,
         JSON.stringify(result),
         "EX",
@@ -161,9 +162,9 @@ const questionResolvers = {
     getQuestionById: async (
       _: any,
       { id }: { id: string },
-      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
-      const cachedQuestion = await redisCacheClient.get(`question:${id}`);
+      const cachedQuestion = await getRedisCacheClient().get(`question:${id}`);
       if (cachedQuestion) return JSON.parse(cachedQuestion);
 
       const questionData = await Question.aggregate([
@@ -423,7 +424,7 @@ const questionResolvers = {
         }
       }
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `question:${id}`,
         JSON.stringify(question),
         "EX",
@@ -450,9 +451,9 @@ const questionResolvers = {
         cursor?: string;
         limitCount: number;
       },
-      { loaders, redisCacheClient }: { loaders: any; redisCacheClient: any },
+      { loaders, getRedisCacheClient }: { loaders: any; getRedisCacheClient: () => Redis },
     ) => {
-      const cachedAnswers = await redisCacheClient.get(
+      const cachedAnswers = await getRedisCacheClient().get(
         `answers:${questionId}:${cursor || "initial"}`,
       );
       if (cachedAnswers) return JSON.parse(cachedAnswers);
@@ -564,7 +565,7 @@ const questionResolvers = {
         hasMore: answersWithUsers.length === limitCount,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `answers:${questionId}:${cursor || "initial"}`,
         JSON.stringify(result),
         "EX",
@@ -581,9 +582,9 @@ const questionResolvers = {
         cursor,
         limitCount = 10,
       }: { answerId: string; cursor?: string; limitCount: number },
-      { loaders, redisCacheClient }: { loaders: any; redisCacheClient: any },
+      { loaders, getRedisCacheClient }: { loaders: any; getRedisCacheClient: () => Redis },
     ) => {
-      const cachedReplies = await redisCacheClient.get(
+      const cachedReplies = await getRedisCacheClient().get(
         `replies:${answerId}:${cursor || "initial"}`,
       );
 
@@ -672,7 +673,7 @@ const questionResolvers = {
         hasMore: repliesWithUsers.length === limitCount,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `replies:${answerId}:${cursor || "initial"}`,
         JSON.stringify(result),
         "EX",
@@ -688,9 +689,9 @@ const questionResolvers = {
         searchKeyword,
         limitCount = 10,
       }: { searchKeyword: string; limitCount: number },
-      { redisCacheClient }: { redisCacheClient: any },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
     ) => {
-      const cachedSuggestions = await redisCacheClient.get(
+      const cachedSuggestions = await getRedisCacheClient().get(
         `searchSuggestions:${searchKeyword}`,
       );
 
@@ -722,7 +723,7 @@ const questionResolvers = {
 
       const suggestions = results.map((r) => r.title);
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `searchSuggestions:${searchKeyword}`,
         JSON.stringify(suggestions),
         "EX",
@@ -747,7 +748,7 @@ const questionResolvers = {
         sortOption: string;
         cursor?: string;
       },
-      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
       if (!["LATEST", "TOP"].includes(sortOption))
         throw new HttpError(
@@ -760,7 +761,7 @@ const questionResolvers = {
       if (invalidTags.length > 0)
         throw new HttpError(`Invalid tags: ${invalidTags.join(", ")}`, 400);
 
-      const cachedQuestions = await redisCacheClient.get(
+      const cachedQuestions = await getRedisCacheClient().get(
         `searchQuestions:${searchKeyword}:${tags.sort().join(", ")}:${sortOption}:${cursor || "initial"}`,
       );
 
@@ -881,7 +882,7 @@ const questionResolvers = {
         hasMore: questionsWithUsers.length === limitCount,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `searchQuestions:${searchKeyword}:${tags.sort().join(", ")}:${sortOption}:${cursor || "initial"}`,
         JSON.stringify(result),
         "EX",
@@ -898,9 +899,9 @@ const questionResolvers = {
         cursor,
         limitCount = 10,
       }: { questionId: string; cursor?: string; limitCount: number },
-      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
-      const cachedVersionHistory = await redisCacheClient.get(
+      const cachedVersionHistory = await getRedisCacheClient().get(
         `v:question:${questionId}:${cursor || "initial"}`,
       );
 
@@ -985,7 +986,7 @@ const questionResolvers = {
         hasMore: versionHistoryWithUser.length === limitCount,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `v:question:${questionId}:${cursor || "initial"}`,
         JSON.stringify(result),
         "EX",
@@ -998,9 +999,9 @@ const questionResolvers = {
     getQuestionVersion: async (
       _: any,
       { questionId, version }: { questionId: string; version: number },
-      { redisCacheClient, loaders }: { redisCacheClient: any; loaders: any },
+      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
-      const cachedVersion = await redisCacheClient.get(
+      const cachedVersion = await getRedisCacheClient().get(
         `v:${version}:question:${questionId}`,
       );
 
@@ -1044,7 +1045,7 @@ const questionResolvers = {
         user,
       };
 
-      await redisCacheClient.set(
+      await getRedisCacheClient().set(
         `v:${version}:question:${questionId}`,
         JSON.stringify(result),
         "EX",

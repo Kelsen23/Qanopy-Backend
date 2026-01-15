@@ -1,22 +1,31 @@
+import { Redis } from "ioredis";
+import createRedisClient from "../utils/createRedisClient.util.js";
+
 import dotenv from "dotenv";
 dotenv.config();
 
-import { Redis } from "ioredis";
+let redisPub: Redis | null = null;
+let redisSub: Redis | null = null;
 
-const redisPub = new Redis(
-  process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
-);
-const redisSub = new Redis(
-  process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
-);
+const getRedisPub = (): Redis => {
+  if (!redisPub) {
+    redisPub = createRedisClient(
+      process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
+      "PUB",
+    );
+  }
+  return redisPub;
+};
 
-redisPub.on("connect", () => {
-  console.log("Redis PUB connected");
-});
-
-redisSub.on("connect", () => {
-  console.log("Redis SUB connected");
-});
+const getRedisSub = (): Redis => {
+  if (!redisSub) {
+    redisSub = createRedisClient(
+      process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
+      "SUB",
+    );
+  }
+  return redisSub;
+};
 
 type SocketEventHandler = (payload: any) => void;
 
@@ -24,14 +33,14 @@ const handlers = new Map<string, SocketEventHandler>();
 
 const registerSubscriber = (channel: string, handler: SocketEventHandler) => {
   handlers.set(channel, handler);
-  redisSub.subscribe(channel);
+  getRedisSub().subscribe(channel);
 };
 
-redisSub.on("message", (channel, message) => {
+getRedisSub().on("message", (channel, message) => {
   const handler = handlers.get(channel);
   if (!handler) return;
 
   handler(JSON.parse(message));
 });
 
-export { redisPub, redisSub, registerSubscriber };
+export { redisPub, redisSub, getRedisPub, getRedisSub, registerSubscriber };

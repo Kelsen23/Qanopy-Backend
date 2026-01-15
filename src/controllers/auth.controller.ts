@@ -20,7 +20,7 @@ import {
 import HttpError from "../utils/httpError.util.js";
 
 import prisma from "../config/prisma.config.js";
-import { redisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 import emailQueue from "../queues/email.queue.js";
 
@@ -33,25 +33,24 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   const usernameExists = await prisma.user.findUnique({ where: { username } });
   if (usernameExists) throw new HttpError("Username is taken", 400);
 
-  const passwordSalt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, passwordSalt);
-
-  const newUser = await prisma.user.create({
-    data: { username, email, password: hashedPassword },
-  });
-  generateToken(res, newUser.id);
-
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
   const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-  const otpSalt = await bcrypt.genSalt(8);
-  const hashedOtp = await bcrypt.hash(otp, otpSalt);
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { email },
-    data: { otp: hashedOtp, otpExpireAt, otpResendAvailableAt },
+  const newUser = await prisma.user.create({
+    data: {
+      username,
+      email,
+      password: hashedPassword,
+      otp: hashedOtp,
+      otpExpireAt,
+      otpResendAvailableAt,
+    },
   });
+  generateToken(res, newUser.id);
 
   const deviceInfo = getDeviceInfo(req);
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
@@ -65,7 +64,7 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   await emailQueue.add(
     "sendVerificationEmail",
     {
-      email: updatedUser.email,
+      email: newUser.email,
       subject: "Verify Email",
       htmlContent,
     },
@@ -75,11 +74,11 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json({
     message: "Successfully registered",
     user: {
-      username: updatedUser.username,
-      email: updatedUser.email,
-      otpExpireAt: updatedUser.otpExpireAt,
-      otpResendAvailableAt: updatedUser.otpResendAvailableAt,
-      isVerified: updatedUser.isVerified,
+      username: newUser.username,
+      email: newUser.email,
+      otpExpireAt: newUser.otpExpireAt,
+      otpResendAvailableAt: newUser.otpResendAvailableAt,
+      isVerified: newUser.isVerified,
     },
   });
 });
@@ -111,7 +110,7 @@ const login = asyncHandler(async (req: Request, res: Response) => {
     ...userWithoutSensitiveInfo
   } = foundUser;
 
-  await redisCacheClient.set(
+  await getRedisCacheClient().set(
     `user:${foundUser.id}`,
     JSON.stringify(userWithoutSensitiveInfo),
     "EX",
@@ -239,7 +238,10 @@ const verifyEmail = asyncHandler(
     const userId = req.user.id;
     const { otp: inputOtp } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+    const foundUser = cachedUser
+      ? JSON.parse(cachedUser)
+      : await prisma.user.findUnique({ where: { id: userId } });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -256,7 +258,7 @@ const verifyEmail = asyncHandler(
       throw new HttpError("OTP not set", 400);
     }
 
-    const attempts = await redisCacheClient.get(
+    const attempts = await getRedisCacheClient().get(
       `auth:verify-email:attempts:${foundUser.id}`,
     );
 
@@ -269,7 +271,7 @@ const verifyEmail = asyncHandler(
     const isValidOtp = await bcrypt.compare(inputOtp, foundUser.otp);
 
     if (!isValidOtp) {
-      await redisCacheClient
+      await getRedisCacheClient()
         .multi()
         .incr(`auth:verify-email:attempts:${foundUser.id}`)
         .expire(`auth:verify-email:attempts:${foundUser.id}`, 120)
@@ -301,14 +303,16 @@ const verifyEmail = asyncHandler(
       ...userWithoutSensitiveInfo
     } = verifiedUser;
 
-    await redisCacheClient.set(
+    await getRedisCacheClient().set(
       `user:${verifiedUser.id}`,
       JSON.stringify(userWithoutSensitiveInfo),
       "EX",
       60 * 20,
     );
 
-    await redisCacheClient.del(`auth:verify-email:attempts:${foundUser.id}`);
+    await getRedisCacheClient().del(
+      `auth:verify-email:attempts:${foundUser.id}`,
+    );
 
     res.status(200).json({
       message: "Successfully verified",
@@ -351,8 +355,7 @@ const resendVerificationEmail = asyncHandler(
     const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedOtp = await bcrypt.hash(otp, salt);
+    const hashedOtp = await bcrypt.hash(otp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -408,8 +411,7 @@ const sendResetPasswordEmail = asyncHandler(
     const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, salt);
+    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { email },
@@ -479,8 +481,7 @@ const resendResetPasswordEmail = asyncHandler(
     const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
     const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 
-    const salt = await bcrypt.genSalt(8);
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, salt);
+    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
 
     const updatedUser = await prisma.user.update({
       where: { email },
@@ -538,7 +539,7 @@ const verifyResetPasswordOtp = asyncHandler(
     )
       throw new HttpError("Reset password OTP not set", 400);
 
-    const attempts = await redisCacheClient.get(
+    const attempts = await getRedisCacheClient().get(
       `auth:reset-password:attempts:${foundUser.id}`,
     );
 
@@ -551,7 +552,7 @@ const verifyResetPasswordOtp = asyncHandler(
     const isValidOtp = await bcrypt.compare(otp, foundUser.resetPasswordOtp);
 
     if (!isValidOtp) {
-      await redisCacheClient
+      await getRedisCacheClient()
         .multi()
         .incr(`auth:reset-password:attempts:${foundUser.id}`)
         .expire(`auth:reset-password:attempts:${foundUser.id}`, 120)
@@ -570,7 +571,9 @@ const verifyResetPasswordOtp = asyncHandler(
       },
     });
 
-    await redisCacheClient.del(`auth:reset-password:attempts:${foundUser.id}`);
+    await getRedisCacheClient().del(
+      `auth:reset-password:attempts:${foundUser.id}`,
+    );
 
     res.status(200).json({ message: "Successfully verified OTP" });
   },
@@ -600,8 +603,7 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
       400,
     );
 
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(newPassword, salt);
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
 
   await prisma.user.update({
     where: { email },
@@ -621,7 +623,7 @@ const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await redisCacheClient.get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });
@@ -641,19 +643,12 @@ const isAuth = asyncHandler(
       ...userWithoutSensitiveInfo
     } = foundUser;
 
-    await redisCacheClient.set(
+    await getRedisCacheClient().set(
       `user:${foundUser.id}`,
       JSON.stringify(userWithoutSensitiveInfo),
       "EX",
       60 * 20,
     );
-
-    if (cachedUser) {
-      return res.status(200).json({
-        message: "Successfully authenticated",
-        user: JSON.parse(cachedUser),
-      });
-    }
 
     return res.status(200).json({
       message: "Successfully authenticated",
@@ -662,21 +657,15 @@ const isAuth = asyncHandler(
   },
 );
 
-const logout = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
+const logout = asyncHandler(async (req: Request, res: Response) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+  });
 
-    await redisCacheClient.del(`user:${userId}`);
-
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-    });
-
-    return res.status(200).json({ message: "Logged Out" });
-  },
-);
+  return res.status(200).json({ message: "Logged Out" });
+});
 
 export {
   register,
