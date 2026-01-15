@@ -17,6 +17,7 @@ import unvoteService from "../services/question/unvote.service.js";
 import deleteContentService from "../services/question/deleteContent.service.js";
 import markAnswerAsBestService from "../services/question/markAnswerAsBest.service.js";
 import editQuestionService from "../services/question/editQuestion.service.js";
+import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 
 import mongoose from "mongoose";
 
@@ -358,103 +359,13 @@ const rollbackVersion = asyncHandler(
     const userId = req.user.id;
     const { questionId, version } = req.params;
 
-    const cachedQuestion = await getRedisCacheClient().get(
-      `question:${questionId}`,
+    const result = await rollbackVersionService(
+      userId,
+      questionId,
+      Number(version),
     );
-    const foundQuestion = cachedQuestion
-      ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId).lean();
 
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
-
-    if (foundQuestion.isDeleted || !foundQuestion.isActive)
-      throw new HttpError("Question not active", 410);
-
-    if (foundQuestion.userId !== userId)
-      throw new HttpError("Unauthorized to edit question", 403);
-
-    if (foundQuestion.currentVersion <= version)
-      throw new HttpError("Invalid passed version", 400);
-
-    const cachedVersion = await getRedisCacheClient().get(
-      `v:${version}:question:${questionId}`,
-    );
-    const foundVersion = cachedVersion
-      ? JSON.parse(cachedVersion)
-      : await QuestionVersion.findOne({ questionId, version });
-
-    if (!foundVersion) throw new HttpError("Version not found", 404);
-
-    if (foundVersion.isActive)
-      throw new HttpError("Could not rollback to active version", 400);
-
-    const session = await mongoose.startSession();
-    let newVersion;
-
-    await session.withTransaction(async () => {
-      await QuestionVersion.updateOne(
-        { questionId, isActive: true },
-        { $set: { isActive: false } },
-        { session },
-      );
-
-      await QuestionVersion.updateMany(
-        {
-          questionId,
-          version: { $gt: foundVersion.version },
-          isActive: false,
-        },
-        {
-          $set: { supersededByRollback: true },
-        },
-        { session },
-      );
-
-      const newVersionNumber = Number(foundQuestion.currentVersion) + 1;
-
-      const [createdVersion] = await QuestionVersion.create(
-        [
-          {
-            questionId,
-            version: newVersionNumber,
-            title: foundVersion.title,
-            body: foundVersion.body,
-            tags: foundVersion.tags,
-            editedBy: foundVersion.editedBy,
-            editorId: foundVersion.editorId,
-            basedOnVersion: foundVersion.version,
-            isActive: true,
-          },
-        ],
-        { session },
-      );
-
-      newVersion = createdVersion;
-
-      await Question.findByIdAndUpdate(
-        foundQuestion._id || foundQuestion.id,
-        {
-          title: foundVersion.title,
-          body: foundVersion.body,
-          tags: foundVersion.tags,
-          currentVersion: newVersionNumber,
-        },
-        { session },
-      );
-    });
-
-    session.endSession();
-
-    await getRedisCacheClient().del(
-      `question:${questionId}`,
-      `v:${version}:question:${questionId}`,
-      `v:${foundQuestion.currentVersion}:question:${questionId}`,
-    );
-    await clearVersionHistoryCache(questionId);
-
-    return res
-      .status(200)
-      .json({ message: "Successfully rolled back", newVersion });
+    return res.status(200).json(result);
   },
 );
 
