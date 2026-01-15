@@ -15,6 +15,7 @@ import HttpError from "../utils/httpError.util.js";
 import voteService from "../services/question/vote.service.js";
 import unvoteService from "../services/question/unvote.service.js";
 import deleteContentService from "../services/question/deleteContent.service.js";
+import markAnswerAsBestService from "../services/question/markAnswerAsBest.service.js";
 
 import mongoose from "mongoose";
 
@@ -283,78 +284,10 @@ const markAnswerAsBest = asyncHandler(
     const userId = req.user.id;
     const { answerId } = req.params;
 
-    const foundAnswer = await Answer.findById(answerId).lean();
+    const result = await markAnswerAsBestService(userId, answerId);
 
-    if (!foundAnswer) throw new HttpError("Answer not found", 404);
-
-    if (foundAnswer.isDeleted || !foundAnswer.isActive)
-      throw new HttpError("Answer not active", 410);
-
-    if (!foundAnswer.isAccepted)
-      throw new HttpError(
-        "Answer first needs to be accepted before marking it best",
-        400,
-      );
-
-    if (foundAnswer.isBestAnswerByAsker) {
-      return res.status(200).json({
-        message: "Answer is already marked as best",
-        answer: foundAnswer,
-      });
-    }
-
-    const cachedQuestion = await getRedisCacheClient().get(
-      `question:${foundAnswer.questionId}`,
-    );
-
-    const foundQuestion = cachedQuestion
-      ? JSON.parse(cachedQuestion)
-      : await Question.findById(foundAnswer.questionId).lean();
-
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
-
-    if (foundQuestion.userId.toString() !== userId)
-      throw new HttpError("Unauthorized to mark as best answer", 403);
-
-    if (foundQuestion.isDeleted || !foundQuestion.isActive)
-      throw new HttpError("Question not active", 410);
-
-    const bestAnswer = await Answer.findOne({
-      questionId: foundAnswer.questionId,
-      isBestAnswerByAsker: true,
-    });
-
-    if (bestAnswer) {
-      await Answer.findByIdAndUpdate(bestAnswer._id, {
-        $set: { isBestAnswerByAsker: false },
-      });
-
-      await statsQueue.add("unmarkAsBest", {
-        userId: bestAnswer.userId as string,
-        action: "UNMARK_ANSWER_AS_BEST",
-      });
-    }
-
-    const newBestAnswer = await Answer.findByIdAndUpdate(foundAnswer._id, {
-      $set: { isBestAnswerByAsker: true },
-    });
-
-    if (!newBestAnswer)
-      throw new HttpError("Error marking answer as best", 500);
-
-    await statsQueue.add("unmarkAsBest", {
-      userId: newBestAnswer.userId as string,
-      action: "MARK_ANSWER_AS_BEST",
-    });
-
-    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
-    await clearAnswerCache(foundAnswer.questionId as string);
-
-    return res.status(200).json({
-      message: "Successfully marked answer as best",
-      answer: newBestAnswer,
-    });
-  },
+    return res.status(200).json(result);
+  },  
 );
 
 const unmarkAnswerAsBest = asyncHandler(
