@@ -19,12 +19,9 @@ import markAnswerAsBestService from "../services/question/markAnswerAsBest.servi
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 
-import mongoose from "mongoose";
-
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
-import QuestionVersion from "../models/questionVersion.model.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
