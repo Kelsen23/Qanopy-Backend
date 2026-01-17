@@ -1,4 +1,6 @@
-import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import getS3 from "../../config/s3.config.js";
+
 import {
   DetectModerationLabelsCommand,
   Rekognition,
@@ -16,7 +18,9 @@ const rekognition = new Rekognition({
   region: bucketRegion,
 });
 
-const moderateFile = async (objectKey: string, s3: S3Client) => {
+const s3 = await getS3();
+
+const moderateFile = async (objectKey: string) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
     Image: { S3Object: { Bucket: bucketName, Name: objectKey } },
     MinConfidence: 70,
