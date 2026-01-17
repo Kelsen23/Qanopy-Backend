@@ -13,8 +13,11 @@ import isAuthenticated, {
 } from "../middlewares/auth.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 
-import { updateProfileSchema } from "../validations/user.schema.js";
-import { saveInterestsSchema } from "../validations/user.schema.js";
+import {
+  updateProfilePictureSchema,
+  updateProfileSchema,
+  saveInterestsSchema,
+} from "../validations/user.schema.js";
 
 import {
   updateProfileLimiterMiddleware,
@@ -32,6 +35,7 @@ router
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    validate(updateProfilePictureSchema),
     updateProfilePicture,
   );
 
