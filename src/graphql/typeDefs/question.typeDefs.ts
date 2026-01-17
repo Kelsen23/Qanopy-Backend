@@ -129,7 +129,7 @@ const questionTypeDefs = gql`
     ): ReplyConnection!
 
     getSearchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
- 
+
     searchQuestions(
       searchKeyword: String!
       tags: [String]!
@@ -138,8 +138,12 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): QuestionConnection!
 
-    getVersionHistory(questionId: String! cursor: ID limitCount: Int): QuestionVersionConnection!
-    getQuestionVersion(questionId: String! version: Int!): QuestionVersion!
+    getVersionHistory(
+      questionId: String!
+      cursor: ID
+      limitCount: Int
+    ): QuestionVersionConnection!
+    getQuestionVersion(questionId: String!, version: Int!): QuestionVersion!
   }
 `;
 

@@ -24,7 +24,7 @@ async function clearReplyCache(answerId: string) {
 }
 
 async function clearVersionHistoryCache(questionId: string) {
-  await deleteKeysByPattern(`v:question:${questionId}*`)
+  await deleteKeysByPattern(`v:question:${questionId}*`);
 }
 
 export { clearAnswerCache, clearReplyCache, clearVersionHistoryCache };

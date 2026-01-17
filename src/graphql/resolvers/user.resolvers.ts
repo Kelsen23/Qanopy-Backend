@@ -6,7 +6,10 @@ const userResolvers = {
     getUserById: async (
       _: any,
       { id }: { id: string },
-      { prisma, getRedisCacheClient }: { prisma: any; getRedisCacheClient: () => Redis },
+      {
+        prisma,
+        getRedisCacheClient,
+      }: { prisma: any; getRedisCacheClient: () => Redis },
     ) => {
       const cachedUser = await getRedisCacheClient().get(`user:${id}`);
 

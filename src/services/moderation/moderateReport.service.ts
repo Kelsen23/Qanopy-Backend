@@ -52,11 +52,7 @@ const moderateReport = async (
       return createdBan;
     });
 
-    await publishSocketEvent(
-      report.targetUserId as string,
-      "banUser",
-      newBan,
-    );
+    await publishSocketEvent(report.targetUserId as string, "banUser", newBan);
 
     getRedisPub().publish(
       "socket:disconnect",
@@ -106,11 +102,7 @@ const moderateReport = async (
       return createdBan;
     });
 
-    await publishSocketEvent(
-      report.targetUserId as string,
-      "banUser",
-      newBan,
-    );
+    await publishSocketEvent(report.targetUserId as string, "banUser", newBan);
 
     getRedisPub().publish(
       "socket:disconnect",

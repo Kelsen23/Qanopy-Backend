@@ -162,7 +162,10 @@ const questionResolvers = {
     getQuestionById: async (
       _: any,
       { id }: { id: string },
-      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
+      {
+        getRedisCacheClient,
+        loaders,
+      }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
       const cachedQuestion = await getRedisCacheClient().get(`question:${id}`);
       if (cachedQuestion) return JSON.parse(cachedQuestion);
@@ -451,7 +454,10 @@ const questionResolvers = {
         cursor?: string;
         limitCount: number;
       },
-      { loaders, getRedisCacheClient }: { loaders: any; getRedisCacheClient: () => Redis },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
     ) => {
       const cachedAnswers = await getRedisCacheClient().get(
         `answers:${questionId}:${cursor || "initial"}`,
@@ -582,7 +588,10 @@ const questionResolvers = {
         cursor,
         limitCount = 10,
       }: { answerId: string; cursor?: string; limitCount: number },
-      { loaders, getRedisCacheClient }: { loaders: any; getRedisCacheClient: () => Redis },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
     ) => {
       const cachedReplies = await getRedisCacheClient().get(
         `replies:${answerId}:${cursor || "initial"}`,
@@ -748,7 +757,10 @@ const questionResolvers = {
         sortOption: string;
         cursor?: string;
       },
-      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
+      {
+        getRedisCacheClient,
+        loaders,
+      }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
       if (!["LATEST", "TOP"].includes(sortOption))
         throw new HttpError(
@@ -899,7 +911,10 @@ const questionResolvers = {
         cursor,
         limitCount = 10,
       }: { questionId: string; cursor?: string; limitCount: number },
-      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
+      {
+        getRedisCacheClient,
+        loaders,
+      }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
       const cachedVersionHistory = await getRedisCacheClient().get(
         `v:question:${questionId}:${cursor || "initial"}`,
@@ -999,7 +1014,10 @@ const questionResolvers = {
     getQuestionVersion: async (
       _: any,
       { questionId, version }: { questionId: string; version: number },
-      { getRedisCacheClient, loaders }: { getRedisCacheClient: () => Redis; loaders: any },
+      {
+        getRedisCacheClient,
+        loaders,
+      }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
       const cachedVersion = await getRedisCacheClient().get(
         `v:${version}:question:${questionId}`,

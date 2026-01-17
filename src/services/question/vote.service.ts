@@ -44,7 +44,9 @@ const vote = async (
   }
 
   if (targetType === "Question") {
-    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${targetId}`,
+    );
     const foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Question.findById(targetId);

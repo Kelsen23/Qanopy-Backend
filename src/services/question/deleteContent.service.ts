@@ -50,7 +50,9 @@ const deleteContent = async (
   let foundContent: any;
 
   if (targetType === "question") {
-    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${targetId}`,
+    );
     foundContent = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Model.findById(targetId).lean();
