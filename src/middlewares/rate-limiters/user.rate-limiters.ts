@@ -33,7 +33,7 @@ const saveInterestsLimiter = new RateLimiterRedis({
 
 const updateProfilePictureLimiterMiddleware = createRateLimiterMiddleware(
   updateProfilePictureLimiter,
-  "Too many profile picture changes, try again after an hour",
+  "Too many profile picture updates, try again after an hour",
 );
 
 const updateProfileLimiterMiddleware = createRateLimiterMiddleware(
