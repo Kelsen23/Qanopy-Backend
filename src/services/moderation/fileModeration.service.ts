@@ -1,5 +1,10 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import getS3, { bucketName, bucketRegion } from "../../config/s3.config.js";
+import getS3, {
+  accessKey,
+  bucketName,
+  bucketRegion,
+  secretAccessKey,
+} from "../../config/s3.config.js";
 
 import {
   DetectModerationLabelsCommand,
@@ -12,7 +17,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const rekognition = new Rekognition({
-  region: bucketRegion,
+  region: bucketRegion as string,
+  credentials: {
+    accessKeyId: accessKey as string,
+    secretAccessKey: secretAccessKey as string,
+  },
 });
 
 const moderateFile = async (objectKey: string) => {
