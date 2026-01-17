@@ -15,6 +15,7 @@ import markAnswerAsBestService from "../services/question/markAnswerAsBest.servi
 import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.service.js";
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
+import moderateFileService from "../services/moderation/fileModeration.service.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
@@ -338,6 +339,16 @@ const deleteContent = asyncHandler(
   },
 );
 
+const validateContentImage = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { objectKey } = req.body;
+
+    const result = await moderateFileService(objectKey);
+
+    return res.status(200).json(result);
+  },
+);
+
 export {
   createQuestion,
   createAnswerOnQuestion,
@@ -351,4 +362,5 @@ export {
   editQuestion,
   rollbackVersion,
   deleteContent,
+  validateContentImage,
 };
