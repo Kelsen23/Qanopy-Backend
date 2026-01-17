@@ -29,7 +29,7 @@ import {
 const router = express.Router();
 
 router
-  .route("/profilePicture")
+  .route("/update/profile/picture")
   .put(
     updateProfilePictureLimiterMiddleware,
     isAuthenticated,
