@@ -20,7 +20,7 @@ if (
 )
   throw new Error("Missing AWS S3 environment variables");
 
-const getS3 = async (): Promise<S3Client> => {
+const getS3 = (): S3Client => {
   if (!s3) {
     s3 = new S3Client({
       region: bucketRegion,
