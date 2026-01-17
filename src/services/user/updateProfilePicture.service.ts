@@ -1,8 +1,5 @@
-import {
-  S3Client,
-  DeleteObjectCommand,
-  CopyObjectCommand,
-} from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3";
+import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import type { MetadataDirective } from "@aws-sdk/client-s3";
 
 import HttpError from "../../utils/httpError.util.js";
@@ -12,32 +9,6 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
 
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
-
-import dotenv from "dotenv";
-dotenv.config();
-
-const bucketName = process.env.BUCKET_NAME;
-const bucketRegion = process.env.BUCKET_REGION;
-const accessKey = process.env.ACCESS_KEY;
-const secretAccessKey = process.env.SECRET_ACCESS_KEY;
-const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN;
-
-if (
-  !bucketName ||
-  !bucketRegion ||
-  !accessKey ||
-  !secretAccessKey ||
-  !cloudfrontDomain
-)
-  throw new Error("Missing AWS S3 environment variables");
-
-const s3 = new S3Client({
-  region: bucketRegion,
-  credentials: {
-    accessKeyId: accessKey,
-    secretAccessKey: secretAccessKey,
-  },
-});
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
   const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
@@ -51,7 +22,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     throw new HttpError("Invalid object key", 400);
   }
 
-  await moderateFileService(objectKey, s3);
+  await moderateFileService(objectKey);
 
   if (foundUser.profilePictureKey) {
     const deleteParams = {
@@ -62,7 +33,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     const deleteCommand = new DeleteObjectCommand(deleteParams);
 
     try {
-      await s3.send(deleteCommand);
+      await getS3().send(deleteCommand);
     } catch (error) {
       console.log(`Couldn't delete an object: ${error}`);
     }
@@ -97,13 +68,13 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
   const deleteCommand = new DeleteObjectCommand(deleteParams);
 
   try {
-    await s3.send(copyCommand);
+    await getS3().send(copyCommand);
   } catch (error) {
     throw new HttpError(`Failed to move image: ${error}`, 500);
   }
 
   try {
-    await s3.send(deleteCommand);
+    await getS3().send(deleteCommand);
   } catch (error) {
     console.log(`Warning: temp image not deleted: ${error}`);
   }

@@ -1,5 +1,5 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import getS3 from "../../config/s3.config.js";
+import getS3, { bucketName, bucketRegion } from "../../config/s3.config.js";
 
 import {
   DetectModerationLabelsCommand,
@@ -11,14 +11,9 @@ import HttpError from "../../utils/httpError.util.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-const bucketName = process.env.BUCKET_NAME;
-const bucketRegion = process.env.BUCKET_REGION;
-
 const rekognition = new Rekognition({
   region: bucketRegion,
 });
-
-const s3 = await getS3();
 
 const moderateFile = async (objectKey: string) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
@@ -36,7 +31,7 @@ const moderateFile = async (objectKey: string) => {
     const deleteCommand = new DeleteObjectCommand(deleteParams);
 
     try {
-      await s3.send(deleteCommand);
+      await getS3().send(deleteCommand);
     } catch (error) {
       throw new HttpError("Couldn't delete an object: ${error}", 500);
     }
