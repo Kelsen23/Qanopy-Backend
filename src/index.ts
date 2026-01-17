@@ -21,7 +21,6 @@ import typeDefs from "./graphql/typeDefs/index.js";
 import resolvers from "./graphql/resolvers/index.js";
 
 import authRoute from "./routes/auth.route.js";
-import uploadFileRoute from "./routes/uploadFile.route.js";
 import userRoute from "./routes/user.route.js";
 import questionRoute from "./routes/question.route.js";
 import moderationRoute from "./routes/moderation.route.js";
@@ -59,7 +58,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/api/auth", authRoute);
-app.use("/api/upload", uploadFileRoute);
 app.use("/api/user", userRoute);
 app.use("/api/question", questionRoute);
 app.use("/api/moderation", moderationRoute);
