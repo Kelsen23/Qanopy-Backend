@@ -4,6 +4,7 @@ import {
   getInterests,
   saveInterests,
   updateProfile,
+  updateProfilePicture,
 } from "../controllers/user.controller.js";
 
 import isAuthenticated, {
@@ -15,11 +16,24 @@ import validate from "../middlewares/validate.middleware.js";
 import { updateProfileSchema } from "../validations/user.schema.js";
 import { saveInterestsSchema } from "../validations/user.schema.js";
 
-import { updateProfileLimiterMiddleware } from "../middlewares/rate-limiters/user.rate-limiters.js";
-import { getInterestsLimiterMiddleware } from "../middlewares/rate-limiters/user.rate-limiters.js";
-import { saveInterestsLimiterMiddleware } from "../middlewares/rate-limiters/user.rate-limiters.js";
+import {
+  updateProfileLimiterMiddleware,
+  updateProfilePictureLimiterMiddleware,
+  getInterestsLimiterMiddleware,
+  saveInterestsLimiterMiddleware,
+} from "../middlewares/rate-limiters/user.rate-limiters.js";
 
 const router = express.Router();
+
+router
+  .route("/profilePicture")
+  .put(
+    updateProfilePictureLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    updateProfilePicture,
+  );
 
 router
   .route("/update/profile")
