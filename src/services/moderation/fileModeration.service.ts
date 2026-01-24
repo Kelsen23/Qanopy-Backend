@@ -28,7 +28,6 @@ const rekognition = new Rekognition({
 
 const moderateFile = async (
   userId: string,
-  type: "profilePicture" | "content",
   objectKey: string,
 ) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
