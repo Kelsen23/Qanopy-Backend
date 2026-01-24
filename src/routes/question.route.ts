@@ -13,7 +13,6 @@ import {
   editQuestion,
   rollbackVersion,
   deleteContent,
-  validateContentImage,
 } from "../controllers/question.controller.js";
 
 import {
@@ -21,7 +20,6 @@ import {
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
-  validateContentImageSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -32,7 +30,6 @@ import {
   voteLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
-  validateContentImageMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -138,16 +135,5 @@ router
 router
   .route("/:targetType/:targetId")
   .delete(isAuthenticated, isVerified, requireActiveUser, deleteContent);
-
-router
-  .route("/content/validate/image")
-  .post(
-    validateContentImageMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    validate(validateContentImageSchema),
-    validateContentImage,
-  );
 
 export default router;

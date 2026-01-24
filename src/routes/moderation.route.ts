@@ -8,14 +8,19 @@ import {
   activateAccount,
   getWarnings,
   acknowledgeWarning,
+  moderateContentImage,
 } from "../controllers/moderation.controller.js";
 
 import {
   moderateReportSchema,
   reportSchema,
+  moderateContentImageSchema,
 } from "../validations/moderation.schema.js";
 
-import { createReportLimiterMiddleware } from "../middlewares/rate-limiters/moderation.rate-limiters.js";
+import {
+  createReportLimiterMiddleware,
+  moderateContentImageLimiterMiddleware,
+} from "../middlewares/rate-limiters/moderation.rate-limiters.js";
 
 import isAuthenticated, {
   requireActiveUser,
@@ -60,6 +65,17 @@ router
     isAdmin,
     validate(moderateReportSchema),
     moderateReport,
+  );
+
+router
+  .route("/content/moderate/image")
+  .post(
+    moderateContentImageLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(moderateContentImageSchema),
+    moderateContentImage,
   );
 
 export default router;
