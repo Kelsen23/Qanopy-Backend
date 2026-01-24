@@ -91,14 +91,9 @@ const voteSchema = z.object({
   ),
 });
 
-const validateContentImageSchema = z.object({
-  objectKey: z.string().nonempty("objectKey is required"),
-});
-
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
-  validateContentImageSchema,
 };

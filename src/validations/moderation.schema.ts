@@ -45,4 +45,8 @@ const moderateReportSchema = z.object({
     .optional(),
 });
 
-export { reportSchema, moderateReportSchema };
+const moderateContentImageSchema = z.object({
+  objectKey: z.string().nonempty("objectKey is required"),
+});
+
+export { reportSchema, moderateReportSchema, moderateContentImageSchema };
