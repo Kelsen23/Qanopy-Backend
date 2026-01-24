@@ -11,16 +11,27 @@ import { getRedisCacheClient } from "../config/redis.config.js";
 
 import prisma from "../config/prisma.config.js";
 
-import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
+import imageModerationQueue from "../queues/imageModeration.queue.js";
 
 const updateProfilePicture = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { objectKey } = req.body;
 
-    const result = await updateProfilePictureService(userId, objectKey);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profilePictureKey: objectKey },
+    });
 
-    return res.status(200).json(result);
+    await imageModerationQueue.add("moderateProfilePicture", {
+      userId,
+      type: "profilePicture",
+      objectKey,
+    });
+
+    return res
+      .status(202)
+      .json({ message: "Profile picture update queued for moderation" });
   },
 );
 
