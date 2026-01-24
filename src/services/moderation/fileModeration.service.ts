@@ -13,6 +13,8 @@ import {
 
 import HttpError from "../../utils/httpError.util.js";
 
+import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -24,7 +26,11 @@ const rekognition = new Rekognition({
   },
 });
 
-const moderateFile = async (objectKey: string) => {
+const moderateFile = async (
+  userId: string,
+  type: "profilePicture" | "content",
+  objectKey: string,
+) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
     Image: { S3Object: { Bucket: bucketName, Name: objectKey } },
     MinConfidence: 70,
@@ -42,8 +48,14 @@ const moderateFile = async (objectKey: string) => {
     try {
       await getS3().send(deleteCommand);
     } catch (error) {
-      throw new HttpError("Couldn't delete an object: ${error}", 500);
+      throw new HttpError(`Couldn't delete an object: ${error}`, 500);
     }
+
+    publishSocketEvent(
+      userId,
+      `Your uploaded ${type === "profilePicture" ? "profile picture" : "content image"} has been deleted due to unsafe content`,
+      { objectKey },
+    );
 
     throw new HttpError(
       `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
