@@ -59,13 +59,6 @@ const rollbackVersionLimiter = new RateLimiterRedis({
   duration: 60 * 30,
 });
 
-const validateContentImageLimiter = new RateLimiterRedis({
-  storeClient: getRedisMessagingClient(),
-  keyPrefix: "validateContentImage",
-  points: 15,
-  duration: 60 * 60,
-});
-
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
   "Too many questions created, try again after half an hour",
@@ -106,11 +99,6 @@ const rollbackVersionLimiterMiddleware = createRateLimiterMiddleware(
   "Too many rollbacks, try again later",
 );
 
-const validateContentImageMiddleware = createRateLimiterMiddleware(
-  validateContentImageLimiter,
-  "Too many image uploads, try again later",
-);
-
 export {
   createQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
@@ -120,5 +108,4 @@ export {
   markAnswerAsBestLimiterMiddleware,
   editQuestionLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
-  validateContentImageMiddleware,
 };
