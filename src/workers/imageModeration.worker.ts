@@ -1,8 +1,9 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
 import HttpError from "../utils/httpError.util.js";
+
+import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
 import processContentImage from "../services/moderation/processContentImage.service.js";
 
 new Worker(
