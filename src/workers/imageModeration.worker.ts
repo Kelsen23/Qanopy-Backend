@@ -12,9 +12,9 @@ new Worker(
     const { userId, type, objectKey } = job.data;
 
     if (type === "profilePicture") {
-      updateProfilePictureService(userId, objectKey);
+      await updateProfilePictureService(userId, objectKey);
     } else if (type === "content") {
-      processContentImage(userId, objectKey);
+      await processContentImage(userId, objectKey);
     } else throw new HttpError("Invalid type", 500);
   },
 
