@@ -18,11 +18,11 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
-  if (!/^temp\/.*\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
+  if (/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
     throw new HttpError("Invalid object key", 400);
   }
 
-  await moderateFileService(objectKey);
+  await moderateFileService(userId, "profilePicture", objectKey);
 
   if (foundUser.profilePictureKey) {
     const deleteParams = {
