@@ -53,7 +53,7 @@ const moderateFile = async (
 
     publishSocketEvent(
       userId,
-      `Your uploaded ${type === "profilePicture" ? "profile picture" : "content image"} has been deleted due to unsafe content`,
+      `unsafeFileDeleted`,
       { objectKey },
     );
 
