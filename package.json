@@ -21,7 +21,8 @@
     "dev:moderation-worker": "tsx src/workers/reportModeration.worker.ts",
     "dev:questionVersioning-worker": "tsx src/workers/questionVersioning.worker.ts",
     "dev:stats-worker": "tsx src/workers/stats.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\"",
+    "dev:imageModeration-worker": "tsx src/workers/imageModeration.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:moderation-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
