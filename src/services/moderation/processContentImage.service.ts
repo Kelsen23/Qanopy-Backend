@@ -7,7 +7,7 @@ const processContentImage = async (userId: string, objectKey: string) => {
     throw new HttpError("Invalid object key", 400);
   }
 
-  await moderateFileService(userId, "content", objectKey);
+  await moderateFileService(userId, objectKey);
 
   return {
     message: "Successfully processed content image",

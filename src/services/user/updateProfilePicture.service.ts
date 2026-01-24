@@ -22,7 +22,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     throw new HttpError("Invalid object key", 400);
   }
 
-  await moderateFileService(userId, "profilePicture", objectKey);
+  await moderateFileService(userId, objectKey);
 
   if (foundUser.profilePictureKey) {
     const deleteParams = {
