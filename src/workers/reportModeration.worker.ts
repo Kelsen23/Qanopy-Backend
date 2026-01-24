@@ -8,7 +8,7 @@ import processReport from "../services/moderation/processReport.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting moderation worker...");
+  console.log("Mongo connected, starting report moderation worker...");
 
   new Worker(
     "reportModerationQueue",
