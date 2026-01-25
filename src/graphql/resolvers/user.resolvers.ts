@@ -20,7 +20,6 @@ const userResolvers = {
 
       const {
         password,
-        profilePictureKey,
         otp,
         otpResendAvailableAt,
         otpExpireAt,

@@ -99,7 +99,6 @@ const login = asyncHandler(async (req: Request, res: Response) => {
 
   const {
     password: _,
-    profilePictureKey,
     otp,
     otpResendAvailableAt,
     otpExpireAt,
@@ -292,7 +291,6 @@ const verifyEmail = asyncHandler(
 
     const {
       password,
-      profilePictureKey,
       otp,
       otpResendAvailableAt,
       otpExpireAt,
@@ -632,7 +630,6 @@ const isAuth = asyncHandler(
 
     const {
       password,
-      profilePictureKey,
       otp,
       otpResendAvailableAt,
       otpExpireAt,

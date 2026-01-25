@@ -64,7 +64,6 @@ const updateProfile = asyncHandler(
     });
     const {
       password,
-      profilePictureKey,
       otp,
       otpResendAvailableAt,
       otpExpireAt,
@@ -105,7 +104,6 @@ const saveInterests = asyncHandler(
 
     const {
       password,
-      profilePictureKey,
       otp,
       otpResendAvailableAt,
       otpExpireAt,
