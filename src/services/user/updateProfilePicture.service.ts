@@ -1,14 +1,17 @@
-import { DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
-import type { MetadataDirective } from "@aws-sdk/client-s3";
 
 import HttpError from "../../utils/httpError.util.js";
+
+import moveS3Object from "../../utils/moveS3Object.util.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import prisma from "../../config/prisma.config.js";
 
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
+
+import crypto from "crypto";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
   if (/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
@@ -43,34 +46,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
 
   const newObjectKey = `profilePictures/${randomImageName}.png`;
 
-  const copyParams = {
-    Bucket: bucketName,
-    CopySource: `${bucketName}/${objectKey}`,
-    Key: newObjectKey,
-    ContentType: "image/png",
-    MetadataDirective: "REPLACE" as MetadataDirective,
-    CacheControl: "public, max-age=31536000",
-  };
-
-  const deleteParams = {
-    Bucket: bucketName,
-    Key: objectKey,
-  };
-
-  const copyCommand = new CopyObjectCommand(copyParams);
-  const deleteCommand = new DeleteObjectCommand(deleteParams);
-
-  try {
-    await getS3().send(copyCommand);
-  } catch (error) {
-    throw new HttpError(`Failed to move image: ${error}`, 500);
-  }
-
-  try {
-    await getS3().send(deleteCommand);
-  } catch (error) {
-    console.log(`Warning: temp image not deleted: ${error}`);
-  }
+  await moveS3Object(objectKey, newObjectKey);
 
   const updatedUser = await prisma.user.update({
     where: { id: userId },
