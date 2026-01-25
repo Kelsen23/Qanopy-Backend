@@ -22,7 +22,7 @@ async function startWorker() {
         version: -1,
       }).lean();
 
-      const nextVersion = latestVersion ? Number(latestVersion.version) + 1 : 2;
+      const nextVersion = latestVersion ? Number(latestVersion.version) + 1 : 1;
 
       if (!basedOnVersion)
         basedOnVersion = latestVersion ? Number(latestVersion.version) : 1;
