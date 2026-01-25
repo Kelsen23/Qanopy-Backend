@@ -1,5 +1,10 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../config/redis.config.js";
+import {
+  getRedisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.config.js";
+
+import { clearAnswerCache } from "../utils/clearCache.util.js";
 
 import { cloudfrontDomain } from "../config/s3.config.js";
 
@@ -15,6 +20,8 @@ import Answer from "../models/answer.model.js";
 
 import crypto from "crypto";
 
+import questionVersioningQueue from "../queues/questionVersioning.queue.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting content image finalization worker...");
@@ -26,7 +33,7 @@ async function startWorker() {
 
       const entity =
         entityType === "question"
-          ? await Question.findById(entityId).select("body")
+          ? await Question.findById(entityId)
           : await Answer.findById(entityId).select("body");
 
       if (!entity) throw new HttpError("Content not found", 404);
@@ -57,12 +64,27 @@ async function startWorker() {
         }
       }
 
-      if (entity.body !== newBody) {
-        await (entityType === "question" ? Question : Answer).findByIdAndUpdate(
-          entityId,
-          { body: newBody },
-        );
+      if (newBody !== entity.body) {
+        entity.body = newBody;
+        await entity.save();
       }
+
+      if (entityType === "question") {
+        await getRedisCacheClient().del(`question:${entity._id}`);
+
+        await questionVersioningQueue.add(
+          "createNewQuestionVersion",
+          {
+            questionId: entity._id,
+            title: entity.title,
+            body: newBody,
+            tags: entity.tags,
+            editorId: entity.userId,
+            basedOnVersion: null,
+          },
+          { removeOnComplete: true, removeOnFail: false },
+        );
+      } else await clearAnswerCache(entity.questionId as string);
     },
     {
       connection: redisMessagingClientConnection,
