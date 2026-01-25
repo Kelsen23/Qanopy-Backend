@@ -14,7 +14,7 @@ import moderateFileService from "../../services/moderation/fileModeration.servic
 import crypto from "crypto";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
-  if (/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
+  if (!/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
     throw new HttpError("Invalid object key", 400);
   }
 
@@ -26,21 +26,6 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
   if (!foundUser) throw new HttpError("User not found", 404);
 
   await moderateFileService(userId, objectKey);
-
-  if (foundUser.profilePictureKey) {
-    const deleteParams = {
-      Bucket: bucketName,
-      Key: foundUser.profilePictureKey,
-    };
-
-    const deleteCommand = new DeleteObjectCommand(deleteParams);
-
-    try {
-      await getS3().send(deleteCommand);
-    } catch (error) {
-      console.log(`Couldn't delete an object: ${error}`);
-    }
-  }
 
   const randomImageName = crypto.randomUUID();
 
