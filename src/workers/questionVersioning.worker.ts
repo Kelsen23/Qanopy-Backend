@@ -15,20 +15,22 @@ async function startWorker() {
   new Worker(
     "questionVersioningQueue",
     async (job) => {
-      const {
-        questionId,
-        title,
-        body,
-        tags,
-        editorId,
-        version,
-        basedOnVersion,
-      } = job.data;
+      const { questionId, title, body, tags, editorId } = job.data;
+      let { basedOnVersion } = job.data;
+
+      const latestVersion = await QuestionVersion.findOne({ questionId }).sort({
+        version: -1,
+      }).lean();
+
+      const nextVersion = latestVersion ? Number(latestVersion.version) + 1 : 2;
+
+      if (!basedOnVersion)
+        basedOnVersion = latestVersion ? Number(latestVersion.version) : 1;
 
       const activeVersion = await QuestionVersion.findOne(
         { questionId, isActive: true },
         { version: 1 },
-      );
+      ).lean();
 
       await QuestionVersion.updateMany(
         { questionId, isActive: true },
@@ -42,7 +44,7 @@ async function startWorker() {
         tags,
         editedBy: "USER",
         editorId,
-        version,
+        version: nextVersion,
         basedOnVersion,
         isActive: true,
       });
