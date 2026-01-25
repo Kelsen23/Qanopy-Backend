@@ -11,16 +11,16 @@ import prisma from "../../config/prisma.config.js";
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
+  if (/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
+    throw new HttpError("Invalid object key", 400);
+  }
+
   const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
   const foundUser = cachedUser
     ? JSON.parse(cachedUser)
     : await prisma.user.findUnique({ where: { id: userId } });
 
   if (!foundUser) throw new HttpError("User not found", 404);
-
-  if (/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
-    throw new HttpError("Invalid object key", 400);
-  }
 
   await moderateFileService(userId, objectKey);
 
