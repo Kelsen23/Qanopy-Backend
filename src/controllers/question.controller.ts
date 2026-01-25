@@ -22,7 +22,7 @@ import Reply from "../models/reply.model.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
-import questionVersioningQueue from "../queues/questionVersioning.queue.js";
+import contentImageFinalizeQueue from "../queues/contentImageFinalize.queue.js";
 import statsQueue from "../queues/stats.queue.js";
 
 const createQuestion = asyncHandler(
@@ -42,16 +42,11 @@ const createQuestion = asyncHandler(
       action: "ASK_QUESTION",
     });
 
-    await questionVersioningQueue.add(
-      "createNewQuestionVersion",
+    await contentImageFinalizeQueue.add(
+      "finalizeContentImage",
       {
-        questionId: createdQuestion._id,
-        title,
-        body,
-        tags,
-        editorId: userId,
-        version: 1,
-        basedOnVersion: 1,
+        entityType: "question",
+        entityId: createdQuestion._id,
       },
       { removeOnComplete: true, removeOnFail: false },
     );
@@ -69,7 +64,12 @@ const createAnswerOnQuestion = asyncHandler(
     const { body } = req.body;
     const { questionId } = req.params;
 
-    const foundQuestion = await Question.findById(questionId).lean();
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId).lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
 
@@ -83,14 +83,23 @@ const createAnswerOnQuestion = asyncHandler(
       questionVersion: foundQuestion.currentVersion,
     });
 
+    await getRedisCacheClient().del(`question:${questionId}`);
+    await clearAnswerCache(questionId);
+
     await statsQueue.add("giveAnswer", {
       userId,
       action: "GIVE_ANSWER",
       mongoTargetId: foundQuestion._id || foundQuestion.id,
     });
 
-    await getRedisCacheClient().del(`question:${questionId}`);
-    await clearAnswerCache(questionId);
+    await contentImageFinalizeQueue.add(
+      "finalizeContentImage",
+      {
+        entityType: "answer",
+        entityId: newAnswer._id,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
 
     return res
       .status(201)
