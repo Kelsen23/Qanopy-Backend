@@ -5,7 +5,7 @@ import Question from "../../models/question.model.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
 
-import questionVersioningQueue from "../../queues/questionVersioning.queue.js";
+import contentImageFinalizeQueue from "../../queues/contentImageFinalize.queue.js";
 
 const editQuestion = async (
   userId: string,
@@ -52,19 +52,10 @@ const editQuestion = async (
     { new: true },
   );
 
-  await questionVersioningQueue.add(
-    "createNewQuestionVersion",
-    {
-      questionId,
-      title,
-      body,
-      tags,
-      editorId: userId,
-      version: newVersion,
-      basedOnVersion: foundQuestion.currentVersion,
-    },
-    { removeOnComplete: true, removeOnFail: false },
-  );
+  await contentImageFinalizeQueue.add("finalizeContentImage", {
+    entityType: "question",
+    entityId: editedQuestion?._id,
+  });
 
   await getRedisCacheClient().del(`question:${editedQuestion?._id}`);
   await clearVersionHistoryCache(questionId);
