@@ -39,14 +39,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     }
   }
 
-  const chars =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-  let randomImageName = "";
-
-  for (let i = 1; i <= 10; i++) {
-    randomImageName += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  const randomImageName = crypto.randomUUID();
 
   const newObjectKey = `profilePictures/${randomImageName}.png`;
 
