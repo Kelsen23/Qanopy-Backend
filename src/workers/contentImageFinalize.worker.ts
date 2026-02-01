@@ -41,15 +41,13 @@ async function startWorker() {
       let newBody = entity.body as string;
 
       const TEMP_IMAGE_REGEX =
-        /https:\/\/[^/]+\/temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)/gi;
+        /https:\/\/[^/]+\/temp\/content\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)/gi;
       const tempImageUrls = new Set(
         (entity.body as string).match(TEMP_IMAGE_REGEX) || [],
       );
 
       for (const url of tempImageUrls) {
         try {
-          if (!(url as string).includes("/temp/")) continue;
-
           const fromKey = getObjectKeyFromUrl(url as string);
 
           const newKey = `content/${entityType}s/${entityId}/${crypto.randomUUID()}.png`;
