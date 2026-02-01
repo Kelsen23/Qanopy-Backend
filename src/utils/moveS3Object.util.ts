@@ -10,6 +10,8 @@ const moveS3Object = async (fromKey: string, toKey: string) => {
     Key: toKey,
     MetadataDirective: "REPLACE",
     CacheControl: "public, max-age=31536000",
+    ContentType: "image/png",
+    ContentDisposition: "inline",
   });
 
   try {
