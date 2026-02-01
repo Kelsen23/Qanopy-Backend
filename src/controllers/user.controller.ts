@@ -18,6 +18,10 @@ const updateProfilePicture = asyncHandler(
     const userId = req.user.id;
     const { objectKey } = req.body;
 
+    if (!/^temp\/profilePictures\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
+      throw new HttpError("Invalid object key", 400);
+    }    
+
     await prisma.user.update({
       where: { id: userId },
       data: { profilePictureKey: objectKey },

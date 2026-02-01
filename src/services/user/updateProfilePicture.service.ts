@@ -13,10 +13,6 @@ import moderateFileService from "../../services/moderation/fileModeration.servic
 import crypto from "crypto";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
-  if (!/^temp\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)) {
-    throw new HttpError("Invalid object key", 400);
-  }
-
   const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
   const foundUser = cachedUser
     ? JSON.parse(cachedUser)
