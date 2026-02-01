@@ -1,5 +1,4 @@
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
+import { cloudfrontDomain } from "../../config/s3.config.js";
 
 import HttpError from "../../utils/httpError.util.js";
 
