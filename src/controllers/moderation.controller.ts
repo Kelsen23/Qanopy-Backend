@@ -205,7 +205,7 @@ const moderateContentImage = asyncHandler(
     const { objectKey } = req.body;
 
     if (
-      !/^temp\/content\/[a-zA-Z0-9/_.-]+\.(png|jpg|jpeg|webp)$/i.test(objectKey)
+      !/^temp\/content\/[a-zA-Z0-9/_.-]+\.(png|jpg|jpeg)$/i.test(objectKey)
     ) {
       throw new HttpError("Invalid object key", 400);
     }

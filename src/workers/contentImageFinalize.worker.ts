@@ -41,7 +41,7 @@ async function startWorker() {
       let newBody = entity.body as string;
 
       const TEMP_IMAGE_REGEX =
-        /https:\/\/[^/]+\/temp\/content\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg|webp)/gi;
+        /https:\/\/[^/]+\/temp\/content\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg)/gi;
       const tempImageUrls = new Set(
         (entity.body as string).match(TEMP_IMAGE_REGEX) || [],
       );

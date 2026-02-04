@@ -19,7 +19,7 @@ const updateProfilePicture = asyncHandler(
     const { objectKey } = req.body;
 
     if (
-      !/^temp\/profilePictures\/[a-zA-Z0-9/_.-]+\.(png|jpg|jpeg|webp)$/i.test(
+      !/^temp\/profilePictures\/[a-zA-Z0-9/_.-]+\.(png|jpg|jpeg)$/i.test(
         objectKey,
       )
     ) {
