@@ -22,14 +22,16 @@ import crypto from "crypto";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
 
+import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting content image finalization worker...");
 
-  new Worker(
+  const worker = new Worker(
     "contentImageFinalizeQueue",
     async (job) => {
-      const { entityType, entityId } = job.data;
+      const { userId, entityType, entityId } = job.data;
 
       const entity =
         entityType === "question"
@@ -40,26 +42,61 @@ async function startWorker() {
 
       let newBody = entity.body as string;
 
-      const TEMP_IMAGE_REGEX =
-        /https:\/\/[^/]+\/temp\/content\/[a-zA-Z0-9/_-]+\.(png|jpg|jpeg)/gi;
-      const tempImageUrls = new Set(
-        (entity.body as string).match(TEMP_IMAGE_REGEX) || [],
+      const domainWithoutProtocol = (cloudfrontDomain as string)
+        .replace(/^https?:\/\//, "")
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      const TEMP_IMAGE_REGEX = new RegExp(
+        `!\\[[^\\]]*\\]\\((https?:\\/\\/${domainWithoutProtocol}/temp/content/[a-zA-Z0-9/_\\-]+\\.png)\\)`,
+        "gi",
       );
 
-      for (const url of tempImageUrls) {
-        try {
-          const fromKey = getObjectKeyFromUrl(url as string);
+      const markdownReplacements = new Map<string, string>();
+      const tempImageUrls: string[] = [];
 
-          const newKey = `content/${entityType}s/${entityId}/${crypto.randomUUID()}.png`;
+      let match: RegExpExecArray | null;
+      while ((match = TEMP_IMAGE_REGEX.exec(newBody)) !== null) {
+        const url = match[1];
+        tempImageUrls.push(url);
+      }
 
-          await moveS3Object(fromKey, newKey);
+      console.log("Temp URLs found:", tempImageUrls);
 
-          const newUrl = `${cloudfrontDomain}/${newKey}`;
+      const IMAGE_LIMIT = 10;
+      if (tempImageUrls.length > IMAGE_LIMIT) {
+        await publishSocketEvent(
+          userId,
+          `Your freshly created ${entityType} exceeds the image limit of ${IMAGE_LIMIT}. Some temporary images may soon be removed. Please reduce image count.`,
+          { entityId, entityType },
+        );
+      }
 
-          newBody = newBody.replaceAll(url, newUrl);
-        } catch (error) {
-          console.error("Failed to process image", { url, error });
-        }
+      const urlsToProcess = tempImageUrls.slice(0, IMAGE_LIMIT);
+
+      for (const url of urlsToProcess) {
+        const fullMarkdownMatch = newBody.match(
+          new RegExp(
+            `!\\[[^\\]]*\\]\\(${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
+          ),
+        )?.[0];
+
+        if (!fullMarkdownMatch) continue;
+
+        const fromKey = getObjectKeyFromUrl(url);
+        if (!fromKey) continue;
+
+        const newKey = `content/${entityType}s/${entityId}/${crypto.randomUUID()}.png`;
+
+        await moveS3Object(fromKey, newKey);
+
+        const newUrl = `${cloudfrontDomain}/${newKey}`;
+        const newMarkdown = fullMarkdownMatch.replace(url, newUrl);
+
+        markdownReplacements.set(fullMarkdownMatch, newMarkdown);
+      }
+
+      for (const [oldMarkdown, newMarkdown] of markdownReplacements) {
+        newBody = newBody.replaceAll(oldMarkdown, newMarkdown);
       }
 
       if (newBody !== entity.body) {
@@ -82,13 +119,21 @@ async function startWorker() {
           },
           { removeOnComplete: true, removeOnFail: false },
         );
-      } else await clearAnswerCache(entity.questionId as string);
+      } else {
+        await clearAnswerCache(entity.questionId as string);
+      }
     },
     {
       connection: redisMessagingClientConnection,
       concurrency: 1,
     },
   );
+
+  worker.on("completed", (job) => console.log(`Job ${job.id} completed`));
+  worker.on("failed", (job, err) =>
+    console.error(`Job ${job?.id} failed:`, err),
+  );
+  worker.on("error", (err) => console.error("Worker crashed:", err));
 }
 
 startWorker().catch((error) => {
