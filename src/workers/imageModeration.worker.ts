@@ -6,7 +6,7 @@ import HttpError from "../utils/httpError.util.js";
 import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
 import processContentImage from "../services/moderation/processContentImage.service.js";
 
-new Worker(
+const worker = new Worker(
   "imageModerationQueue",
   async (job) => {
     const { userId, type, objectKey } = job.data;
@@ -24,3 +24,15 @@ new Worker(
     limiter: { max: 5, duration: 6000 },
   },
 );
+
+worker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed`);
+});
+
+worker.on("failed", (job, err) => {
+  console.error(`Job ${job?.id} failed:`, err);
+});
+
+worker.on("error", (err) => {
+  console.error("Worker crashed:", err);
+});
