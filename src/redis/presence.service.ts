@@ -12,7 +12,9 @@ const removeUserSocket = async (socketId: string) => {
   if (userId) {
     await getRedisCacheClient().srem(`online:user:${userId}`, socketId);
 
-    const socketsLeft = await getRedisCacheClient().scard(`online:user:${userId}`);
+    const socketsLeft = await getRedisCacheClient().scard(
+      `online:user:${userId}`,
+    );
 
     if (socketsLeft === 0) {
       await getRedisCacheClient().del(`online:user:${userId}`);

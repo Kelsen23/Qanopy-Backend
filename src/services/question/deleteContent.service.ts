@@ -13,6 +13,7 @@ import {
 } from "../../utils/clearCache.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
+import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
 
 type TargetType = "question" | "answer" | "reply";
 
@@ -50,7 +51,9 @@ const deleteContent = async (
   let foundContent: any;
 
   if (targetType === "question") {
-    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${targetId}`,
+    );
     foundContent = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Model.findById(targetId).lean();
@@ -82,6 +85,12 @@ const deleteContent = async (
       userId,
       action: actionMap.question,
     });
+    await imageDeletionQueue.add("deleteFromBody", {
+      body: foundContent.body,
+      entityType: targetType,
+      entityId: targetId,
+    });
+
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "answer") {
     await statsQueue.add("deleteAnswer", {
@@ -89,6 +98,12 @@ const deleteContent = async (
       action: actionMap.answer,
       mongoTargetId: foundContent.questionId as string,
     });
+    await imageDeletionQueue.add("deleteFromBody", {
+      body: foundContent.body,
+      entityType: targetType,
+      entityId: targetId,
+    });
+
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
   } else if (targetType === "reply") {

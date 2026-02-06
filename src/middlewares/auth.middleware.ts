@@ -10,11 +10,13 @@ import prisma from "../config/prisma.config.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
+import { User } from "../generated/prisma/index.js";
+
 interface AuthenticatedRequest extends Request {
   cookies: {
     token?: any;
   };
-  user?: any;
+  user?: User;
 }
 
 const isAuthenticated = asyncHandler(
@@ -52,14 +54,14 @@ const isAuthenticated = asyncHandler(
 
 const isVerified = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user.isVerified) throw new HttpError("User not verified", 403);
+    if (!req.user?.isVerified) throw new HttpError("User not verified", 403);
     next();
   },
 );
 
 const requireActiveUser = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.user.status !== "ACTIVE")
+    if (req.user?.status !== "ACTIVE")
       throw new HttpError("User not active", 403);
 
     next();
@@ -68,7 +70,7 @@ const requireActiveUser = asyncHandler(
 
 const isAdmin = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.user.role !== "ADMIN")
+    if (req.user?.role !== "ADMIN")
       throw new HttpError("User forbidden accessing this route", 403);
 
     next();

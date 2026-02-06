@@ -9,6 +9,10 @@ const leoProfanity = require("leo-profanity");
 
 const normalize = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
 
+const updateProfilePictureSchema = z.object({
+  objectKey: z.string().nonempty("objectKey is required"),
+});
+
 const updateProfileSchema = z.object({
   username: z
     .string()
@@ -47,4 +51,4 @@ const saveInterestsSchema = z.object({
     }),
 });
 
-export { updateProfileSchema, saveInterestsSchema };
+export { updateProfilePictureSchema, updateProfileSchema, saveInterestsSchema };

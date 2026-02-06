@@ -19,6 +19,7 @@ const userTypeDefs = gql`
     id: ID!
     username: String!
     email: String!
+    profilePictureKey: String
     profilePictureUrl: String
     bio: String
     reputationPoints: Int!

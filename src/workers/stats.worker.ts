@@ -263,7 +263,8 @@ async function startWorker() {
 
         await mongoModel.findByIdAndUpdate(id, update);
 
-        if (model === "Question") await getRedisCacheClient().del(`question:${id}`);
+        if (model === "Question")
+          await getRedisCacheClient().del(`question:${id}`);
       }
     },
     {

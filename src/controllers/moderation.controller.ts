@@ -18,6 +18,7 @@ import Report from "../models/report.model.js";
 import prisma from "../config/prisma.config.js";
 
 import reportModerationQueue from "../queues/reportModeration.queue.js";
+import imageModerationQueue from "../queues/imageModeration.queue.js";
 
 const createReport = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -198,6 +199,26 @@ const acknowledgeWarning = asyncHandler(
   },
 );
 
+const moderateContentImage = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { objectKey } = req.body;
+
+    if (!objectKey.includes(userId)) {
+      throw new HttpError("Unauthorized", 403);
+    }
+
+    await imageModerationQueue.add("content", {
+      userId,
+      objectKey,
+    });
+
+    return res.status(202).json({
+      message: "Image uploaded and queued for moderation",
+    });
+  },
+);
+
 export {
   createReport,
   getReports,
@@ -206,4 +227,5 @@ export {
   activateAccount,
   getWarnings,
   acknowledgeWarning,
+  moderateContentImage,
 };

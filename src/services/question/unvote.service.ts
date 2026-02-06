@@ -35,11 +35,7 @@ const actionMap = {
   },
 } as const;
 
-const unvote = async (
-  userId: string,
-  targetType: string,
-  targetId: string,
-) => {
+const unvote = async (userId: string, targetType: string, targetId: string) => {
   if (
     targetType !== "question" &&
     targetType !== "answer" &&
@@ -47,8 +43,8 @@ const unvote = async (
   )
     throw new HttpError("Invalid target type", 400);
 
-  const normalizedTargetType =
-    targetType.charAt(0).toUpperCase() + targetType.slice(1) as TargetType;
+  const normalizedTargetType = (targetType.charAt(0).toUpperCase() +
+    targetType.slice(1)) as TargetType;
 
   if (
     typeof targetId !== "string" ||
@@ -69,7 +65,9 @@ const unvote = async (
   let foundContent: any;
 
   if (normalizedTargetType === "Question") {
-    const cachedQuestion = await getRedisCacheClient().get(`question:${targetId}`);
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${targetId}`,
+    );
     foundContent = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Model.findById(targetId).lean();
