@@ -204,13 +204,8 @@ const moderateContentImage = asyncHandler(
     const userId = req.user.id;
     const { objectKey } = req.body;
 
-    if (
-      new RegExp(
-        `^temp\\/content\\/${userId}\\/[a-zA-Z0-9_.-]+\\.(png|jpg|jpeg)$`,
-        "i",
-      ).test(objectKey)
-    ) {
-      throw new HttpError("Invalid object key", 400);
+    if (!objectKey.includes(userId)) {
+      throw new HttpError("Unauthorized", 403);
     }
 
     await imageModerationQueue.add("content", {

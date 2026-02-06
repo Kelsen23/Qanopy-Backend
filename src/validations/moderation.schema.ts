@@ -46,7 +46,12 @@ const moderateReportSchema = z.object({
 });
 
 const moderateContentImageSchema = z.object({
-  objectKey: z.string().nonempty("objectKey is required"),
+  objectKey: z
+    .string()
+    .regex(
+      /^temp\/content\/[a-f0-9-]+\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg)$/i,
+      "Invalid object key",
+    ),
 });
 
 export { reportSchema, moderateReportSchema, moderateContentImageSchema };
