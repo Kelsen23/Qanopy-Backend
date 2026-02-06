@@ -47,7 +47,7 @@ async function startWorker() {
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
       const TEMP_IMAGE_REGEX = new RegExp(
-        `!\\[[^\\]]*\\]\\((https?:\\/\\/${domainWithoutProtocol}/temp/content/[a-zA-Z0-9/_\\-]+\\.png)\\)`,
+        `!\\[[^\\]]*\\]\\((https?:\\/\\/${domainWithoutProtocol}/temp/content/${userId}/[a-zA-Z0-9/_\\-]+\\.png)\\)`,
         "gi",
       );
 
@@ -59,8 +59,6 @@ async function startWorker() {
         const url = match[1];
         tempImageUrls.push(url);
       }
-
-      console.log("Temp URLs found:", tempImageUrls);
 
       const IMAGE_LIMIT = 10;
       if (tempImageUrls.length > IMAGE_LIMIT) {
@@ -85,7 +83,7 @@ async function startWorker() {
         const fromKey = getObjectKeyFromUrl(url);
         if (!fromKey) continue;
 
-        const newKey = `content/${entityType}s/${entityId}/${crypto.randomUUID()}.png`;
+        const newKey = `content/${entityType}s/${userId}/${entityId}/${crypto.randomUUID()}.png`;
 
         await moveS3Object(fromKey, newKey);
 
@@ -129,7 +127,7 @@ async function startWorker() {
       limiter: {
         max: 20,
         duration: 1000,
-      }
+      },
     },
   );
 
