@@ -9,19 +9,29 @@ import processContentImage from "../services/moderation/processContentImage.serv
 const worker = new Worker(
   "imageModerationQueue",
   async (job) => {
-    const { userId, type, objectKey } = job.data;
+    const { userId, objectKey } = job.data;
 
-    if (type === "profilePicture") {
-      await updateProfilePictureService(userId, objectKey);
-    } else if (type === "content") {
-      await processContentImage(userId, objectKey);
-    } else throw new HttpError("Invalid type", 500);
+    switch (job.name) {
+      case "profilePicture":
+        await updateProfilePictureService(userId, objectKey);
+        break;
+
+      case "content":
+        await processContentImage(userId, objectKey);
+        break;
+
+      default:
+        throw new HttpError("Invalid job type", 500);
+    }
   },
 
   {
     connection: redisMessagingClientConnection,
     concurrency: 1,
-    limiter: { max: 5, duration: 6000 },
+    limiter: {
+      max: 10,
+      duration: 1000,
+    },
   },
 );
 

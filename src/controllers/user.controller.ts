@@ -31,15 +31,27 @@ const updateProfilePicture = asyncHandler(
       data: { profilePictureKey: objectKey },
     });
 
-    await imageModerationQueue.add("moderateProfilePicture", {
+    await imageModerationQueue.add("profilePicture", {
       userId,
-      type: "profilePicture",
       objectKey,
     });
 
     return res
       .status(202)
       .json({ message: "Profile picture update queued for moderation" });
+  },
+);
+
+const deleteProfilePicture = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profilePictureKey: null },
+    });
+
+
   },
 );
 

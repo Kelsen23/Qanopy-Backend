@@ -210,9 +210,8 @@ const moderateContentImage = asyncHandler(
       throw new HttpError("Invalid object key", 400);
     }
 
-    await imageModerationQueue.add("moderateContentImage", {
+    await imageModerationQueue.add("content", {
       userId,
-      type: "content",
       objectKey,
     });
 
