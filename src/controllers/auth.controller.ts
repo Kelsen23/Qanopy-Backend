@@ -19,6 +19,8 @@ import {
 
 import HttpError from "../utils/httpError.util.js";
 
+import sanitizeUser from "../utils/sanitizeUser.util.js";
+
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
 
@@ -97,21 +99,9 @@ const login = asyncHandler(async (req: Request, res: Response) => {
 
   generateToken(res, foundUser.id);
 
-  const {
-    password: _,
-    otp,
-    otpResendAvailableAt,
-    otpExpireAt,
-    resetPasswordOtp,
-    resetPasswordOtpVerified,
-    resetPasswordOtpResendAvailableAt,
-    resetPasswordOtpExpireAt,
-    ...userWithoutSensitiveInfo
-  } = foundUser;
-
   await getRedisCacheClient().set(
     `user:${foundUser.id}`,
-    JSON.stringify(userWithoutSensitiveInfo),
+    JSON.stringify(sanitizeUser(foundUser)),
     "EX",
     60 * 20,
   );
@@ -289,21 +279,9 @@ const verifyEmail = asyncHandler(
       },
     });
 
-    const {
-      password,
-      otp,
-      otpResendAvailableAt,
-      otpExpireAt,
-      resetPasswordOtp,
-      resetPasswordOtpVerified,
-      resetPasswordOtpResendAvailableAt,
-      resetPasswordOtpExpireAt,
-      ...userWithoutSensitiveInfo
-    } = verifiedUser;
-
     await getRedisCacheClient().set(
       `user:${verifiedUser.id}`,
-      JSON.stringify(userWithoutSensitiveInfo),
+      JSON.stringify(sanitizeUser(verifiedUser)),
       "EX",
       60 * 20,
     );
@@ -628,28 +606,16 @@ const isAuth = asyncHandler(
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
-    const {
-      password,
-      otp,
-      otpResendAvailableAt,
-      otpExpireAt,
-      resetPasswordOtp,
-      resetPasswordOtpVerified,
-      resetPasswordOtpResendAvailableAt,
-      resetPasswordOtpExpireAt,
-      ...userWithoutSensitiveInfo
-    } = foundUser;
-
     await getRedisCacheClient().set(
       `user:${foundUser.id}`,
-      JSON.stringify(userWithoutSensitiveInfo),
+      JSON.stringify(sanitizeUser(foundUser)),
       "EX",
       60 * 20,
     );
 
     return res.status(200).json({
       message: "Successfully authenticated",
-      user: userWithoutSensitiveInfo,
+      user: sanitizeUser(foundUser),
     });
   },
 );

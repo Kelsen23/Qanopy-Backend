@@ -4,6 +4,8 @@ import HttpError from "../../utils/httpError.util.js";
 
 import moveS3Object from "../../utils/moveS3Object.util.js";
 
+import sanitizeUser from "../../utils/sanitizeUser.util.js";
+
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import prisma from "../../config/prisma.config.js";
@@ -33,22 +35,9 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     data: { profilePictureKey: newObjectKey },
   });
 
-  const {
-    password,
-    profilePictureKey,
-    otp,
-    otpResendAvailableAt,
-    otpExpireAt,
-    resetPasswordOtp,
-    resetPasswordOtpVerified,
-    resetPasswordOtpResendAvailableAt,
-    resetPasswordOtpExpireAt,
-    ...userWithoutSensitiveInfo
-  } = updatedUser;
-
   await getRedisCacheClient().set(
     `user:${updatedUser.id}`,
-    JSON.stringify(userWithoutSensitiveInfo),
+    JSON.stringify(sanitizeUser(updatedUser)),
     "EX",
     60 * 20,
   );

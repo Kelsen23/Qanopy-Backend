@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 
 import HttpError from "../utils/httpError.util.js";
+import sanitizeUser from "../utils/sanitizeUser.util.js";
 
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
@@ -40,22 +41,9 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
   const foundUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!foundUser) throw new HttpError("User not found", 404);
 
-  const {
-    password,
-    profilePictureKey,
-    otp,
-    otpResendAvailableAt,
-    otpExpireAt,
-    resetPasswordOtp,
-    resetPasswordOtpVerified,
-    resetPasswordOtpResendAvailableAt,
-    resetPasswordOtpExpireAt,
-    ...userWithoutSensitiveInfo
-  } = foundUser;
-
   await getRedisCacheClient().set(
     `user:${userId}`,
-    JSON.stringify(userWithoutSensitiveInfo),
+    JSON.stringify(sanitizeUser(foundUser)),
     "EX",
     60 * 20,
   );
@@ -64,7 +52,7 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
   if (foundUser.status !== "ACTIVE")
     throw new HttpError("User not active", 403);
 
-  return userWithoutSensitiveInfo;
+  return sanitizeUser(foundUser);
 };
 
 export default authenticateGraphQLUser;

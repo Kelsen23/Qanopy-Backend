@@ -1,5 +1,7 @@
 import { Redis } from "ioredis";
+
 import HttpError from "../../utils/httpError.util.js";
+import sanitizeUser from "../../utils/sanitizeUser.util.js";
 
 const userResolvers = {
   Query: {
@@ -18,26 +20,14 @@ const userResolvers = {
       const foundUser = await prisma.user.findUnique({ where: { id } });
       if (!foundUser) throw new HttpError("User not found", 404);
 
-      const {
-        password,
-        otp,
-        otpResendAvailableAt,
-        otpExpireAt,
-        resetPasswordOtp,
-        resetPasswordOtpVerified,
-        resetPasswordOtpResendAvailableAt,
-        resetPasswordOtpExpireAt,
-        ...userWithoutSensitiveInfo
-      } = foundUser;
-
       await getRedisCacheClient().set(
         `user:${id}`,
-        JSON.stringify(userWithoutSensitiveInfo),
+        JSON.stringify(sanitizeUser(foundUser)),
         "EX",
         60 * 20,
       );
 
-      return userWithoutSensitiveInfo;
+      return sanitizeUser(foundUser);
     },
   },
 };
