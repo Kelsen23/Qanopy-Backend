@@ -21,6 +21,7 @@ import {
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
+  deleteContentImageSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -139,6 +140,12 @@ router
 
 router
   .route("/image")
-  .delete(isAuthenticated, isVerified, requireActiveUser, deleteContentImage);
+  .delete(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(deleteContentImageSchema),
+    deleteContentImage,
+  );
 
 export default router;
