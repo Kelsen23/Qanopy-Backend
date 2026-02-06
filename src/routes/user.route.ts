@@ -1,6 +1,7 @@
 import express from "express";
 
 import {
+  deleteProfilePicture,
   getInterests,
   saveInterests,
   updateProfile,
@@ -38,6 +39,10 @@ router
     validate(updateProfilePictureSchema),
     updateProfilePicture,
   );
+
+router
+  .route("/profile/picture")
+  .delete(isAuthenticated, isVerified, requireActiveUser, deleteProfilePicture);
 
 router
   .route("/update/profile")
