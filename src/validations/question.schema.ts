@@ -91,9 +91,30 @@ const voteSchema = z.object({
   ),
 });
 
+const deleteContentImageSchema = z.object({
+  objectKey: z.string().refine((key) => {
+    const tempRegex = new RegExp(
+      `^temp/content/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+\\.(png|jpg|jpeg)$`,
+      "i"
+    );
+
+    const finalRegex = new RegExp(
+      `^content\\/(questions|answers)\\/[a-zA-Z0-9_-]+\\/[a-zA-Z0-9_-]+\\/[a-zA-Z0-9_.-]+\\.(png|jpg|jpeg)$`,
+      "i"
+    );
+
+    if (!tempRegex.test(key) && !finalRegex.test(key)) {
+      return false;
+    }
+
+    return true;
+  }, { message: "Invalid object key" }),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
+  deleteContentImageSchema,
 };
