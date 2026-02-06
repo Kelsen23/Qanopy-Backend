@@ -13,6 +13,7 @@ import {
   editQuestion,
   rollbackVersion,
   deleteContent,
+  deleteContentImage,
 } from "../controllers/question.controller.js";
 
 import {
@@ -135,5 +136,9 @@ router
 router
   .route("/:targetType/:targetId")
   .delete(isAuthenticated, isVerified, requireActiveUser, deleteContent);
+
+router
+  .route("/image")
+  .delete(isAuthenticated, isVerified, requireActiveUser, deleteContentImage);
 
 export default router;
