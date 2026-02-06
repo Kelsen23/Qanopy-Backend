@@ -15,5 +15,12 @@ new Worker(
       html: htmlContent,
     });
   },
-  { connection: redisMessagingClientConnection, concurrency: 20 },
+  {
+    connection: redisMessagingClientConnection,
+    concurrency: 20,
+    limiter: {
+      max: 20,
+      duration: 1000,
+    },
+  },
 );
