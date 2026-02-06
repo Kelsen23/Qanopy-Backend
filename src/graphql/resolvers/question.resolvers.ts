@@ -6,10 +6,10 @@ import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 
-import UserWithoutSensitiveInfo from "../../types/userWithoutSensitiveInfo.type.js";
-
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
+
+import { User } from "../../generated/prisma/index.js";
 
 interface SearchQuestionStage {
   $search: {
@@ -32,7 +32,7 @@ const questionResolvers = {
         getRedisCacheClient,
         loaders,
       }: {
-        user: UserWithoutSensitiveInfo;
+        user: User;
         getRedisCacheClient: () => Redis;
         loaders: any;
       },
