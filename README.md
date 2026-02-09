@@ -38,6 +38,7 @@
 ### Storage & CDN
 - AWS S3 – file storage  
 - AWS CloudFront – CDN for fast global delivery
+- AWS Rekognition - file content moderation
 
 ---
 
