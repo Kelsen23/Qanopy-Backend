@@ -24,7 +24,6 @@ import { getRedisCacheClient } from "../config/redis.config.js";
 
 import contentImageFinalizeQueue from "../queues/contentImageFinalize.queue.js";
 import statsQueue from "../queues/stats.queue.js";
-import imageDeletionQueue from "../queues/imageDeletion.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -348,38 +347,6 @@ const deleteContent = asyncHandler(
   },
 );
 
-const deleteContentImage = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-    const { objectKey } = req.body;
-
-    const finalRegex =
-      /^content\/(questions|answers)\/([^/]+)\/([^/]+)\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg)$/i;
-
-    const match = objectKey.match(finalRegex);
-    if (match) {
-      const [, entityType, keyUserId, entityId] = match;
-
-      if (keyUserId !== userId) throw new HttpError("Unauthorized", 403);
-
-      const Model = entityType === "questions" ? Question : Answer;
-      
-      const entity = await Model.findById(entityId);
-
-      if (!entity) throw new HttpError("Entity not found", 404);
-
-      if ((entity.userId as string) !== userId)
-        throw new HttpError("Unauthorized", 403);
-    }
-
-    await imageDeletionQueue.add("deleteSingle", { objectKey });
-
-    return res
-      .status(202)
-      .json({ message: "Successfully queued image deletion" });
-  },
-);
-
 export {
   createQuestion,
   createAnswerOnQuestion,
@@ -393,5 +360,4 @@ export {
   editQuestion,
   rollbackVersion,
   deleteContent,
-  deleteContentImage,
 };
