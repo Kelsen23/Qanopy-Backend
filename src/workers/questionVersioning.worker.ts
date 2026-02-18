@@ -18,9 +18,11 @@ async function startWorker() {
       const { questionId, title, body, tags, editorId } = job.data;
       let { basedOnVersion } = job.data;
 
-      const latestVersion = await QuestionVersion.findOne({ questionId }).sort({
-        version: -1,
-      }).lean();
+      const latestVersion = await QuestionVersion.findOne({ questionId })
+        .sort({
+          version: -1,
+        })
+        .lean();
 
       const nextVersion = latestVersion ? Number(latestVersion.version) + 1 : 1;
 

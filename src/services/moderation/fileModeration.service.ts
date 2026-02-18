@@ -26,10 +26,7 @@ const rekognition = new Rekognition({
   },
 });
 
-const moderateFile = async (
-  userId: string,
-  objectKey: string,
-) => {
+const moderateFile = async (userId: string, objectKey: string) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
     Image: { S3Object: { Bucket: bucketName, Name: objectKey } },
     MinConfidence: 70,
@@ -50,11 +47,7 @@ const moderateFile = async (
       throw new HttpError(`Couldn't delete an object: ${error}`, 500);
     }
 
-    publishSocketEvent(
-      userId,
-      `unsafeFileDeleted`,
-      { objectKey },
-    );
+    publishSocketEvent(userId, `unsafeFileDeleted`, { objectKey });
 
     throw new HttpError(
       `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
