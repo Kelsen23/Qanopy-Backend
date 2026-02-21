@@ -20,6 +20,21 @@ const QuestionVersionSchema: Schema = new Schema(
     version: { type: Number, required: true },
     basedOnVersion: { type: Number, required: true },
     isActive: { type: Boolean, required: true, index: true },
+
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+      index: true,
+    },
+    moderationUpdatedAt: {
+      type: Date,
+    },
+    topicStatus: {
+      type: String,
+      enum: ["PENDING", "VALID", "OFF_TOPIC", "UNCERTAIN"],
+      default: "PENDING",
+    },
   },
   {
     timestamps: true,
