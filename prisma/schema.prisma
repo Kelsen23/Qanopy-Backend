@@ -92,7 +92,7 @@ enum Interest {
   NETWORKING
 }
 
-enum Auth_Provider {
+enum AuthProvider {
   LOCAL
   GOOGLE
   GITHUB
@@ -122,6 +122,8 @@ model User {
   warnings          Warning[]
   bans              Ban[]
 
+  moderationStats ModerationStats?
+
   otp                               String?
   otpResendAvailableAt              DateTime?
   otpExpireAt                       DateTime?
@@ -129,17 +131,33 @@ model User {
   resetPasswordOtpVerified          Boolean?
   resetPasswordOtpResendAvailableAt DateTime?
   resetPasswordOtpExpireAt          DateTime?
-  isVerified                        Boolean       @default(false)
-  authProvider                      Auth_Provider @default(LOCAL)
+  isVerified                        Boolean      @default(false)
+  authProvider                      AuthProvider @default(LOCAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ModerationStats {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+
+  totalStrikes  Int @default(0)
+  rejectedCount Int @default(0)
+  flaggedCount  Int @default(0)
+
+  lastStrikeAt DateTime?
+  trustScore   Float     @default(1.0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Achievement {
-  id           String @id @default(uuid())
-  user         User   @relation(fields: [targetUserId], references: [id])
-  targetUserId String
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
   name        String @db.VarChar(15)
   description String @db.VarChar(100)
@@ -181,10 +199,11 @@ model ModerationStrike {
   aiConfidence Float?
   aiReasons    String[]
   severity     Int?
+  riskScore    Float
 
   targetContentId      String
   targetType           ContentType
-  targetContentVersion Int
+  targetContentVersion Int?
 
   strikedBy Mods
 
