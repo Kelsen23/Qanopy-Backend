@@ -6,7 +6,7 @@ interface AiModerationResult {
   severity: number;
 }
 
-const aiModerateReport = async (
+const aiModerateContent = async (
   content: string,
 ): Promise<AiModerationResult> => {
   try {
@@ -66,4 +66,4 @@ const aiModerateReport = async (
   }
 };
 
-export default aiModerateReport;
+export default aiModerateContent;
