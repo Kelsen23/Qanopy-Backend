@@ -14,6 +14,18 @@ const QuestionSchema: Schema = new Schema(
 
     currentVersion: { type: Number, default: 1, min: 1 },
 
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+    },
+    moderationUpdatedAt: { type: Date },
+    topicStatus: {
+      type: String,
+      enum: ["PENDING", "VALID", "OFF_TOPIC", "UNCERTAIN"],
+      default: "PENDING",
+    },
+
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },

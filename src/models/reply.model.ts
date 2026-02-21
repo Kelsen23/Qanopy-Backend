@@ -10,6 +10,13 @@ const ReplySchema: Schema = new Schema(
     upvoteCount: { type: Number, default: 0, min: 0 },
     downvoteCount: { type: Number, default: 0, min: 0 },
 
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+    },
+    moderationUpdatedAt: { type: Date },
+
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },
@@ -17,7 +24,7 @@ const ReplySchema: Schema = new Schema(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      versionKeys: false,
+      versionKey: false,
       transform: (_, ret: any) => {
         ret.id = ret._id;
         ret.upvotes = ret.upvoteCount;
