@@ -17,7 +17,7 @@ import Report from "../models/report.model.js";
 
 import prisma from "../config/prisma.config.js";
 
-import reportModerationQueue from "../queues/reportModeration.queue.js";
+import reportModerationQueue from "../queues/contentModeration.queue.js";
 import imageModerationQueue from "../queues/imageModeration.queue.js";
 
 const createReport = asyncHandler(
