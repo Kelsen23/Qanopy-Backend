@@ -182,7 +182,6 @@ enum AiDecision {
   BAN_PERM
   WARN
   IGNORE
-  UNCERTAIN
 }
 
 enum BanType {
