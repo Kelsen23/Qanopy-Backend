@@ -58,18 +58,13 @@ const processContent = async (
   contentType: "Question" | "Answer" | "Reply",
   version?: number,
 ) => {
-  const query =
-    contentType === "Question"
-      ? { questionId: contentId, version }
-      : { questionId: contentId };
-
   const content = await (
     contentType === "Question"
-      ? QuestionVersion
+      ? QuestionVersion.findOne({ questionId: contentId, version })
       : contentType === "Answer"
-        ? Answer
-        : Reply
-  ).findOne(query);
+        ? Answer.findById(contentId)
+        : Reply.findById(contentId)
+  );
 
   if (!content) throw new HttpError("Content not found", 404);
 
