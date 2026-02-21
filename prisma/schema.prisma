@@ -118,8 +118,9 @@ model User {
   achievements     Achievement[]
   status           Status        @default(ACTIVE)
 
-  warnings Warning[]
-  bans     Ban[]
+  moderationStrikes ModerationStrike[]
+  warnings          Warning[]
+  bans              Ban[]
 
   otp                               String?
   otpResendAvailableAt              DateTime?
@@ -136,9 +137,9 @@ model User {
 }
 
 model Achievement {
-  id     String @id @default(uuid())
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
+  id           String @id @default(uuid())
+  user         User   @relation(fields: [targetUserId], references: [id])
+  targetUserId String
 
   name        String @db.VarChar(15)
   description String @db.VarChar(100)
@@ -147,14 +148,50 @@ model Achievement {
   updatedAt DateTime @updatedAt
 }
 
-enum MODS {
+enum ContentType {
+  QUESTION
+  ANSWER
+  REPLY
+}
+
+enum Mods {
   ADMIN_MODERATION
   AI_MODERATION
+}
+
+enum AiDecision {
+  BAN_TEMP
+  BAN_PERM
+  WARN
+  IGNORE
+  UNCERTAIN
 }
 
 enum BanType {
   PERM
   TEMP
+}
+
+model ModerationStrike {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  aiDecision   AiDecision?
+  aiConfidence Float?
+  aiReasons    String[]
+  severity     Int?
+
+  targetContentId      String
+  targetType           ContentType
+  targetContentVersion Int
+
+  strikedBy Mods
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Warning {
@@ -165,15 +202,15 @@ model Warning {
   title    String   @db.VarChar(30)
   reasons  String[]
   severity Int
-  warnedBy MODS
+  warnedBy Mods
 
   seen      Boolean @default(false)
   delivered Boolean @default(false)
 
+  expiresAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  expiresAt DateTime?
 }
 
 model Ban {
@@ -185,7 +222,7 @@ model Ban {
   reasons  String[]
   banType  BanType
   severity Int
-  bannedBy MODS
+  bannedBy Mods
 
   expiresAt  DateTime?
   durationMs Int?
