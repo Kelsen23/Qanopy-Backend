@@ -4,19 +4,19 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
-import processReport from "../services/moderation/processReport.service.js";
+import processContent from "../services/moderation/processContent.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting report moderation worker...");
 
   new Worker(
-    "reportModerationQueue",
+    "contentModerationQueue",
     async (job) => {
       try {
-        const { reportId } = job.data;
+        const { contentId, contentType, version } = job.data;
 
-        await processReport(reportId);
+        await processContent(contentId, contentType, version);
       } catch (error) {
         console.error("Error processing moderation report:", error);
         throw error;
