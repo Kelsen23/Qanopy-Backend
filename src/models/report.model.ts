@@ -3,8 +3,9 @@ import mongoose, { Schema } from "mongoose";
 const ReportSchema: Schema = new Schema(
   {
     reportedBy: { type: String, required: true },
-    targetId: { type: Schema.Types.ObjectId, required: true },
+
     targetUserId: { type: String, required: true },
+    targetId: { type: Schema.Types.ObjectId, required: true },
     targetType: {
       type: String,
       required: true,
@@ -30,27 +31,6 @@ const ReportSchema: Schema = new Schema(
       default: null,
     },
 
-    aiDecision: {
-      type: String,
-      enum: [
-        "BAN_USER_TEMP",
-        "BAN_USER_PERM",
-        "WARN_USER",
-        "IGNORE",
-        "UNCERTAIN",
-      ],
-      required: true,
-      default: "UNCERTAIN",
-    },
-    aiConfidence: { type: Number, min: 0, max: 1, default: 0 },
-    aiReasons: {
-      type: [String],
-      minlength: 3,
-      maxlength: 150,
-      default: [],
-    },
-
-    severity: { type: Number, min: 0, max: 100, default: 0 },
     status: {
       type: String,
       enum: ["PENDING", "REVIEWING", "RESOLVED", "DISMISSED"],
@@ -59,16 +39,16 @@ const ReportSchema: Schema = new Schema(
 
     actionTaken: {
       type: String,
-      enum: ["BAN_USER_TEMP", "BAN_USER_PERM", "WARN_USER", "IGNORE"],
+      enum: ["PENDING", "BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
+      default: "PENDING",
     },
     isRemovingContent: { type: Boolean, required: true, default: false },
-    adminReasons: [{ type: String, maxlength: 150, minlength: 3 }],
   },
   {
     timestamps: true,
     toJSON: {
       virtuals: true,
-      versionKeys: false,
+      versionKey: false,
       transform: (_, ret: any) => {
         ret.id = ret._id;
         delete ret._id;
