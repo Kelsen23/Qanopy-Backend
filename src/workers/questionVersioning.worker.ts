@@ -8,6 +8,8 @@ import connectMongoDB from "../config/mongodb.config.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 
+import contentModerationQueue from "../queues/contentModeration.queue.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting question versioning worker...");
@@ -49,6 +51,11 @@ async function startWorker() {
         version: nextVersion,
         basedOnVersion,
         isActive: true,
+      });
+
+      await contentModerationQueue.add("Question", {
+        contentId: questionId,
+        version: nextVersion,
       });
 
       if (activeVersion) {
