@@ -24,6 +24,7 @@ import { getRedisCacheClient } from "../config/redis.config.js";
 
 import contentImageFinalizeQueue from "../queues/contentImageFinalize.queue.js";
 import statsQueue from "../queues/stats.queue.js";
+import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -136,6 +137,8 @@ const createReplyOnAnswer = asyncHandler(
       action: "GIVE_REPLY",
       mongoTargetId: foundAnswer._id || foundAnswer.id,
     });
+
+    await contentModerationQueue.add("Reply", { contentId: newReply._id });
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
