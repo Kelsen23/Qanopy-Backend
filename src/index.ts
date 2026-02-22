@@ -13,8 +13,6 @@ import bodyParser from "body-parser";
 
 import authenticateGraphQLUser from "./middlewares/graphqlAuth.middleware.js";
 
-import UserWithoutSensitiveInfo from "./types/userWithoutSensitiveInfo.type.js";
-
 import createUserLoader from "./dataloaders/user.loader.js";
 
 import typeDefs from "./graphql/typeDefs/index.js";
@@ -29,7 +27,12 @@ import cookieParser from "cookie-parser";
 
 import prisma from "./config/prisma.config.js";
 
+import { User } from "./generated/prisma/index.js";
+
+import AuthenticatedRequest from "./types/authenticatedRequest.type.js";
+
 import connectMongoDB from "./config/mongodb.config.js";
+
 import { getRedisCacheClient } from "./config/redis.config.js";
 import closeAllRedisConnections from "./utils/closeAllRedisConnections.util.js";
 
@@ -70,8 +73,8 @@ app.use(
   bodyParser.json(),
   expressMiddleware(apolloServer, {
     context: async ({ req }) => {
-      const user: UserWithoutSensitiveInfo = await authenticateGraphQLUser(
-        req as any,
+      const user: User = await authenticateGraphQLUser(
+        req as AuthenticatedRequest,
       );
 
       return {
