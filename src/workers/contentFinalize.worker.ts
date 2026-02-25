@@ -19,23 +19,24 @@ import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
-import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import crypto from "crypto";
+import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting content image finalization worker...");
 
   const worker = new Worker(
-    "contentImageFinalizeQueue",
+    "contentFinalizeQueue",
     async (job) => {
-      const { userId, entityType, entityId } = job.data;
+      const entityType = job.name;
+      const { userId, entityId } = job.data;
 
       const entity =
-        entityType === "question"
+        entityType === "Question"
           ? await Question.findById(entityId)
           : await Answer.findById(entityId).select("body");
 
@@ -65,7 +66,7 @@ async function startWorker() {
       if (tempImageUrls.length > IMAGE_LIMIT) {
         await publishSocketEvent(
           userId,
-          `Your freshly created ${entityType} exceeds the image limit of ${IMAGE_LIMIT}. Some temporary images may soon be removed. Please reduce image count.`,
+          `Your freshly created ${entityType.toLowerCase()} exceeds the image limit of ${IMAGE_LIMIT}. Some temporary images may soon be removed. Please reduce image count.`,
           { entityId, entityType },
         );
       }
@@ -84,7 +85,7 @@ async function startWorker() {
         const fromKey = getObjectKeyFromUrl(url);
         if (!fromKey) continue;
 
-        const newKey = `content/${entityType}s/${userId}/${entityId}/${crypto.randomUUID()}.png`;
+        const newKey = `content/${entityType.toLowerCase()}s/${userId}/${entityId}/${crypto.randomUUID()}.png`;
 
         await moveS3Object(fromKey, newKey);
 
@@ -103,7 +104,7 @@ async function startWorker() {
         await entity.save();
       }
 
-      if (entityType === "question") {
+      if (entityType === "Question") {
         await getRedisCacheClient().del(`question:${entity._id}`);
 
         await questionVersioningQueue.add(
