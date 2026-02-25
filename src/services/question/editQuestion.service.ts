@@ -5,7 +5,7 @@ import Question from "../../models/question.model.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
 
-import contentImageFinalizeQueue from "../../queues/contentImageFinalize.queue.js";
+import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
 
 const editQuestion = async (
   userId: string,
@@ -52,8 +52,8 @@ const editQuestion = async (
     { new: true },
   );
 
-  await contentImageFinalizeQueue.add("finalizeContentImage", {
-    entityType: "question",
+  await contentFinalizeQueue.add("Question", {
+    userId,
     entityId: editedQuestion?._id,
   });
 

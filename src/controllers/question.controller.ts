@@ -22,16 +22,16 @@ import Reply from "../models/reply.model.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
-import contentImageFinalizeQueue from "../queues/contentImageFinalize.queue.js";
 import statsQueue from "../queues/stats.queue.js";
 import contentModerationQueue from "../queues/contentModeration.queue.js";
+import contentFinalizeQueue from "../queues/contentFinalize.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { title, body, tags } = req.body;
 
-    const createdQuestion = await Question.create({
+    const newQuestion = await Question.create({
       userId,
       title,
       body,
@@ -43,18 +43,14 @@ const createQuestion = asyncHandler(
       action: "ASK_QUESTION",
     });
 
-    await contentImageFinalizeQueue.add(
-      "finalizeContentImage",
-      {
-        entityType: "question",
-        entityId: createdQuestion._id,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
+    await contentFinalizeQueue.add("Question", {
+      userId,
+      entityId: newQuestion._id,
+    });
 
     return res.status(201).json({
       message: "Successfully created question",
-      question: createdQuestion,
+      question: newQuestion,
     });
   },
 );
@@ -93,14 +89,10 @@ const createAnswerOnQuestion = asyncHandler(
       mongoTargetId: foundQuestion._id || foundQuestion.id,
     });
 
-    await contentImageFinalizeQueue.add(
-      "finalizeContentImage",
-      {
-        entityType: "answer",
-        entityId: newAnswer._id,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
+    await contentFinalizeQueue.add("Answer", {
+      userId,
+      entityId: newAnswer._id,
+    });
 
     return res
       .status(201)
