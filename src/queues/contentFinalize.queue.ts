@@ -1,8 +1,8 @@
 import { Queue } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-const contentImageFinalizeQueue = new Queue("contentImageFinalizeQueue", {
+const contentFinalizeQueue = new Queue("contentFinalizeQueue", {
   connection: redisMessagingClientConnection,
 });
 
-export default contentImageFinalizeQueue;
+export default contentFinalizeQueue;
