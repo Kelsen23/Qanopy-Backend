@@ -2,7 +2,6 @@ import express from "express";
 
 import {
   createReport,
-  getReports,
   moderateReport,
   getBan,
   activateAccount,
@@ -42,10 +41,6 @@ router
     validate(reportSchema),
     createReport,
   );
-
-router
-  .route("/reports")
-  .get(isAuthenticated, isVerified, requireActiveUser, isAdmin, getReports);
 
 router.route("/ban").get(isAuthenticated, getBan);
 router.route("/warnings").get(isAuthenticated, requireActiveUser, getWarnings);

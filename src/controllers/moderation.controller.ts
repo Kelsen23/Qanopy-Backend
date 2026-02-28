@@ -17,7 +17,6 @@ import Report from "../models/report.model.js";
 
 import prisma from "../config/prisma.config.js";
 
-import reportModerationQueue from "../queues/contentModeration.queue.js";
 import imageModerationQueue from "../queues/imageModeration.queue.js";
 
 const createReport = asyncHandler(
@@ -68,29 +67,11 @@ const createReport = asyncHandler(
       reportComment,
     });
 
-    reportModerationQueue.add(
-      "reportContent",
-      { reportId: newReport._id?.toString() },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-
     return res
       .status(201)
       .json({ message: "Report successfully created", report: newReport });
   },
 );
-
-const getReports = asyncHandler(async (req: Request, res: Response) => {
-  const reportsForModeration = await Report.find({
-    aiDecision: { $eq: "UNCERTAIN" },
-    status: "REVIEWING",
-  });
-
-  return res.status(200).json({
-    message: "Successfully received reports for moderation",
-    reports: reportsForModeration,
-  });
-});
 
 const moderateReport = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -221,7 +202,6 @@ const moderateContentImage = asyncHandler(
 
 export {
   createReport,
-  getReports,
   moderateReport,
   getBan,
   activateAccount,
