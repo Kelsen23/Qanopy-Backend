@@ -111,6 +111,7 @@ async function startWorker() {
           "createNewQuestionVersion",
           {
             questionId: entity._id,
+            userId: entity.userId,
             title: entity.title,
             body: newBody,
             tags: entity.tags,

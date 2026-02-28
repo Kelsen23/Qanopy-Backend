@@ -8,6 +8,7 @@ const QuestionVersionSchema: Schema = new Schema(
       required: true,
       index: true,
     },
+    userId: { type: String, required: true },
 
     title: { type: String, minlength: 10, maxlength: 150, required: true },
     body: { type: String, minlength: 20, maxlength: 20000, required: true },

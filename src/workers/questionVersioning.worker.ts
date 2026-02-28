@@ -17,7 +17,7 @@ async function startWorker() {
   new Worker(
     "questionVersioningQueue",
     async (job) => {
-      const { questionId, title, body, tags, editorId } = job.data;
+      const { questionId, userId, title, body, tags, editorId } = job.data;
       let { basedOnVersion } = job.data;
 
       const latestVersion = await QuestionVersion.findOne({ questionId })
@@ -43,6 +43,7 @@ async function startWorker() {
 
       await QuestionVersion.create({
         questionId,
+        userId,
         title,
         body,
         tags,
