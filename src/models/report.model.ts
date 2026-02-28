@@ -37,7 +37,7 @@ const ReportSchema: Schema = new Schema(
       default: "PENDING",
     },
 
-    reviewedBy: { type: String, required: true },
+    reviewedBy: { type: String, default: null },
     reviewComment: { type: String, maxlength: 150, minlength: 3 },
     actionTaken: {
       type: String,
@@ -45,7 +45,7 @@ const ReportSchema: Schema = new Schema(
       default: "PENDING",
     },
     isRemovingContent: { type: Boolean, required: true, default: false },
-    reviewedAt: { type: Date, required: true },
+    reviewedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
