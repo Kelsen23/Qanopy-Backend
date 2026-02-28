@@ -122,11 +122,16 @@ const moderationTypeDefs = gql`
   }
 
   type Query {
-    getReports(cursor: String, limitCount: Int): ReportConnection!
+    getReports(
+      cursor: String
+      limitCount: Int
+      showReviewed: Boolean
+    ): ReportConnection!
     getStrikes(
       filter: StrikeFilter
       cursor: String
       limitCount: Int
+      showExpired: Boolean
     ): ModerationStrikeConnection!
   }
 `;
