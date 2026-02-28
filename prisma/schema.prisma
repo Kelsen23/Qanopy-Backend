@@ -198,13 +198,15 @@ model ModerationStrike {
   aiConfidence Float?
   aiReasons    String[]
   severity     Int?
-  riskScore    Float
+  riskScore    Float?
 
   targetContentId      String
   targetType           ContentType
-  targetContentVersion Int?
+  targetContentVersion Int
 
-  strikedBy Mods
+  strikedBy     Mods
+  adminId       String?
+  strikeReasons String?
 
   expiresAt DateTime?
 
