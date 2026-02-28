@@ -42,16 +42,22 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const newUser = await prisma.user.create({
-    data: {
-      username,
-      email,
-      password: hashedPassword,
-      otp: hashedOtp,
-      otpExpireAt,
-      otpResendAvailableAt,
-    },
+  const newUser = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword,
+        otp: hashedOtp,
+        otpExpireAt,
+        otpResendAvailableAt,
+        moderationStats: { create: {} },
+      },
+    });
+
+    return createdUser;
   });
+
   generateToken(res, newUser.id);
 
   const deviceInfo = getDeviceInfo(req);
