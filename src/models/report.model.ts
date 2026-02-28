@@ -37,12 +37,15 @@ const ReportSchema: Schema = new Schema(
       default: "PENDING",
     },
 
+    reviewedBy: { type: String, required: true },
+    reviewComment: { type: String, maxlength: 150, minlength: 3 },
     actionTaken: {
       type: String,
       enum: ["PENDING", "BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
       default: "PENDING",
     },
     isRemovingContent: { type: Boolean, required: true, default: false },
+    reviewedAt: { type: Date, required: true },
   },
   {
     timestamps: true,
