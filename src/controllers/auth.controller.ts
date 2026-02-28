@@ -233,10 +233,7 @@ const verifyEmail = asyncHandler(
     const userId = req.user.id;
     const { otp: inputOtp } = req.body;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
-    const foundUser = cachedUser
-      ? JSON.parse(cachedUser)
-      : await prisma.user.findUnique({ where: { id: userId } });
+    const foundUser = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
