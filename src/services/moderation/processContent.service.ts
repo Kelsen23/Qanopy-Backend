@@ -179,7 +179,7 @@ const processContent = async (
         userId: content.userId as string,
       });
 
-      await publishSocketEvent(content.userId as string, "banUser", newBan);
+      await publishSocketEvent(content.userId as string, "ban", newBan);
 
       getRedisPub().publish(
         "socket:disconnect",
