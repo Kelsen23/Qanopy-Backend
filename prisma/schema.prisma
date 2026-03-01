@@ -221,7 +221,7 @@ model Warning {
 
   title    String   @db.VarChar(30)
   reasons  String[]
-  severity Int
+  severity Int?
   warnedBy Mods
 
   seen      Boolean @default(false)
@@ -241,7 +241,7 @@ model Ban {
   title    String   @db.VarChar(30)
   reasons  String[]
   banType  BanType
-  severity Int
+  severity Int?
   bannedBy Mods
 
   expiresAt  DateTime?
