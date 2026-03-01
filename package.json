@@ -25,7 +25,8 @@
     "dev:contentFinalize-worker": "tsx src/workers/contentFinalize.worker.ts",
     "dev:imageDeletion-worker": "tsx src/workers/imageDeletion.worker.ts",
     "dev:moderationMetrics-worker": "tsx src/workers/moderationMetrics.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\"",
+    "dev:deleteContent-worker": "tsx src/workers/deleteContent.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
