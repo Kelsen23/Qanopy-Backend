@@ -3,8 +3,8 @@ import mongoose, { Schema } from "mongoose";
 const ReportSchema: Schema = new Schema(
   {
     reportedBy: { type: String, required: true },
-
     targetUserId: { type: String, required: true },
+
     targetId: { type: Schema.Types.ObjectId, required: true },
     targetType: {
       type: String,
@@ -33,7 +33,7 @@ const ReportSchema: Schema = new Schema(
 
     status: {
       type: String,
-      enum: ["PENDING", "REVIEWING", "RESOLVED", "DISMISSED"],
+      enum: ["PENDING", "RESOLVED", "DISMISSED"],
       default: "PENDING",
     },
 
