@@ -25,33 +25,8 @@ const ModActionLogSchema: Schema = new Schema(
 
     actionTaken: {
       type: String,
-      enum: [
-        "BAN_TEMP",
-        "BAN_PERM",
-        "WARN",
-        "IGNORE",
-        "DELETE_CONTENT",
-        "ADJUST_REPUTATION",
-        "CUSTOM",
-      ],
+      enum: ["BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
       required: true,
-    },
-
-    reason: {
-      type: String,
-    },
-
-    expiresAt: {
-      type: Date,
-      default: null,
-    },
-
-    userStateSnapshot: {
-      username: String,
-      role: String,
-      reputationPoints: Number,
-      isVerified: Boolean,
-      status: String,
     },
 
     meta: {
