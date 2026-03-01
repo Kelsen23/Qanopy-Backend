@@ -6,10 +6,10 @@ import {
 
 import HttpError from "../utils/httpError.util.js";
 
+import updateUserStats from "../utils/updateUserStats.util.js";
+
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
-
-import prisma from "../config/prisma.config.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
@@ -249,7 +249,8 @@ async function startWorker() {
 
       if (stats.prisma) {
         const { data } = stats.prisma;
-        await prisma.user.update({ where: { id: userId }, data });
+
+        await updateUserStats(userId, data);
 
         await getRedisCacheClient().del(`user:${userId}`);
       }
