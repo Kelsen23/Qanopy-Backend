@@ -58,13 +58,11 @@ const processContent = async (
   contentType: "Question" | "Answer" | "Reply",
   version?: number,
 ) => {
-  const content = await (
-    contentType === "Question"
-      ? QuestionVersion.findOne({ questionId: contentId, version })
-      : contentType === "Answer"
-        ? Answer.findById(contentId)
-        : Reply.findById(contentId)
-  );
+  const content = await (contentType === "Question"
+    ? QuestionVersion.findOne({ questionId: contentId, version })
+    : contentType === "Answer"
+      ? Answer.findById(contentId)
+      : Reply.findById(contentId));
 
   if (!content) throw new HttpError("Content not found", 404);
 
@@ -111,7 +109,7 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version,
+          targetContentVersion: version as number,
           strikedBy: "AI_MODERATION",
         },
       });
@@ -158,7 +156,7 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version,
+          targetContentVersion: version as number,  
           strikedBy: "AI_MODERATION",
         },
       });
@@ -214,7 +212,7 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version,
+          targetContentVersion: version as number,
           strikedBy: "AI_MODERATION",
         },
       });
