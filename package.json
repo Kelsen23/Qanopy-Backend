@@ -27,7 +27,8 @@
     "dev:moderationMetrics-worker": "tsx src/workers/moderationMetrics.worker.ts",
     "dev:deleteContent-worker": "tsx src/workers/deleteContent.worker.ts",
     "dev:moderationAudit-worker": "tsx src/workers/moderationAudit.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\"",
+    "dev:notification-worker": "tsx src/workers/notification.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
