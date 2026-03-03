@@ -172,8 +172,7 @@ const moderationResolver = {
 
       if (!showExpired)
         where.OR = [{ expiresAt: null }, { expiresAt: { gt: Date.now() } }];
-      else
-        where.expiresAt = { lt: Date.now() }
+      else where.expiresAt = { lt: Date.now() };
 
       const foundStrikes = await prisma.moderationStrike.findMany({
         take: limitCount,

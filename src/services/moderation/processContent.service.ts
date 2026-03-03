@@ -156,7 +156,7 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version as number,  
+          targetContentVersion: version as number,
           strikedBy: "AI_MODERATION",
         },
       });

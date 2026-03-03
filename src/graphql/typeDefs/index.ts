@@ -4,6 +4,10 @@ import userTypeDefs from "./user.typeDefs.js";
 import questionTypeDefs from "./question.typeDefs.js";
 import moderationTypeDefs from "./moderation.typeDefs.js";
 
-const typeDefs = mergeTypeDefs([userTypeDefs, questionTypeDefs, moderationTypeDefs]);
+const typeDefs = mergeTypeDefs([
+  userTypeDefs,
+  questionTypeDefs,
+  moderationTypeDefs,
+]);
 
 export default typeDefs;
