@@ -224,9 +224,6 @@ model Warning {
   severity Int?
   warnedBy Mods
 
-  seen      Boolean @default(false)
-  delivered Boolean @default(false)
-
   expiresAt DateTime?
 
   createdAt DateTime @default(now())
