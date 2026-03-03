@@ -10,6 +10,7 @@ import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAudit from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
+import notificationQueue from "../../queues/notification.queue.js";
 
 import crypto from "crypto";
 
@@ -25,7 +26,6 @@ const adminModerateReport = async ({
   reasons,
   banDurationMs,
   warningDurationMs,
-  reputationDelta,
 }: {
   targetId: string;
   targetType: "Question" | "Answer" | "Reply";
@@ -37,7 +37,6 @@ const adminModerateReport = async ({
   reasons?: string[];
   banDurationMs?: number;
   warningDurationMs?: number;
-  reputationDelta?: number;
 }) => {
   const foundReport = await Report.findOne({
     _id: targetId,
@@ -54,6 +53,27 @@ const adminModerateReport = async ({
     actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP" ? true : false;
 
   const decisionId = crypto.randomUUID();
+  const reportId = String(foundReport.id);
+  const reporterUserId = foundReport.reportedBy as string;
+
+  const queueNotification = async ({
+    userId,
+    type,
+    referenceId,
+    meta,
+  }: {
+    userId: string;
+    type: "WARN" | "REPORT_UPDATE" | "REMOVE_CONTENT";
+    referenceId: string;
+    meta: Record<string, unknown>;
+  }) => {
+    await notificationQueue.add("createNotification", {
+      userId,
+      type,
+      referenceId,
+      meta,
+    });
+  };
 
   const updateReportStatus = async (
     status: "RESOLVED" | "DISMISSED",
@@ -82,19 +102,20 @@ const adminModerateReport = async ({
       targetUserId: updatedReport.targetUserId,
       actorType: "ADMIN_MODERATION",
       adminId: reviewedBy,
-      actionTaken: "REMOVE",
+      actionTaken,
       meta,
     });
 
-    await publishSocketEvent(
-      foundReport.reportedBy as string,
-      "reportStatusChanged",
-      {
-        actionTaken: updatedReport.actionTaken,
+    await queueNotification({
+      userId: reporterUserId,
+      type: "REPORT_UPDATE",
+      referenceId: reportId,
+      meta: {
         status: updatedReport.status,
+        actionTaken: updatedReport.actionTaken,
         isRemovingContent: updatedReport.isRemovingContent,
       },
-    );
+    });
   };
 
   const queueDeleteContentIfNeeded = async (meta: any) => {
@@ -115,6 +136,17 @@ const adminModerateReport = async ({
       adminId: reviewedBy,
       actionTaken: "REMOVE",
       meta,
+    });
+
+    await queueNotification({
+      userId: reportTargetUserId,
+      type: "REMOVE_CONTENT",
+      referenceId: reportContentId,
+      meta: {
+        reportId,
+        targetType,
+        actionTaken,
+      },
     });
   };
 
@@ -215,7 +247,8 @@ const adminModerateReport = async ({
     }
 
     case "WARN": {
-      const warningTtlMs = warningDurationMs ?? 7 * 24 * 60 * 60 * 1000;
+      if (!warningDurationMs)
+        throw new HttpError("Warning duration required", 400);
 
       const warning = await prisma.warning.create({
         data: {
@@ -223,12 +256,9 @@ const adminModerateReport = async ({
           title,
           reasons,
           warnedBy: "ADMIN_MODERATION",
-          expiresAt: new Date(Date.now() + warningTtlMs),
+          expiresAt: new Date(Date.now() + warningDurationMs),
         },
       });
-
-      if (!warningDurationMs)
-        throw new HttpError("Warning duration required", 400);
 
       const meta = {
         title,
@@ -245,7 +275,16 @@ const adminModerateReport = async ({
         userId: reportTargetUserId,
       });
 
-      await publishSocketEvent(reportTargetUserId, "warn", warning);
+      await queueNotification({
+        userId: reportTargetUserId,
+        type: "WARN",
+        referenceId: warning.id,
+        meta: {
+          title,
+          reasons,
+          expiresAt: warning.expiresAt,
+        },
+      });
 
       break;
     }
