@@ -45,6 +45,10 @@ const adminModerateReport = async ({
 
   if (!foundReport) throw new HttpError("Report not found", 404);
 
+  if (foundReport.targetUserId === reviewedBy) {
+    throw new HttpError("Self-moderation is not allowed", 403);
+  }
+
   const resolvedAt = new Date();
   const reportTargetUserId = foundReport.targetUserId as string;
   const reportContentId = String(foundReport.targetId);
