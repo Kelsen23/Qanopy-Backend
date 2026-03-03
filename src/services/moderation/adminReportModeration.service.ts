@@ -8,7 +8,10 @@ import { getRedisPub } from "../../redis/redis.pubsub.js";
 import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
+import moderationAudit from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
+
+import crypto from "crypto";
 
 type AdminReportActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
@@ -50,7 +53,13 @@ const adminModerateReport = async ({
   const shouldRemoveContent =
     actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP" ? true : false;
 
-  const updateReportStatus = async (status: "RESOLVED" | "DISMISSED") => {
+  const decisionId = crypto.randomUUID();
+
+  const updateReportStatus = async (
+    status: "RESOLVED" | "DISMISSED",
+    actionTaken: AdminReportActionTaken,
+    meta: any,
+  ) => {
     const updatedReport = await Report.findOneAndUpdate(
       { _id: foundReport._id, status: "PENDING" },
       {
@@ -66,6 +75,17 @@ const adminModerateReport = async ({
 
     if (!updatedReport) throw new HttpError("Report already resolved", 409);
 
+    await moderationAudit.add("updateReportStatus", {
+      decisionId,
+      targetType: "REPORT",
+      targetId: updatedReport.id,
+      targetUserId: updatedReport.targetUserId,
+      actorType: "ADMIN_MODERATION",
+      adminId: reviewedBy,
+      actionTaken: "REMOVE",
+      meta,
+    });
+
     await publishSocketEvent(
       foundReport.reportedBy as string,
       "reportStatusChanged",
@@ -77,13 +97,24 @@ const adminModerateReport = async ({
     );
   };
 
-  const queueDeleteContentIfNeeded = async () => {
+  const queueDeleteContentIfNeeded = async (meta: any) => {
     if (!shouldRemoveContent) return;
 
     await deleteContentQueue.add("removeModeratedContent", {
       userId: reportTargetUserId,
       targetType,
       targetId: reportContentId,
+    });
+
+    await moderationAudit.add("removeContent", {
+      decisionId,
+      targetType: "Content",
+      targetId: foundReport.targetId,
+      targetUserId: foundReport.targetUserId,
+      actorType: "ADMIN_MODERATION",
+      adminId: reviewedBy,
+      actionTaken: "REMOVE",
+      meta,
     });
   };
 
@@ -97,25 +128,38 @@ const adminModerateReport = async ({
 
       const expiresAt = new Date(Date.now() + banDurationMs);
 
-      const newBan = await prisma.ban.create({
-        data: {
-          userId: foundReport.targetUserId as string,
-          title,
-          reasons,
-          banType: "TEMP",
-          bannedBy: "ADMIN_MODERATION",
-          expiresAt,
-          durationMs: banDurationMs,
-        },
+      const newBan = await prisma.$transaction(async (tx) => {
+        const createdBan = await tx.ban.create({
+          data: {
+            userId: foundReport.targetUserId as string,
+            title,
+            reasons,
+            banType: "TEMP",
+            bannedBy: "ADMIN_MODERATION",
+            expiresAt,
+            durationMs: banDurationMs,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: reportTargetUserId },
+          data: { status: "SUSPENDED" },
+        });
+
+        return createdBan;
       });
 
-      await prisma.user.update({
-        where: { id: reportTargetUserId },
-        data: { status: "SUSPENDED" },
-      });
+      const meta = {
+        title,
+        reasons,
+        banDurationMs,
+        expiresAt,
+        contentRemoved: shouldRemoveContent,
+      };
 
-      await updateReportStatus("RESOLVED");
-      await queueDeleteContentIfNeeded();
+      await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
+
+      await queueDeleteContentIfNeeded(meta);
 
       await moderationMetricsQueue.add("BAN_TEMP", {
         userId: reportTargetUserId,
@@ -147,8 +191,14 @@ const adminModerateReport = async ({
         data: { status: "TERMINATED" },
       });
 
-      await updateReportStatus("RESOLVED");
-      await queueDeleteContentIfNeeded();
+      const meta = {
+        title,
+        reasons,
+        contentRemoved: shouldRemoveContent,
+      };
+
+      await updateReportStatus("RESOLVED", "BAN_PERM", meta);
+      await queueDeleteContentIfNeeded(meta);
 
       await moderationMetricsQueue.add("BAN_PERM", {
         userId: reportTargetUserId,
@@ -177,8 +227,19 @@ const adminModerateReport = async ({
         },
       });
 
-      await updateReportStatus("RESOLVED");
-      await queueDeleteContentIfNeeded();
+      if (!warningDurationMs)
+        throw new HttpError("Warning duration required", 400);
+
+      const meta = {
+        title,
+        reasons,
+        warningDurationMs,
+        expiresAt: new Date(Date.now() + warningDurationMs),
+        contentRemoved: shouldRemoveContent,
+      };
+
+      await updateReportStatus("RESOLVED", "WARN", meta);
+      await queueDeleteContentIfNeeded(meta);
 
       await moderationMetricsQueue.add("WARN", {
         userId: reportTargetUserId,
@@ -190,7 +251,12 @@ const adminModerateReport = async ({
     }
 
     case "IGNORE": {
-      await updateReportStatus("DISMISSED");
+      const meta = {
+        title,
+        reasons,
+      };
+
+      await updateReportStatus("DISMISSED", "IGNORE", meta);
 
       await moderationMetricsQueue.add("IGNORE", {
         userId: reportTargetUserId,
