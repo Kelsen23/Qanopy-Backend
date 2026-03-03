@@ -5,7 +5,6 @@ import Report from "../../models/report.model.js";
 import prisma from "../../config/prisma.config.js";
 
 import { getRedisPub } from "../../redis/redis.pubsub.js";
-import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAudit from "../../queues/moderationAudit.queue.js";
@@ -160,8 +159,33 @@ const adminModerateReport = async ({
 
       const expiresAt = new Date(Date.now() + banDurationMs);
 
-      const newBan = await prisma.$transaction(async (tx) => {
-        const createdBan = await tx.ban.create({
+      await prisma.$transaction(async (tx) => {
+        const existingPermBan = await tx.ban.findFirst({
+          where: {
+            userId: reportTargetUserId,
+            banType: "PERM",
+          },
+          select: { id: true },
+        });
+
+        if (existingPermBan) {
+          throw new HttpError("User already has a permanent ban", 409);
+        }
+
+        const existingTempBan = await tx.ban.findFirst({
+          where: {
+            userId: reportTargetUserId,
+            banType: "TEMP",
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+
+        if (existingTempBan) {
+          throw new HttpError("User already has an active temporary ban", 409);
+        }
+
+        await tx.ban.create({
           data: {
             userId: foundReport.targetUserId as string,
             title,
@@ -177,8 +201,6 @@ const adminModerateReport = async ({
           where: { id: reportTargetUserId },
           data: { status: "SUSPENDED" },
         });
-
-        return createdBan;
       });
 
       const meta = {
@@ -197,8 +219,6 @@ const adminModerateReport = async ({
         userId: reportTargetUserId,
       });
 
-      await publishSocketEvent(reportTargetUserId, "ban", newBan);
-
       getRedisPub().publish(
         "socket:disconnect",
         JSON.stringify(reportTargetUserId),
@@ -208,19 +228,33 @@ const adminModerateReport = async ({
     }
 
     case "BAN_PERM": {
-      const newBan = await prisma.ban.create({
-        data: {
-          userId: reportTargetUserId,
-          title,
-          reasons,
-          banType: "PERM",
-          bannedBy: "ADMIN_MODERATION",
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        const existingPermBan = await tx.ban.findFirst({
+          where: {
+            userId: reportTargetUserId,
+            banType: "PERM",
+          },
+          select: { id: true },
+        });
 
-      await prisma.user.update({
-        where: { id: reportTargetUserId },
-        data: { status: "TERMINATED" },
+        if (existingPermBan) {
+          throw new HttpError("User already has a permanent ban", 409);
+        }
+
+        await tx.ban.create({
+          data: {
+            userId: reportTargetUserId,
+            title,
+            reasons,
+            banType: "PERM",
+            bannedBy: "ADMIN_MODERATION",
+          },
+        });
+
+        await tx.user.update({
+          where: { id: reportTargetUserId },
+          data: { status: "TERMINATED" },
+        });
       });
 
       const meta = {
@@ -236,8 +270,6 @@ const adminModerateReport = async ({
         userId: reportTargetUserId,
       });
 
-      await publishSocketEvent(reportTargetUserId, "ban", newBan);
-
       getRedisPub().publish(
         "socket:disconnect",
         JSON.stringify(reportTargetUserId),
@@ -250,13 +282,15 @@ const adminModerateReport = async ({
       if (!warningDurationMs)
         throw new HttpError("Warning duration required", 400);
 
+      const expiresAt = new Date(Date.now() + warningDurationMs);
+
       const warning = await prisma.warning.create({
         data: {
           userId: reportTargetUserId,
           title,
           reasons,
           warnedBy: "ADMIN_MODERATION",
-          expiresAt: new Date(Date.now() + warningDurationMs),
+          expiresAt,
         },
       });
 
@@ -264,7 +298,7 @@ const adminModerateReport = async ({
         title,
         reasons,
         warningDurationMs,
-        expiresAt: new Date(Date.now() + warningDurationMs),
+        expiresAt,
         contentRemoved: shouldRemoveContent,
       };
 
@@ -282,7 +316,7 @@ const adminModerateReport = async ({
         meta: {
           title,
           reasons,
-          expiresAt: warning.expiresAt,
+          expiresAt,
         },
       });
 
