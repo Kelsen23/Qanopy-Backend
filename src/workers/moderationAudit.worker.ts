@@ -43,6 +43,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start stats worker:", error);
+  console.error("Failed to start moderation audit worker:", error);
   process.exit(1);
 });
