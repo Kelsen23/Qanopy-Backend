@@ -3,9 +3,9 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import HttpError from "../../utils/httpError.util.js";
 
 const MOD_POINTS = {
-  BAN_USER_PERM: 10,
-  BAN_USER_TEMP: 5,
-  WARN_USER: 2,
+  BAN_PERM: 10,
+  BAN_TEMP: 5,
+  WARN: 2,
   IGNORE: 1,
 } as const;
 
