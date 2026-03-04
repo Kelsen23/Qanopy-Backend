@@ -2,16 +2,14 @@ import express from "express";
 
 import {
   createReport,
-  moderateReport,
+  moderate,
   getBan,
   activateAccount,
-  getWarnings,
-  acknowledgeWarning,
   moderateContentImage,
 } from "../controllers/moderation.controller.js";
 
 import {
-  moderateReportSchema,
+  moderateSchema,
   reportSchema,
   moderateContentImageSchema,
 } from "../validations/moderation.schema.js";
@@ -42,15 +40,6 @@ router
     createReport,
   );
 
-router.route("/ban").get(isAuthenticated, getBan);
-router.route("/warnings").get(isAuthenticated, requireActiveUser, getWarnings);
-
-router.route("/account/activate").patch(isAuthenticated, activateAccount);
-
-router
-  .route("/warnings/:id/seen")
-  .patch(isAuthenticated, requireActiveUser, acknowledgeWarning);
-
 router
   .route("/report/:id/moderate")
   .patch(
@@ -58,9 +47,13 @@ router
     isVerified,
     requireActiveUser,
     isAdmin,
-    validate(moderateReportSchema),
-    moderateReport,
+    validate(moderateSchema),
+    moderate,
   );
+
+router.route("/ban").get(isAuthenticated, getBan);
+
+router.route("/account/activate").patch(isAuthenticated, activateAccount);
 
 router
   .route("/content/moderate/image")
