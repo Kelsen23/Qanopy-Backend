@@ -208,6 +208,10 @@ model ModerationStrike {
   adminId       String?
   strikeReasons String?
 
+  isReviewed Boolean @default(false)
+  reviewedBy String?
+  reviewedAt DateTime?
+
   expiresAt DateTime?
 
   createdAt DateTime @default(now())
