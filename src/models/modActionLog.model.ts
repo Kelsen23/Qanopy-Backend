@@ -57,4 +57,4 @@ const ModActionLogSchema: Schema = new Schema(
   },
 );
 
-export default mongoose.model("ModActionLog", ModActionLogSchema);
+export default mongoose.model("Mod_Action_Log", ModActionLogSchema);
