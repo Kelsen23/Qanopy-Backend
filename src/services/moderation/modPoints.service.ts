@@ -1,4 +1,5 @@
 import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import HttpError from "../../utils/httpError.util.js";
 
 const MOD_POINTS = {
@@ -43,7 +44,7 @@ async function addAdminModPoints(
   );
 
   if (Number(newPoints) > MOD_LIMIT) {
-    throw new HttpError("Please slow down. Moderation cooldown active", 429);
+    throw new HttpError("Slow down. Moderation cooldown active", 429);
   }
 
   return newPoints;
