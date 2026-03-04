@@ -37,6 +37,18 @@ const adminModerateReport = async ({
   banDurationMs?: number;
   warningDurationMs?: number;
 }) => {
+  if (actionTaken === "BAN_TEMP") {
+    if (banDurationMs === undefined) {
+      throw new HttpError("banDurationMs is required for BAN_TEMP", 400);
+    }
+  }
+
+  if (actionTaken === "WARN") {
+    if (warningDurationMs === undefined) {
+      throw new HttpError("warningDurationMs is required for WARN", 400);
+    }
+  }
+
   const foundReport = await Report.findOne({
     _id: targetId,
     targetType,
@@ -49,15 +61,44 @@ const adminModerateReport = async ({
     throw new HttpError("Self-moderation is not allowed", 403);
   }
 
+  const targetUser = await prisma.user.findUnique({
+    where: { id: foundReport.targetUserId as string },
+    select: { status: true },
+  });
+
+  if (!targetUser) throw new HttpError("Target user not found", 404);
+
+  if (actionTaken !== "IGNORE" && targetUser.status === "TERMINATED") {
+    throw new HttpError("Target user account is already terminated", 409);
+  }
+
   const resolvedAt = new Date();
   const reportTargetUserId = foundReport.targetUserId as string;
   const reportContentId = String(foundReport.targetId);
   const shouldRemoveContent =
-    actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP" ? true : false;
+    actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP";
 
   const decisionId = crypto.randomUUID();
   const reportId = String(foundReport.id);
   const reporterUserId = foundReport.reportedBy as string;
+
+  const claimReport = await Report.findOneAndUpdate(
+    {
+      _id: foundReport._id,
+      status: "PENDING",
+      reviewedBy: null,
+    },
+    {
+      reviewedBy,
+      reviewComment,
+      reviewedAt: resolvedAt,
+    },
+    { new: true },
+  );
+
+  if (!claimReport) {
+    throw new HttpError("Report already resolved", 409);
+  }
 
   const queueNotification = async ({
     userId,
@@ -84,14 +125,11 @@ const adminModerateReport = async ({
     meta: any,
   ) => {
     const updatedReport = await Report.findOneAndUpdate(
-      { _id: foundReport._id, status: "PENDING" },
+      { _id: foundReport._id, status: "PENDING", reviewedBy },
       {
         status,
-        reviewedBy,
-        reviewComment,
         actionTaken,
         isRemovingContent: shouldRemoveContent,
-        reviewedAt: resolvedAt,
       },
       { new: true },
     );
@@ -153,194 +191,205 @@ const adminModerateReport = async ({
     });
   };
 
-  switch (actionTaken) {
-    case "BAN_TEMP": {
-      if (!banDurationMs)
-        throw new HttpError(
-          "Banning user temporarily requires a ban duration",
-          400,
+  try {
+    switch (actionTaken) {
+      case "BAN_TEMP": {
+        const expiresAt = new Date(Date.now() + (banDurationMs as number));
+
+        await prisma.$transaction(async (tx) => {
+          const existingPermBan = await tx.ban.findFirst({
+            where: {
+              userId: reportTargetUserId,
+              banType: "PERM",
+            },
+            select: { id: true },
+          });
+
+          if (existingPermBan) {
+            throw new HttpError("User already has a permanent ban", 409);
+          }
+
+          const existingTempBan = await tx.ban.findFirst({
+            where: {
+              userId: reportTargetUserId,
+              banType: "TEMP",
+              expiresAt: { gt: new Date() },
+            },
+            select: { id: true },
+          });
+
+          if (existingTempBan) {
+            throw new HttpError(
+              "User already has an active temporary ban",
+              409,
+            );
+          }
+
+          await tx.ban.create({
+            data: {
+              userId: foundReport.targetUserId as string,
+              title,
+              reasons,
+              banType: "TEMP",
+              bannedBy: "ADMIN_MODERATION",
+              expiresAt,
+              durationMs: banDurationMs,
+            },
+          });
+
+          await tx.user.update({
+            where: { id: reportTargetUserId },
+            data: { status: "SUSPENDED" },
+          });
+        });
+
+        const meta = {
+          title,
+          reasons,
+          banDurationMs,
+          expiresAt,
+          contentRemoved: shouldRemoveContent,
+        };
+
+        await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
+
+        await queueDeleteContentIfNeeded(meta);
+
+        await moderationMetricsQueue.add("BAN_TEMP", {
+          userId: reportTargetUserId,
+        });
+
+        getRedisPub().publish(
+          "socket:disconnect",
+          JSON.stringify(reportTargetUserId),
         );
 
-      const expiresAt = new Date(Date.now() + banDurationMs);
+        break;
+      }
 
-      await prisma.$transaction(async (tx) => {
-        const existingPermBan = await tx.ban.findFirst({
-          where: {
-            userId: reportTargetUserId,
-            banType: "PERM",
-          },
-          select: { id: true },
+      case "BAN_PERM": {
+        await prisma.$transaction(async (tx) => {
+          const existingPermBan = await tx.ban.findFirst({
+            where: {
+              userId: reportTargetUserId,
+              banType: "PERM",
+            },
+            select: { id: true },
+          });
+
+          if (existingPermBan) {
+            throw new HttpError("User already has a permanent ban", 409);
+          }
+
+          await tx.ban.create({
+            data: {
+              userId: reportTargetUserId,
+              title,
+              reasons,
+              banType: "PERM",
+              bannedBy: "ADMIN_MODERATION",
+            },
+          });
+
+          await tx.user.update({
+            where: { id: reportTargetUserId },
+            data: { status: "TERMINATED" },
+          });
         });
 
-        if (existingPermBan) {
-          throw new HttpError("User already has a permanent ban", 409);
-        }
+        const meta = {
+          title,
+          reasons,
+          contentRemoved: shouldRemoveContent,
+        };
 
-        const existingTempBan = await tx.ban.findFirst({
-          where: {
-            userId: reportTargetUserId,
-            banType: "TEMP",
-            expiresAt: { gt: new Date() },
-          },
-          select: { id: true },
-        });
+        await updateReportStatus("RESOLVED", "BAN_PERM", meta);
+        await queueDeleteContentIfNeeded(meta);
 
-        if (existingTempBan) {
-          throw new HttpError("User already has an active temporary ban", 409);
-        }
-
-        await tx.ban.create({
-          data: {
-            userId: foundReport.targetUserId as string,
-            title,
-            reasons,
-            banType: "TEMP",
-            bannedBy: "ADMIN_MODERATION",
-            expiresAt,
-            durationMs: banDurationMs,
-          },
-        });
-
-        await tx.user.update({
-          where: { id: reportTargetUserId },
-          data: { status: "SUSPENDED" },
-        });
-      });
-
-      const meta = {
-        title,
-        reasons,
-        banDurationMs,
-        expiresAt,
-        contentRemoved: shouldRemoveContent,
-      };
-
-      await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
-
-      await queueDeleteContentIfNeeded(meta);
-
-      await moderationMetricsQueue.add("BAN_TEMP", {
-        userId: reportTargetUserId,
-      });
-
-      getRedisPub().publish(
-        "socket:disconnect",
-        JSON.stringify(reportTargetUserId),
-      );
-
-      break;
-    }
-
-    case "BAN_PERM": {
-      await prisma.$transaction(async (tx) => {
-        const existingPermBan = await tx.ban.findFirst({
-          where: {
-            userId: reportTargetUserId,
-            banType: "PERM",
-          },
-          select: { id: true },
-        });
-
-        if (existingPermBan) {
-          throw new HttpError("User already has a permanent ban", 409);
-        }
-
-        await tx.ban.create({
-          data: {
-            userId: reportTargetUserId,
-            title,
-            reasons,
-            banType: "PERM",
-            bannedBy: "ADMIN_MODERATION",
-          },
-        });
-
-        await tx.user.update({
-          where: { id: reportTargetUserId },
-          data: { status: "TERMINATED" },
-        });
-      });
-
-      const meta = {
-        title,
-        reasons,
-        contentRemoved: shouldRemoveContent,
-      };
-
-      await updateReportStatus("RESOLVED", "BAN_PERM", meta);
-      await queueDeleteContentIfNeeded(meta);
-
-      await moderationMetricsQueue.add("BAN_PERM", {
-        userId: reportTargetUserId,
-      });
-
-      getRedisPub().publish(
-        "socket:disconnect",
-        JSON.stringify(reportTargetUserId),
-      );
-
-      break;
-    }
-
-    case "WARN": {
-      if (!warningDurationMs)
-        throw new HttpError("Warning duration required", 400);
-
-      const expiresAt = new Date(Date.now() + warningDurationMs);
-
-      const warning = await prisma.warning.create({
-        data: {
+        await moderationMetricsQueue.add("BAN_PERM", {
           userId: reportTargetUserId,
+        });
+
+        getRedisPub().publish(
+          "socket:disconnect",
+          JSON.stringify(reportTargetUserId),
+        );
+
+        break;
+      }
+
+      case "WARN": {
+        const expiresAt = new Date(Date.now() + (warningDurationMs as number));
+
+        const warning = await prisma.warning.create({
+          data: {
+            userId: reportTargetUserId,
+            title,
+            reasons,
+            warnedBy: "ADMIN_MODERATION",
+            expiresAt,
+          },
+        });
+
+        const meta = {
           title,
           reasons,
-          warnedBy: "ADMIN_MODERATION",
+          warningDurationMs,
           expiresAt,
-        },
-      });
+          contentRemoved: shouldRemoveContent,
+        };
 
-      const meta = {
-        title,
-        reasons,
-        warningDurationMs,
-        expiresAt,
-        contentRemoved: shouldRemoveContent,
-      };
+        await updateReportStatus("RESOLVED", "WARN", meta);
+        await queueDeleteContentIfNeeded(meta);
 
-      await updateReportStatus("RESOLVED", "WARN", meta);
-      await queueDeleteContentIfNeeded(meta);
+        await moderationMetricsQueue.add("WARN", {
+          userId: reportTargetUserId,
+        });
 
-      await moderationMetricsQueue.add("WARN", {
-        userId: reportTargetUserId,
-      });
+        await queueNotification({
+          userId: reportTargetUserId,
+          type: "WARN",
+          referenceId: warning.id,
+          meta: {
+            title,
+            reasons,
+            expiresAt,
+          },
+        });
 
-      await queueNotification({
-        userId: reportTargetUserId,
-        type: "WARN",
-        referenceId: warning.id,
-        meta: {
+        break;
+      }
+
+      case "IGNORE": {
+        const meta = {
           title,
           reasons,
-          expiresAt,
-        },
-      });
+        };
 
-      break;
+        await updateReportStatus("DISMISSED", "IGNORE", meta);
+
+        await moderationMetricsQueue.add("IGNORE", {
+          userId: reportTargetUserId,
+        });
+
+        break;
+      }
     }
+  } catch (error) {
+    await Report.findOneAndUpdate(
+      {
+        _id: foundReport._id,
+        status: "PENDING",
+        reviewedBy,
+      },
+      {
+        reviewedBy: null,
+        reviewedAt: null,
+        $unset: { reviewComment: 1 },
+      },
+    );
 
-    case "IGNORE": {
-      const meta = {
-        title,
-        reasons,
-      };
-
-      await updateReportStatus("DISMISSED", "IGNORE", meta);
-
-      await moderationMetricsQueue.add("IGNORE", {
-        userId: reportTargetUserId,
-      });
-
-      break;
-    }
+    throw error;
   }
 };
 
