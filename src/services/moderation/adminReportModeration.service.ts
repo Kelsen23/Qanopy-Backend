@@ -1,4 +1,5 @@
 import HttpError from "../../utils/httpError.util.js";
+import queueNotification from "../../utils/queueNotification.util.js";
 
 import Report from "../../models/report.model.js";
 
@@ -9,7 +10,6 @@ import { getRedisPub } from "../../redis/redis.pubsub.js";
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
-import notificationQueue from "../../queues/notification.queue.js";
 
 import crypto from "crypto";
 
@@ -98,25 +98,6 @@ const adminModerateReport = async ({
   if (!claimReport) {
     throw new HttpError("Report already resolved", 409);
   }
-
-  const queueNotification = async ({
-    userId,
-    type,
-    referenceId,
-    meta,
-  }: {
-    userId: string;
-    type: "WARN" | "STRIKE" | "REPORT_UPDATE" | "REMOVE_CONTENT";
-    referenceId: string;
-    meta: Record<string, unknown>;
-  }) => {
-    await notificationQueue.add("createNotification", {
-      userId,
-      type,
-      referenceId,
-      meta,
-    });
-  };
 
   const updateReportStatus = async (
     status: "RESOLVED" | "DISMISSED",

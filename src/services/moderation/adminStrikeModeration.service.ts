@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 import HttpError from "../../utils/httpError.util.js";
+import queueNotification from "../../utils/queueNotification.util.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -21,7 +22,6 @@ type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type ReadableTargetType = "Question" | "Answer" | "Reply";
-type NotificationType = "WARN" | "STRIKE" | "REMOVE_CONTENT";
 
 const targetTypeMap: Record<TargetType, ReadableTargetType> = {
   QUESTION: "Question",
@@ -43,25 +43,6 @@ const actionToModerationStatus: Record<
   BAN_PERM: "REJECTED",
   WARN: "FLAGGED",
   IGNORE: "APPROVED",
-};
-
-const queueNotification = async ({
-  userId,
-  type,
-  referenceId,
-  meta,
-}: {
-  userId: string;
-  type: NotificationType;
-  referenceId: string;
-  meta: Record<string, unknown>;
-}) => {
-  await notificationQueue.add("createNotification", {
-    userId,
-    type,
-    referenceId,
-    meta,
-  });
 };
 
 const getTargetContentState = async (
