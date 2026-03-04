@@ -170,9 +170,10 @@ const moderationResolver = {
       if (filter === "AI") where.strikedBy = "AI_MODERATION";
       else if (filter === "ADMIN") where.strikedBy = "ADMIN_MODERATION";
 
+      const now = new Date();
       if (!showExpired)
-        where.OR = [{ expiresAt: null }, { expiresAt: { gt: Date.now() } }];
-      else where.expiresAt = { lt: Date.now() };
+        where.OR = [{ expiresAt: null }, { expiresAt: { gt: now } }];
+      else where.expiresAt = { lt: now };
 
       const foundStrikes = await prisma.moderationStrike.findMany({
         take: limitCount,
