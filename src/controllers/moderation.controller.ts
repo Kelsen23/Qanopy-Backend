@@ -80,14 +80,16 @@ const moderate = asyncHandler(
     const { type, actionTaken } = req.body;
 
     if (type === "Report") {
-      await adminModerateReportService(req.body);
+      await adminModerateReportService({ ...req.body, reviewedBy: userId });
     } else {
-      await adminModerateStrikeService(req.body);
+      await adminModerateStrikeService({ ...req.body, reviewedBy: userId });
     }
 
     await addAdminModPoints(userId, actionTaken);
 
-    return res.status(200).json({ message: "Report successfully reviewed" });
+    return res.status(200).json({
+      message: `Successfully moderated ${type.toString().toLowerCase()}`,
+    });
   },
 );
 
