@@ -41,7 +41,7 @@ router
   );
 
 router
-  .route("/report/:id/moderate")
+  .route("/moderate")
   .patch(
     isAuthenticated,
     isVerified,
