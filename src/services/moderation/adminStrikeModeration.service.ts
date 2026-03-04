@@ -98,7 +98,7 @@ const getTargetContentState = async (
   };
 };
 
-const adminStrikeModeration = async ({
+const adminModerateStrike = async ({
   targetId,
   reviewedBy,
   reviewComment,
@@ -113,7 +113,7 @@ const adminStrikeModeration = async ({
   reviewComment?: string;
   actionTaken: AdminStrikeActionTaken;
   title: string;
-  reasons?: string[];
+  reasons: string[];
   banDurationMs?: number;
   warningDurationMs?: number;
 }) => {
@@ -183,7 +183,7 @@ const adminStrikeModeration = async ({
 
   const baseMeta = {
     title,
-    reasons: reasons ?? [],
+    reasons: reasons,
     reviewComment,
     originalAiDecision: foundStrike.aiDecision,
     originalAiConfidence: foundStrike.aiConfidence,
@@ -234,7 +234,7 @@ const adminStrikeModeration = async ({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons ?? [],
+            reasons: reasons,
             banType: "TEMP",
             severity: foundStrike.severity ?? undefined,
             bannedBy: "ADMIN_MODERATION",
@@ -274,7 +274,7 @@ const adminStrikeModeration = async ({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons ?? [],
+            reasons: reasons,
             banType: "PERM",
             severity: foundStrike.severity ?? undefined,
             bannedBy: "ADMIN_MODERATION",
@@ -302,7 +302,7 @@ const adminStrikeModeration = async ({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons ?? [],
+            reasons: reasons,
             severity: foundStrike.severity ?? undefined,
             warnedBy: "ADMIN_MODERATION",
             expiresAt,
@@ -406,7 +406,7 @@ const adminStrikeModeration = async ({
       referenceId: createdWarning.id,
       meta: {
         title,
-        reasons: reasons ?? [],
+        reasons: reasons,
         expiresAt: createdWarning.expiresAt,
         strikeId: foundStrike.id,
       },
@@ -419,7 +419,7 @@ const adminStrikeModeration = async ({
       meta: {
         actionTaken,
         title,
-        reasons: reasons ?? [],
+        reasons: reasons,
         expiresAt,
         strikeId: moderatedStrike.id,
       },
@@ -450,4 +450,4 @@ const adminStrikeModeration = async ({
   }
 };
 
-export default adminStrikeModeration;
+export default adminModerateStrike;
