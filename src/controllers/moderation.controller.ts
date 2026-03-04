@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
@@ -6,8 +6,9 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
+import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
 import addAdminModPoints from "../services/moderation/modPoints.service.js";
-import moderateReportService from "../services/moderation/moderateReport.service.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
@@ -73,16 +74,18 @@ const createReport = asyncHandler(
   },
 );
 
-const moderateReport = asyncHandler(
+const moderate = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
-    const reportId = req.params.id;
+    const { type, actionTaken } = req.body;
 
-    const { actionTaken } = req.body;
+    if (type === "Report") {
+      await adminModerateReportService(req.body);
+    } else {
+      await adminModerateStrikeService(req.body);
+    }
 
     await addAdminModPoints(userId, actionTaken);
-
-    await moderateReportService(reportId, req.body);
 
     return res.status(200).json({ message: "Report successfully reviewed" });
   },
@@ -142,44 +145,6 @@ const activateAccount = asyncHandler(
   },
 );
 
-const getWarnings = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-
-    const foundWarnings = await prisma.warning.findMany({
-      where: {
-        userId,
-        seen: false,
-        expiresAt: { gt: new Date(Date.now()) },
-      },
-    });
-
-    await prisma.warning.updateMany({
-      where: { userId, seen: false, expiresAt: { gt: new Date(Date.now()) } },
-      data: { delivered: true },
-    });
-
-    return res.status(200).json({
-      message: "Successfully received warnings",
-      warnings: foundWarnings,
-    });
-  },
-);
-
-const acknowledgeWarning = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    await prisma.warning.update({
-      where: { id, userId },
-      data: { seen: true, delivered: true },
-    });
-
-    return res.status(200).json({ message: "Warning acknowledged" });
-  },
-);
-
 const moderateContentImage = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -202,10 +167,8 @@ const moderateContentImage = asyncHandler(
 
 export {
   createReport,
-  moderateReport,
+  moderate,
   getBan,
   activateAccount,
-  getWarnings,
-  acknowledgeWarning,
   moderateContentImage,
 };
