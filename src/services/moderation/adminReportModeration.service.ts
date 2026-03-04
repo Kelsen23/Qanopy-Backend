@@ -7,7 +7,7 @@ import prisma from "../../config/prisma.config.js";
 import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
-import moderationAudit from "../../queues/moderationAudit.queue.js";
+import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 import notificationQueue from "../../queues/notification.queue.js";
 
@@ -135,7 +135,7 @@ const adminModerateReport = async ({
 
     if (!updatedReport) throw new HttpError("Report already resolved", 409);
 
-    await moderationAudit.add("updateReportStatus", {
+    await moderationAuditQueue.add("updateReportStatus", {
       decisionId,
       targetType: "Report",
       targetId: updatedReport.id,
@@ -167,7 +167,7 @@ const adminModerateReport = async ({
       targetId: reportContentId,
     });
 
-    await moderationAudit.add("removeContent", {
+    await moderationAuditQueue.add("removeContent", {
       decisionId,
       targetType: "Content",
       targetId: foundReport.targetId,
@@ -250,7 +250,7 @@ const adminModerateReport = async ({
           contentRemoved: shouldRemoveContent,
         };
 
-        await moderationAudit.add("banUserTemp", {
+        await moderationAuditQueue.add("banUserTemp", {
           decisionId,
           targetType: "User",
           targetId: reportTargetUserId,
@@ -327,7 +327,7 @@ const adminModerateReport = async ({
           contentRemoved: shouldRemoveContent,
         };
 
-        await moderationAudit.add("banUserPerm", {
+        await moderationAuditQueue.add("banUserPerm", {
           decisionId,
           targetType: "User",
           targetId: reportTargetUserId,

@@ -9,7 +9,7 @@ import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
-import moderationAudit from "../../queues/moderationAudit.queue.js";
+import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 import notificationQueue from "../../queues/notification.queue.js";
 
@@ -372,7 +372,7 @@ const adminModerateStrike = async ({
   };
 
   if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
-    await moderationAudit.add("banUserFromStrike", {
+    await moderationAuditQueue.add("banUserFromStrike", {
       decisionId,
       targetType: "User",
       targetId: foundStrike.userId,
@@ -387,7 +387,7 @@ const adminModerateStrike = async ({
     });
   }
 
-  await moderationAudit.add("updateStrikeStatus", {
+  await moderationAuditQueue.add("updateStrikeStatus", {
     decisionId,
     targetType: "Strike",
     targetId: moderatedStrike.id,
@@ -399,7 +399,7 @@ const adminModerateStrike = async ({
   });
 
   if (contentRemovalQueued) {
-    await moderationAudit.add("removeContent", {
+    await moderationAuditQueue.add("removeContent", {
       decisionId,
       targetType: "Content",
       targetId: foundStrike.targetContentId,
