@@ -32,7 +32,6 @@ const adminModerateReport = async ({
   reviewComment?: string;
   actionTaken: AdminReportActionTaken;
   title: string;
-  isRemovingContent: boolean;
   reasons?: string[];
   banDurationMs?: number;
   warningDurationMs?: number;
