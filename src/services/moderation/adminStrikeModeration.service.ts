@@ -12,7 +12,6 @@ import Reply from "../../models/reply.model.js";
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
-import notificationQueue from "../../queues/notification.queue.js";
 
 import { getRedisPub } from "../../redis/redis.pubsub.js";
 
