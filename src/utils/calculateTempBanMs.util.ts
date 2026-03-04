@@ -4,8 +4,6 @@ const calculateTempBanMs = (
   totalStrikes: number,
   trustScore: number,
 ): number => {
-  if (severity < 70) return 0;
-
   const baseDays = 3 + ((severity - 70) / 30) * 4;
 
   const confidenceMultiplier = 1 + confidence * 0.5;
