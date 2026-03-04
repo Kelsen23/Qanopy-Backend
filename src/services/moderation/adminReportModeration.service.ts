@@ -106,7 +106,7 @@ const adminModerateReport = async ({
     meta,
   }: {
     userId: string;
-    type: "WARN" | "REPORT_UPDATE" | "REMOVE_CONTENT";
+    type: "WARN" | "STRIKE" | "REPORT_UPDATE" | "REMOVE_CONTENT";
     referenceId: string;
     meta: Record<string, unknown>;
   }) => {
@@ -137,7 +137,7 @@ const adminModerateReport = async ({
 
     await moderationAudit.add("updateReportStatus", {
       decisionId,
-      targetType: "REPORT",
+      targetType: "Report",
       targetId: updatedReport.id,
       targetUserId: updatedReport.targetUserId,
       actorType: "ADMIN_MODERATION",
@@ -250,12 +250,37 @@ const adminModerateReport = async ({
           contentRemoved: shouldRemoveContent,
         };
 
+        await moderationAudit.add("banUserTemp", {
+          decisionId,
+          targetType: "User",
+          targetId: reportTargetUserId,
+          targetUserId: reportTargetUserId,
+          actorType: "ADMIN_MODERATION",
+          adminId: reviewedBy,
+          actionTaken: "BAN_TEMP",
+          meta,
+        });
+
         await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
 
         await queueDeleteContentIfNeeded(meta);
 
         await moderationMetricsQueue.add("BAN_TEMP", {
           userId: reportTargetUserId,
+        });
+
+        await queueNotification({
+          userId: reportTargetUserId,
+          type: "STRIKE",
+          referenceId: reportId,
+          meta: {
+            actionTaken: "BAN_TEMP",
+            title,
+            reasons,
+            expiresAt,
+            reportId,
+            targetType,
+          },
         });
 
         getRedisPub().publish(
@@ -302,11 +327,35 @@ const adminModerateReport = async ({
           contentRemoved: shouldRemoveContent,
         };
 
+        await moderationAudit.add("banUserPerm", {
+          decisionId,
+          targetType: "User",
+          targetId: reportTargetUserId,
+          targetUserId: reportTargetUserId,
+          actorType: "ADMIN_MODERATION",
+          adminId: reviewedBy,
+          actionTaken: "BAN_PERM",
+          meta,
+        });
+
         await updateReportStatus("RESOLVED", "BAN_PERM", meta);
         await queueDeleteContentIfNeeded(meta);
 
         await moderationMetricsQueue.add("BAN_PERM", {
           userId: reportTargetUserId,
+        });
+
+        await queueNotification({
+          userId: reportTargetUserId,
+          type: "STRIKE",
+          referenceId: reportId,
+          meta: {
+            actionTaken: "BAN_PERM",
+            title,
+            reasons,
+            reportId,
+            targetType,
+          },
         });
 
         getRedisPub().publish(

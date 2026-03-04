@@ -371,6 +371,22 @@ const adminModerateStrike = async ({
     targetContentState,
   };
 
+  if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
+    await moderationAudit.add("banUserFromStrike", {
+      decisionId,
+      targetType: "User",
+      targetId: foundStrike.userId,
+      targetUserId: foundStrike.userId,
+      actorType: "ADMIN_MODERATION",
+      adminId: reviewedBy,
+      actionTaken,
+      meta: {
+        ...moderationMeta,
+        strikeId: foundStrike.id,
+      },
+    });
+  }
+
   await moderationAudit.add("updateStrikeStatus", {
     decisionId,
     targetType: "Strike",
