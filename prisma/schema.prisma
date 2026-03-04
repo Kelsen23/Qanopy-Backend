@@ -223,7 +223,7 @@ model Warning {
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
-  title    String   @db.VarChar(30)
+  title    String   @db.VarChar(80)
   reasons  String[]
   severity Int?
   warnedBy Mods
@@ -239,7 +239,7 @@ model Ban {
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
-  title    String   @db.VarChar(30)
+  title    String   @db.VarChar(80)
   reasons  String[]
   banType  BanType
   severity Int?
