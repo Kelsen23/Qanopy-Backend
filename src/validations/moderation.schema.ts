@@ -22,26 +22,48 @@ const reportSchema = z.object({
     .optional(),
 });
 
-const moderateReportSchema = z.object({
-  title: z.string().max(30, "Title must be at most 30 characters"),
+const moderateSchema = z.object({
+  targetId: z.string(),
+  targetType: z.enum(["Question", "Answer", "Reply"], "Invalid targetType"),
+  reviewedBy: z.string().uuid("Invalid reviewedBy"),
+  reviewComment: z
+    .string()
+    .max(500, "Review comment must be at most 500 characters")
+    .optional(),
   actionTaken: z.enum(
-    ["BAN_USER_TEMP", "BAN_USER_PERM", "WARN_USER", "IGNORE"],
+    ["BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
     "Invalid action",
   ),
-  adminReasons: z.array(
-    z
-      .string()
-      .min(3, "A reason must be at least 3 characters")
-      .max(150, "A reason must be at most 150 characters"),
-  ),
-  severity: z
-    .number()
-    .min(0, "Severity mus be from 0 to 100")
-    .max(100, "Severity mus be from 0 to 100"),
+  title: z
+    .string()
+    .min(5, "Title must be at least 5 characters")
+    .max(80, "Title must be at most 80 characters"),
+  reasons: z
+    .array(
+      z
+        .string()
+        .min(3, "A reason must be at least 3 characters")
+        .max(150, "A reason must be at most 150 characters"),
+    )
+    .min(1, "There must be at least 1 reason")
+    .max(5, "There must be at most 5 reasons"),
   banDurationMs: z
     .number()
+    .int("Floats as banDurationMs not allowed")
     .min(1 * 60 * 60 * 1000, "Banning for less than 1 hour not allowed")
-    .max(30 * 24 * 60 * 60 * 1000, "Banning for more than 30 days not allowed")
+    .max(365 * 24 * 60 * 60 * 1000, "Banning for more than 365 days not allowed")
+    .optional(),
+  warningDurationMs: z
+    .number()
+    .int("Floats as warningDurationMs not allowed")
+    .min(
+      1 * 60 * 60 * 1000,
+      "Warning expiration duration with less than 1 hour not allowed",
+    )
+    .max(
+      90 * 24 * 60 * 60 * 1000,
+      "Warning expiration duration with more than 90 days not allowed",
+    )
     .optional(),
 });
 
@@ -54,4 +76,4 @@ const moderateContentImageSchema = z.object({
     ),
 });
 
-export { reportSchema, moderateReportSchema, moderateContentImageSchema };
+export { reportSchema, moderateSchema, moderateContentImageSchema };
