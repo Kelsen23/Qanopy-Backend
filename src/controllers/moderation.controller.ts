@@ -96,54 +96,30 @@ const moderate = asyncHandler(
 const getBan = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
+    const now = new Date();
 
-    const foundBans = await prisma.ban.findMany({ where: { userId } });
+    const foundBan = await prisma.ban.findFirst({
+      where: {
+        userId,
+        OR: [
+          { banType: "TEMP", expiresAt: { gt: now } },
+          { banType: "PERM", expiresAt: null },
+        ],
+      },
+      orderBy: { banType: "asc" },
+    });
 
-    const permBan = foundBans.find((ban) => ban.banType === "PERM");
-    if (permBan) {
-      return res.status(200).json({
-        message: "Successfully received ban",
-        ban: permBan,
+    if (!foundBan) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: "ACTIVE" },
       });
     }
 
-    const tempBan = foundBans.find(
-      (ban) =>
-        ban.banType === "TEMP" &&
-        ban.expiresAt &&
-        ban.expiresAt > new Date(Date.now()),
-    );
-
-    return res
-      .status(200)
-      .json({ message: "Successfully received ban", ban: tempBan ?? null });
-  },
-);
-
-const activateAccount = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-
-    if (req.user.status !== "SUSPENDED")
-      return res.status(403).json({
-        message: "Account can not be activated due to account's current state",
-      });
-
-    const foundTempBan = await prisma.ban.findFirst({
-      where: { userId, banType: "TEMP", expiresAt: { gt: new Date() } },
+    return res.status(200).json({
+      message: foundBan ? "Successfully received ban" : "Active ban not found",
+      ban: foundBan ?? null,
     });
-
-    if (foundTempBan)
-      return res
-        .status(403)
-        .json({ message: "Could not activate account, ban still active" });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { status: "ACTIVE" },
-    });
-
-    return res.status(200).json({ message: "Successfully activated account" });
   },
 );
 
@@ -167,10 +143,4 @@ const moderateContentImage = asyncHandler(
   },
 );
 
-export {
-  createReport,
-  moderate,
-  getBan,
-  activateAccount,
-  moderateContentImage,
-};
+export { createReport, moderate, getBan, moderateContentImage };
