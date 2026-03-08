@@ -28,7 +28,7 @@ const getRedisMessagingClient = (): Redis => {
 };
 
 const redisMessagingClientConnection = new Redis(
-  process.env.REDIS_MESSAGING_URL as string,
+  process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
   {
     maxRetriesPerRequest: null,
   },
