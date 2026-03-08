@@ -164,6 +164,29 @@ const processContent = async (
     const tempBanExpiresAt = new Date(Date.now() + tempBanMs);
 
     const newBan = await prisma.$transaction(async (tx) => {
+      const existingPermBan = await tx.ban.findFirst({
+        where: {
+          userId: content.userId as string,
+          banType: "PERM",
+        },
+        select: { id: true },
+      });
+
+      if (existingPermBan)
+        throw new HttpError("User already permanently banned", 409);
+
+      const existingTempBan = await tx.ban.findFirst({
+        where: {
+          userId: content.userId as string,
+          banType: "TEMP",
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+
+      if (existingTempBan)
+        throw new HttpError("User already has an active temporary ban", 409);
+
       const createdBan = await tx.ban.create({
         data: {
           userId: content.userId as string,
