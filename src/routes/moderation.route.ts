@@ -4,7 +4,6 @@ import {
   createReport,
   moderate,
   getBan,
-  activateAccount,
   moderateContentImage,
 } from "../controllers/moderation.controller.js";
 
@@ -52,8 +51,6 @@ router
   );
 
 router.route("/ban").get(isAuthenticated, getBan);
-
-router.route("/account/activate").patch(isAuthenticated, activateAccount);
 
 router
   .route("/content/moderate/image")
