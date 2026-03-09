@@ -8,6 +8,7 @@ const QuestionVersionSchema: Schema = new Schema(
       required: true,
       index: true,
     },
+    userId: { type: String, required: true },
 
     title: { type: String, minlength: 10, maxlength: 150, required: true },
     body: { type: String, minlength: 20, maxlength: 20000, required: true },
@@ -20,6 +21,21 @@ const QuestionVersionSchema: Schema = new Schema(
     version: { type: Number, required: true },
     basedOnVersion: { type: Number, required: true },
     isActive: { type: Boolean, required: true, index: true },
+
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+      index: true,
+    },
+    moderationUpdatedAt: {
+      type: Date,
+    },
+    topicStatus: {
+      type: String,
+      enum: ["PENDING", "VALID", "OFF_TOPIC", "UNCERTAIN"],
+      default: "PENDING",
+    },
   },
   {
     timestamps: true,

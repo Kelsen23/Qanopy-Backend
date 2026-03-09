@@ -22,7 +22,7 @@ interface SearchQuestionStage {
   };
 }
 
-const questionResolvers = {
+const questionResolver = {
   Query: {
     getRecommendedQuestions: async (
       _: any,
@@ -1075,4 +1075,4 @@ const questionResolvers = {
   },
 };
 
-export default questionResolvers;
+export default questionResolver;

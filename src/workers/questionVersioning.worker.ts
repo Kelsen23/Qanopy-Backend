@@ -8,6 +8,8 @@ import connectMongoDB from "../config/mongodb.config.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 
+import contentModerationQueue from "../queues/contentModeration.queue.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting question versioning worker...");
@@ -15,7 +17,7 @@ async function startWorker() {
   new Worker(
     "questionVersioningQueue",
     async (job) => {
-      const { questionId, title, body, tags, editorId } = job.data;
+      const { questionId, userId, title, body, tags, editorId } = job.data;
       let { basedOnVersion } = job.data;
 
       const latestVersion = await QuestionVersion.findOne({ questionId })
@@ -41,6 +43,7 @@ async function startWorker() {
 
       await QuestionVersion.create({
         questionId,
+        userId,
         title,
         body,
         tags,
@@ -49,6 +52,11 @@ async function startWorker() {
         version: nextVersion,
         basedOnVersion,
         isActive: true,
+      });
+
+      await contentModerationQueue.add("Question", {
+        contentId: questionId,
+        version: nextVersion,
       });
 
       if (activeVersion) {

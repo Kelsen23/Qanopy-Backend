@@ -1,8 +1,8 @@
 import { Queue } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-const reportModerationQueue = new Queue("reportModerationQueue", {
+const notificationQueue = new Queue("notificationQueue", {
   connection: redisMessagingClientConnection,
 });
 
-export default reportModerationQueue;
+export default notificationQueue;

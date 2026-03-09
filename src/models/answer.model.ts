@@ -14,10 +14,18 @@ const AnswerSchema: Schema = new Schema(
     upvoteCount: { type: Number, default: 0, min: 0 },
     downvoteCount: { type: Number, default: 0, min: 0 },
     replyCount: { type: Number, default: 0, min: 0 },
+
     isAccepted: { type: Boolean, default: false },
     isBestAnswerByAsker: { type: Boolean, default: false },
 
     questionVersion: { type: Number, required: true },
+
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+    },
+    moderationUpdatedAt: { type: Date },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

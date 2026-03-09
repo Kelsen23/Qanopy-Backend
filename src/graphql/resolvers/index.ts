@@ -1,8 +1,13 @@
 import { mergeResolvers } from "@graphql-tools/merge";
 
-import userResolvers from "./user.resolvers.js";
-import questionResolvers from "./question.resolvers.js";
+import userResolver from "./user.resolver.js";
+import questionResolver from "./question.resolver.js";
+import moderationResolver from "./moderation.resolver.js";
 
-const resolvers = mergeResolvers([userResolvers, questionResolvers]);
+const resolvers = mergeResolvers([
+  userResolver,
+  questionResolver,
+  moderationResolver,
+]);
 
 export default resolvers;

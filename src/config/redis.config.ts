@@ -27,9 +27,12 @@ const getRedisMessagingClient = (): Redis => {
   return redisMessagingClient;
 };
 
-const redisMessagingClientConnection = {
-  url: process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
-};
+const redisMessagingClientConnection = new Redis(
+  process.env.REDIS_MESSAGING_URL || "redis://localhost:6379",
+  {
+    maxRetriesPerRequest: null,
+  },
+);
 
 export {
   redisCacheClient,

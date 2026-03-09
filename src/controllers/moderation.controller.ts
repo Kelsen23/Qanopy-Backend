@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
@@ -6,8 +6,9 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
+import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
 import addAdminModPoints from "../services/moderation/modPoints.service.js";
-import moderateReportService from "../services/moderation/moderateReport.service.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
@@ -17,7 +18,6 @@ import Report from "../models/report.model.js";
 
 import prisma from "../config/prisma.config.js";
 
-import reportModerationQueue from "../queues/reportModeration.queue.js";
 import imageModerationQueue from "../queues/imageModeration.queue.js";
 
 const createReport = asyncHandler(
@@ -68,134 +68,58 @@ const createReport = asyncHandler(
       reportComment,
     });
 
-    reportModerationQueue.add(
-      "reportContent",
-      { reportId: newReport._id?.toString() },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-
     return res
       .status(201)
       .json({ message: "Report successfully created", report: newReport });
   },
 );
 
-const getReports = asyncHandler(async (req: Request, res: Response) => {
-  const reportsForModeration = await Report.find({
-    aiDecision: { $eq: "UNCERTAIN" },
-    status: "REVIEWING",
-  });
-
-  return res.status(200).json({
-    message: "Successfully received reports for moderation",
-    reports: reportsForModeration,
-  });
-});
-
-const moderateReport = asyncHandler(
+const moderate = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
-    const reportId = req.params.id;
+    const { type, actionTaken } = req.body;
 
-    const { actionTaken } = req.body;
+    if (type === "Report") {
+      await adminModerateReportService({ ...req.body, reviewedBy: userId });
+    } else {
+      await adminModerateStrikeService({ ...req.body, reviewedBy: userId });
+    }
 
     await addAdminModPoints(userId, actionTaken);
 
-    await moderateReportService(reportId, req.body);
-
-    return res.status(200).json({ message: "Report successfully reviewed" });
+    return res.status(200).json({
+      message: `Successfully moderated ${type.toString().toLowerCase()}`,
+    });
   },
 );
 
 const getBan = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
+    const now = new Date();
 
-    const foundBans = await prisma.ban.findMany({ where: { userId } });
+    const foundBan = await prisma.ban.findFirst({
+      where: {
+        userId,
+        OR: [
+          { banType: "TEMP", expiresAt: { gt: now } },
+          { banType: "PERM", expiresAt: null },
+        ],
+      },
+      orderBy: { banType: "asc" },
+    });
 
-    const permBan = foundBans.find((ban) => ban.banType === "PERM");
-    if (permBan) {
-      return res.status(200).json({
-        message: "Successfully received ban",
-        ban: permBan,
+    if (!foundBan) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: "ACTIVE" },
       });
     }
 
-    const tempBan = foundBans.find(
-      (ban) =>
-        ban.banType === "TEMP" &&
-        ban.expiresAt &&
-        ban.expiresAt > new Date(Date.now()),
-    );
-
-    return res
-      .status(200)
-      .json({ message: "Successfully received ban", ban: tempBan ?? null });
-  },
-);
-
-const activateAccount = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-
-    if (req.user.status !== "SUSPENDED")
-      return res.status(403).json({
-        message: "Account can not be activated due to account's current state",
-      });
-
-    const foundTempBan = await prisma.ban.findFirst({
-      where: { userId, banType: "TEMP", expiresAt: { gt: new Date() } },
-    });
-
-    if (foundTempBan)
-      return res
-        .status(403)
-        .json({ message: "Could not activate account, ban still active" });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { status: "ACTIVE" },
-    });
-
-    return res.status(200).json({ message: "Successfully activated account" });
-  },
-);
-
-const getWarnings = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-
-    const foundWarnings = await prisma.warning.findMany({
-      where: {
-        userId,
-        seen: false,
-        expiresAt: { gt: new Date(Date.now()) },
-      },
-    });
-
-    await prisma.warning.updateMany({
-      where: { userId, seen: false, expiresAt: { gt: new Date(Date.now()) } },
-      data: { delivered: true },
-    });
-
     return res.status(200).json({
-      message: "Successfully received warnings",
-      warnings: foundWarnings,
+      message: foundBan ? "Successfully received ban" : "Active ban not found",
+      ban: foundBan ?? null,
     });
-  },
-);
-
-const acknowledgeWarning = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    await prisma.warning.update({
-      where: { id, userId },
-      data: { seen: true, delivered: true },
-    });
-
-    return res.status(200).json({ message: "Warning acknowledged" });
   },
 );
 
@@ -219,13 +143,4 @@ const moderateContentImage = asyncHandler(
   },
 );
 
-export {
-  createReport,
-  getReports,
-  moderateReport,
-  getBan,
-  activateAccount,
-  getWarnings,
-  acknowledgeWarning,
-  moderateContentImage,
-};
+export { createReport, moderate, getBan, moderateContentImage };

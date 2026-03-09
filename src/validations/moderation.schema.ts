@@ -22,28 +22,91 @@ const reportSchema = z.object({
     .optional(),
 });
 
-const moderateReportSchema = z.object({
-  title: z.string().max(30, "Title must be at most 30 characters"),
-  actionTaken: z.enum(
-    ["BAN_USER_TEMP", "BAN_USER_PERM", "WARN_USER", "IGNORE"],
-    "Invalid action",
-  ),
-  adminReasons: z.array(
-    z
+const moderateSchema = z
+  .object({
+    type: z.enum(["Report", "Strike"]),
+    targetId: z.string(),
+    targetType: z.enum(["Question", "Answer", "Reply"], "Invalid targetType"),
+    reviewComment: z
       .string()
-      .min(3, "A reason must be at least 3 characters")
-      .max(150, "A reason must be at most 150 characters"),
-  ),
-  severity: z
-    .number()
-    .min(0, "Severity mus be from 0 to 100")
-    .max(100, "Severity mus be from 0 to 100"),
-  banDurationMs: z
-    .number()
-    .min(1 * 60 * 60 * 1000, "Banning for less than 1 hour not allowed")
-    .max(30 * 24 * 60 * 60 * 1000, "Banning for more than 30 days not allowed")
-    .optional(),
-});
+      .max(500, "Review comment must be at most 500 characters")
+      .optional(),
+    actionTaken: z.enum(
+      ["BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
+      "Invalid action",
+    ),
+    title: z
+      .string()
+      .min(5, "Title must be at least 5 characters")
+      .max(80, "Title must be at most 80 characters"),
+    reasons: z
+      .array(
+        z
+          .string()
+          .min(3, "A reason must be at least 3 characters")
+          .max(150, "A reason must be at most 150 characters"),
+      )
+      .min(1, "There must be at least 1 reason")
+      .max(5, "There must be at most 5 reasons"),
+    banDurationMs: z
+      .number()
+      .int("Floats as banDurationMs not allowed")
+      .min(1 * 60 * 60 * 1000, "Banning for less than 1 hour not allowed")
+      .max(
+        365 * 24 * 60 * 60 * 1000,
+        "Banning for more than 365 days not allowed",
+      )
+      .optional(),
+    warningDurationMs: z
+      .number()
+      .int("Floats as warningDurationMs not allowed")
+      .min(
+        1 * 60 * 60 * 1000,
+        "Warning expiration duration with less than 1 hour not allowed",
+      )
+      .max(
+        90 * 24 * 60 * 60 * 1000,
+        "Warning expiration duration with more than 90 days not allowed",
+      )
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.actionTaken === "BAN_TEMP") {
+      if (!data.banDurationMs) {
+        ctx.addIssue({
+          path: ["banDurationMs"],
+          message: "banDurationMs required for BAN_TEMP",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+    } else {
+      if (data.banDurationMs) {
+        ctx.addIssue({
+          path: ["banDurationMs"],
+          message: "banDurationMs only allowed for BAN_TEMP",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+    }
+
+    if (data.actionTaken === "WARN") {
+      if (!data.warningDurationMs) {
+        ctx.addIssue({
+          path: ["warningDurationMs"],
+          message: "warningDurationMs required for WARN",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+    } else {
+      if (data.warningDurationMs) {
+        ctx.addIssue({
+          path: ["warningDurationMs"],
+          message: "warningDurationMs only allowed for WARN",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+    }
+  });
 
 const moderateContentImageSchema = z.object({
   objectKey: z
@@ -54,4 +117,4 @@ const moderateContentImageSchema = z.object({
     ),
 });
 
-export { reportSchema, moderateReportSchema, moderateContentImageSchema };
+export { reportSchema, moderateSchema, moderateContentImageSchema };
