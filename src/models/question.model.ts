@@ -22,7 +22,7 @@ const QuestionSchema: Schema = new Schema(
     moderationUpdatedAt: { type: Date },
     topicStatus: {
       type: String,
-      enum: ["PENDING", "VALID", "OFF_TOPIC", "UNCERTAIN"],
+      enum: ["PENDING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
 

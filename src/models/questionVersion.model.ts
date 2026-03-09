@@ -33,7 +33,7 @@ const QuestionVersionSchema: Schema = new Schema(
     },
     topicStatus: {
       type: String,
-      enum: ["PENDING", "VALID", "OFF_TOPIC", "UNCERTAIN"],
+      enum: ["PENDING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
   },
