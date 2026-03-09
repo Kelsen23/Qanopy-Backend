@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import Question from "../../models/question.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
+import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
@@ -44,6 +45,8 @@ const rollbackVersion = async (
 
   if (foundVersion.isActive)
     throw new HttpError("Could not rollback to active version", 400);
+  if (foundVersion.moderationStatus === "REJECTED")
+    throw new HttpError("Cannot rollback to a rejected version", 400);
 
   const session = await mongoose.startSession();
 
@@ -112,6 +115,16 @@ const rollbackVersion = async (
   );
 
   await clearVersionHistoryCache(questionId);
+
+  await topicDeterminationQueue.add(
+    "question",
+    {
+      questionId,
+      version: nextVersion,
+      topicDeterminationType: "ROLLBACK",
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   return {
     message: "Successfully rolled back",
