@@ -1,4 +1,4 @@
-import client from "../../config/openai.config.js";
+import { moderationClient } from "../../config/openai.config.js";
 
 interface AiModerationResult {
   confidence: number;
@@ -10,7 +10,7 @@ const aiModerateContent = async (
   content: string,
 ): Promise<AiModerationResult> => {
   try {
-    const response = await client.moderations.create({
+    const response = await moderationClient.moderations.create({
       model: "omni-moderation-latest",
       input: content,
     });
