@@ -21,7 +21,7 @@ const determineTopicStatus = async (questionText: string) => {
     model: "gpt-4o-mini",
     input: prompt,
     temperature: 0,
-    max_output_tokens: 5,
+    max_output_tokens: 16,
   });
 
   let result = response.output_text.trim();
