@@ -11,6 +11,7 @@ const questionTypeDefs = gql`
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
+    topicStatus: String!
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
@@ -57,6 +58,7 @@ const questionTypeDefs = gql`
     answerCount: Int!
     topAnswer: Answer
     currentVersion: Int!
+    topicStatus: String!
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
@@ -65,6 +67,28 @@ const questionTypeDefs = gql`
 
   type QuestionConnection {
     questions: [Question!]!
+    nextCursor: String
+    hasMore: Boolean!
+  }
+
+  type SearchQuestion {
+    id: ID!
+    userId: String!
+    title: String!
+    body: String!
+    upvotes: Int!
+    downvotes: Int!
+    tags: [String]!
+    answerCount: Int!
+    currentVersion: Int!
+    isDeleted: Boolean!
+    isActive: Boolean!
+    createdAt: String!
+    user: User!
+  }
+
+  type SearchQuestionConnection {
+    questions: [SearchQuestion!]!
     nextCursor: String
     hasMore: Boolean!
   }
@@ -92,6 +116,7 @@ const questionTypeDefs = gql`
     title: String!
     body: String!
     tags: [String]!
+    topicStatus: String!
     editedBy: EditedBy!
     editorId: ID
     supersededByRollback: Boolean!
@@ -136,7 +161,7 @@ const questionTypeDefs = gql`
       sortOption: String!
       cursor: String
       limitCount: Int
-    ): QuestionConnection!
+    ): SearchQuestionConnection!
 
     getVersionHistory(
       questionId: String!
