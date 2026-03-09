@@ -70,6 +70,8 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
+        topicStatus: "VALID",
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       };
 
       if (cursor) {
@@ -171,7 +173,11 @@ const questionResolver = {
       if (cachedQuestion) return JSON.parse(cachedQuestion);
 
       const questionData = await Question.aggregate([
-        { $match: { _id: new mongoose.Types.ObjectId(id) } },
+        {
+          $match: {
+            _id: new mongoose.Types.ObjectId(id),
+          },
+        },
 
         {
           $lookup: {
@@ -272,6 +278,7 @@ const questionResolver = {
             downvotes: "$downvoteCount",
             answerCount: 1,
             currentVersion: 1,
+            topicStatus: 1,
             isActive: 1,
             isDeleted: 1,
             createdAt: 1,
@@ -717,7 +724,13 @@ const questionResolver = {
             },
           },
         },
-
+        {
+          $match: {
+            topicStatus: "VALID",
+            isDeleted: false,
+            isActive: true,
+          },
+        },
         {
           $group: {
             _id: "$title",
@@ -820,6 +833,7 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
+        topicStatus: "VALID",
       };
 
       if (cursor) {
@@ -945,6 +959,7 @@ const questionResolver = {
             title: 1,
             body: 1,
             tags: 1,
+            topicStatus: 1,
             editedBy: 1,
             editorId: 1,
             supersededByRollback: 1,

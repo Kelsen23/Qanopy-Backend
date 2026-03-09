@@ -20,8 +20,27 @@ import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
+import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
 
 import crypto from "crypto";
+
+const queueTopicDetermination = async (
+  contentId: string,
+  contentType: "Question" | "Answer" | "Reply",
+  version?: number,
+) => {
+  if (contentType !== "Question" || version === undefined) return;
+
+  await topicDeterminationQueue.add(
+    "question",
+    {
+      questionId: contentId,
+      version,
+      topicDeterminationType: "CREATE_OR_EDIT",
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
+};
 
 const mapSeverityToDecision = (riskScore: number) => {
   if (riskScore >= 6.0) return "BAN_PERM";
@@ -62,10 +81,10 @@ const processContent = async (
   version?: number,
 ) => {
   const content = await (contentType === "Question"
-    ? QuestionVersion.findOne({ questionId: contentId, version })
+    ? QuestionVersion.findOne({ questionId: contentId, version }).lean()
     : contentType === "Answer"
-      ? Answer.findById(contentId)
-      : Reply.findById(contentId));
+      ? Answer.findById(contentId).lean()
+      : Reply.findById(contentId).lean());
 
   if (!content) throw new HttpError("Content not found", 404);
 
@@ -312,6 +331,8 @@ const processContent = async (
     await moderationMetricsQueue.add("WARN", {
       userId: content.userId as string,
     });
+
+    await queueTopicDetermination(contentId, contentType, version);
   } else if (aiDecision === "IGNORE") {
     await applyAiModerationDecisionService(
       contentId,
@@ -344,6 +365,8 @@ const processContent = async (
     await moderationMetricsQueue.add("IGNORE", {
       userId: content.userId as string,
     });
+
+    await queueTopicDetermination(contentId, contentType, version);
   }
 };
 
