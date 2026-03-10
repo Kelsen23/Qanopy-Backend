@@ -10,6 +10,7 @@ const sanitizeUser = (user: User) => {
     resetPasswordOtpVerified,
     resetPasswordOtpResendAvailableAt,
     resetPasswordOtpExpireAt,
+    creditsLastRedeemedAt,
     ...userWithoutSensitiveInfo
   } = user;
 
