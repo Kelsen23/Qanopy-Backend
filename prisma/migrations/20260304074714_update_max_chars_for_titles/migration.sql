@@ -1,5 +1,0 @@
--- AlterTable
-ALTER TABLE "Ban" ALTER COLUMN "title" SET DATA TYPE VARCHAR(80);
-
--- AlterTable
-ALTER TABLE "Warning" ALTER COLUMN "title" SET DATA TYPE VARCHAR(80);

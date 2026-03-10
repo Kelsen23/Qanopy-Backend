@@ -118,7 +118,7 @@ model User {
   achievements     Achievement[]
   status           Status        @default(ACTIVE)
 
-  credits               Int       @default(20)
+  credits               Int       @default(0)
   creditsLastRedeemedAt DateTime?
 
   moderationStrikes ModerationStrike[]
