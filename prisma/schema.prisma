@@ -118,6 +118,9 @@ model User {
   achievements     Achievement[]
   status           Status        @default(ACTIVE)
 
+  credits               Int       @default(0)
+  creditsLastRedeemedAt DateTime?
+
   moderationStrikes ModerationStrike[]
   warnings          Warning[]
   bans              Ban[]
@@ -208,7 +211,7 @@ model ModerationStrike {
   adminId       String?
   strikeReasons String?
 
-  isReviewed Boolean @default(false)
+  isReviewed Boolean   @default(false)
   reviewedBy String?
   reviewedAt DateTime?
 

@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "User" ALTER COLUMN "otp" SET DATA TYPE TEXT,
-ALTER COLUMN "resetPasswordOtp" SET DATA TYPE TEXT;

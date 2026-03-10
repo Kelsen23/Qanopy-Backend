@@ -3,8 +3,12 @@ import http from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { addUserSocket, removeUserSocket } from "../redis/presence.service.js";
 
+import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+
 import initSocketEmitSubscriber from "./subscribers/socketEmit.subscriber.js";
 import initSocketDisconnectSubscriber from "./subscribers/socketDisconnect.subscriber.js";
+
+import redeemCreditsService from "../services/user/redeemCredits.service.js";
 
 export let io: SocketServer;
 
@@ -26,6 +30,10 @@ const initSocket = (server: http.Server) => {
 
     socket.on("registerUser", async (userId: string) => {
       await addUserSocket(userId, socket.id);
+
+      const res = await redeemCreditsService(userId);
+
+      await publishSocketEvent(userId, "creditsUpdated", res);
 
       console.log(`Registering user ${userId} with socket ${socket.id}`);
     });
