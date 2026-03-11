@@ -1,9 +1,17 @@
-import mongoose from "mongoose";
 import { Worker } from "bullmq";
+
+import {
+  getRedisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.config.js";
+
+import { clearVersionHistoryCache } from "../utils/clearCache.util.js";
 
 import HttpError from "../utils/httpError.util.js";
 import convertQuestionToText from "../utils/convertQuestionToText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
+
+import mongoose from "mongoose";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
@@ -11,12 +19,6 @@ import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
 import generateEmbedding from "../services/question/generateEmbedding.service.js";
-
-import {
-  getRedisCacheClient,
-  redisMessagingClientConnection,
-} from "../config/redis.config.js";
-import { clearVersionHistoryCache } from "../utils/clearCache.util.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -52,7 +54,8 @@ async function startWorker() {
               .session(session)
               .lean();
 
-            if (!baseVersion) throw new HttpError("Base version not found", 404);
+            if (!baseVersion)
+              throw new HttpError("Base version not found", 404);
 
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
@@ -129,8 +132,8 @@ async function startWorker() {
     },
     {
       connection: redisMessagingClientConnection,
-      concurrency: 5,
-      limiter: { max: 10, duration: 1000 },
+      concurrency: 10,
+      limiter: { max: 20, duration: 1000 },
     },
   );
 }
