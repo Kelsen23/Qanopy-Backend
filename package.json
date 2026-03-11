@@ -35,7 +35,6 @@
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@aws-sdk/client-rekognition": "^3.980.0",
@@ -68,6 +67,7 @@
     "sharp": "^0.34.3",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0",
+    "voyageai": "^0.2.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {
