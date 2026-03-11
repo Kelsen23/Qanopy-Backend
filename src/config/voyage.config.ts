@@ -1,4 +1,7 @@
-import { VoyageAIClient } from "voyageai";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { VoyageAIClient } = require("voyageai");
 
 import dotenv from "dotenv";
 dotenv.config();
