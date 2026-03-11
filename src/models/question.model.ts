@@ -26,6 +26,8 @@ const QuestionSchema: Schema = new Schema(
       default: "PENDING",
     },
 
+    embedding: { type: [Number] },
+
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },

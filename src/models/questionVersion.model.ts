@@ -36,6 +36,8 @@ const QuestionVersionSchema: Schema = new Schema(
       enum: ["PENDING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
+
+    embedding: { type: [Number] },
   },
   {
     timestamps: true,
