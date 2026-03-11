@@ -29,7 +29,8 @@
     "dev:moderationAudit-worker": "tsx src/workers/moderationAudit.worker.ts",
     "dev:notification-worker": "tsx src/workers/notification.worker.ts",
     "dev:topicDetermination-worker": "tsx src/workers/topicDetermination.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\"",
+    "dev:questionEmbedding-worker": "tsx src/workers/questionEmbedding.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
@@ -67,6 +68,7 @@
     "sharp": "^0.34.3",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0",
+    "voyageai": "^0.2.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {

@@ -11,28 +11,25 @@ import HttpError from "../utils/httpError.util.js";
 import convertQuestionToText from "../utils/convertQuestionToText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
 
-import QuestionVersion from "../models/questionVersion.model.js";
-import Question from "../models/question.model.js";
-
 import mongoose from "mongoose";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
-import determineTopicStatusService from "../services/question/topicDetermination.service.js";
+import QuestionVersion from "../models/questionVersion.model.js";
+import Question from "../models/question.model.js";
 
-import questionEmbeddingQueue from "../queues/questionEmbedding.queue.js";
+import generateEmbedding from "../services/question/generateEmbedding.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting topic determination worker...");
+  console.log("Mongo connected, starting question embedding worker...");
 
   new Worker(
-    "topicDeterminationQueue",
+    "questionEmbeddingQueue",
     async (job) => {
       const { questionId, version, isRollback } = job.data;
-      let shouldQueueEmbedding = false;
-      let shouldInvalidateCache = false;
       const session = await mongoose.startSession();
+      let shouldInvalidateCache = false;
 
       try {
         if (isRollback) {
@@ -40,9 +37,9 @@ async function startWorker() {
             const rolledBackVersion = await QuestionVersion.findOne({
               questionId,
               version,
-              topicStatus: "PENDING",
+              topicStatus: "VALID",
             })
-              .select("_id basedOnVersion isActive")
+              .select("_id basedOnVersion")
               .session(session)
               .lean();
 
@@ -53,7 +50,7 @@ async function startWorker() {
               questionId,
               version: rolledBackVersion.basedOnVersion,
             })
-              .select("topicStatus")
+              .select("embedding")
               .session(session)
               .lean();
 
@@ -63,7 +60,7 @@ async function startWorker() {
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
                 rolledBackVersion._id as string,
-                { topicStatus: baseVersion.topicStatus },
+                { embedding: baseVersion.embedding },
                 { new: true, session },
               ).select("isActive");
 
@@ -72,22 +69,18 @@ async function startWorker() {
 
             await Question.findByIdAndUpdate(
               questionId as string,
-              { topicStatus: baseVersion.topicStatus },
+              {
+                embedding: baseVersion.embedding,
+              },
               { session },
             );
-
-            shouldQueueEmbedding = baseVersion.topicStatus === "VALID";
-            shouldInvalidateCache = true;
           });
+          shouldInvalidateCache = true;
         } else {
           const foundQuestionVersion = await QuestionVersion.findOne({
             questionId,
             version,
-            $or: [
-              { moderationStatus: "APPROVED" },
-              { moderationStatus: "FLAGGED" },
-            ],
-            topicStatus: "PENDING",
+            topicStatus: "VALID",
           })
             .select("_id title body")
             .lean();
@@ -100,35 +93,31 @@ async function startWorker() {
             normalizeText(foundQuestionVersion.body as string),
           );
 
-          const topicStatus = await determineTopicStatusService(questionText);
+          const embedding = await generateEmbedding(questionText);
 
           await session.withTransaction(async () => {
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
                 foundQuestionVersion._id as string,
-                { topicStatus },
+                { embedding },
                 { new: true, session },
               ).select("isActive");
 
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              { topicStatus },
-              { session },
-            );
+            if (updatedQuestionVersion.isActive)
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                { embedding },
+                { session },
+              );
           });
 
-          shouldQueueEmbedding = topicStatus === "VALID";
           shouldInvalidateCache = true;
         }
       } finally {
         session.endSession();
-      }
-
-      if (shouldQueueEmbedding) {
-        await questionEmbeddingQueue.add("question", job.data);
       }
 
       if (shouldInvalidateCache) {
@@ -143,13 +132,13 @@ async function startWorker() {
     },
     {
       connection: redisMessagingClientConnection,
-      concurrency: 5,
-      limiter: { max: 10, duration: 1000 },
+      concurrency: 10,
+      limiter: { max: 20, duration: 1000 },
     },
   );
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start topic determination worker:", error);
+  console.error("Failed to start question embedding worker:", error);
   process.exit(1);
 });

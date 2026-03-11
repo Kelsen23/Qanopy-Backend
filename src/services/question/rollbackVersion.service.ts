@@ -121,7 +121,7 @@ const rollbackVersion = async (
     {
       questionId,
       version: nextVersion,
-      topicDeterminationType: "ROLLBACK",
+      isRollback: true,
     },
     { removeOnComplete: true, removeOnFail: false },
   );

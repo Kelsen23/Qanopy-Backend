@@ -36,7 +36,7 @@ const queueTopicDetermination = async (
     {
       questionId: contentId,
       version,
-      topicDeterminationType: "CREATE_OR_EDIT",
+      isRollback: false,
     },
     { removeOnComplete: true, removeOnFail: false },
   );
