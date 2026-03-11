@@ -1,19 +1,26 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../config/redis.config.js";
+
+import {
+  getRedisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.config.js";
+
+import { clearVersionHistoryCache } from "../utils/clearCache.util.js";
 
 import HttpError from "../utils/httpError.util.js";
 import convertQuestionToText from "../utils/convertQuestionToText.util.js";
+import normalizeText from "../utils/normalizeText.util.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
+
+import mongoose from "mongoose";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
 import determineTopicStatusService from "../services/question/topicDetermination.service.js";
 
-const normalizeText = (text: string) => {
-  return text.trim().replace(/\s+/g, " ");
-};
+import questionEmbeddingQueue from "../queues/questionEmbedding.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -22,80 +29,117 @@ async function startWorker() {
   new Worker(
     "topicDeterminationQueue",
     async (job) => {
-      const { questionId, version, isRollback, topicDeterminationType } =
-        job.data;
-      const determinationType =
-        topicDeterminationType || (isRollback ? "ROLLBACK" : "CREATE_OR_EDIT");
+      const { questionId, version, isRollback } = job.data;
+      let shouldQueueEmbedding = false;
+      let shouldInvalidateCache = false;
+      const session = await mongoose.startSession();
 
-      if (determinationType === "ROLLBACK") {
-        const rolledBackVersion = await QuestionVersion.findOne({
-          questionId,
-          version,
-          topicStatus: "PENDING",
-        })
-          .select("_id basedOnVersion isActive")
-          .lean();
+      try {
+        if (isRollback) {
+          await session.withTransaction(async () => {
+            const rolledBackVersion = await QuestionVersion.findOne({
+              questionId,
+              version,
+              topicStatus: "PENDING",
+            })
+              .select("_id basedOnVersion isActive")
+              .session(session)
+              .lean();
 
-        if (!rolledBackVersion)
-          throw new HttpError("Question version not found", 404);
+            if (!rolledBackVersion)
+              throw new HttpError("Question version not found", 404);
 
-        const baseVersion = await QuestionVersion.findOne({
-          questionId,
-          version: rolledBackVersion.basedOnVersion,
-        })
-          .select("topicStatus")
-          .lean();
+            const baseVersion = await QuestionVersion.findOne({
+              questionId,
+              version: rolledBackVersion.basedOnVersion,
+            })
+              .select("topicStatus")
+              .session(session)
+              .lean();
 
-        if (!baseVersion) throw new HttpError("Base version not found", 404);
+            if (!baseVersion)
+              throw new HttpError("Base version not found", 404);
 
-        const updatedQuestionVersion = await QuestionVersion.findByIdAndUpdate(
-          rolledBackVersion._id as string,
-          { topicStatus: baseVersion.topicStatus },
-          { new: true },
-        ).select("isActive");
+            const updatedQuestionVersion =
+              await QuestionVersion.findByIdAndUpdate(
+                rolledBackVersion._id as string,
+                { topicStatus: baseVersion.topicStatus },
+                { new: true, session },
+              ).select("isActive");
 
-        if (!updatedQuestionVersion)
-          throw new HttpError("Question not found", 404);
+            if (!updatedQuestionVersion)
+              throw new HttpError("Question not found", 404);
 
-        await Question.findByIdAndUpdate(questionId as string, {
-          topicStatus: baseVersion.topicStatus,
-        });
+            await Question.findByIdAndUpdate(
+              questionId as string,
+              { topicStatus: baseVersion.topicStatus },
+              { session },
+            );
 
-        return;
+            shouldQueueEmbedding = baseVersion.topicStatus === "VALID";
+            shouldInvalidateCache = true;
+          });
+        } else {
+          const foundQuestionVersion = await QuestionVersion.findOne({
+            questionId,
+            version,
+            $or: [
+              { moderationStatus: "APPROVED" },
+              { moderationStatus: "FLAGGED" },
+            ],
+            topicStatus: "PENDING",
+          })
+            .select("_id title body")
+            .lean();
+
+          if (!foundQuestionVersion)
+            throw new HttpError("Question version not found", 404);
+
+          const questionText = convertQuestionToText(
+            normalizeText(foundQuestionVersion.title as string),
+            normalizeText(foundQuestionVersion.body as string),
+          );
+
+          const topicStatus = await determineTopicStatusService(questionText);
+
+          await session.withTransaction(async () => {
+            const updatedQuestionVersion =
+              await QuestionVersion.findByIdAndUpdate(
+                foundQuestionVersion._id as string,
+                { topicStatus },
+                { new: true, session },
+              ).select("isActive");
+
+            if (!updatedQuestionVersion)
+              throw new HttpError("Question not found", 404);
+
+            await Question.findByIdAndUpdate(
+              questionId as string,
+              { topicStatus },
+              { session },
+            );
+          });
+
+          shouldQueueEmbedding = topicStatus === "VALID";
+          shouldInvalidateCache = true;
+        }
+      } finally {
+        session.endSession();
       }
 
-      const foundQuestionVersion = await QuestionVersion.findOne({
-        questionId,
-        version,
-        $or: [
-          { moderationStatus: "APPROVED" },
-          { moderationStatus: "FLAGGED" },
-        ],
-        topicStatus: "PENDING",
-      })
-        .select("_id title body")
-        .lean();
+      if (shouldQueueEmbedding) {
+        await questionEmbeddingQueue.add("question", job.data);
+      }
 
-      if (!foundQuestionVersion)
-        throw new HttpError("Question version not found", 404);
-
-      const questionText = convertQuestionToText(
-        normalizeText(foundQuestionVersion.title as string),
-        normalizeText(foundQuestionVersion.body as string),
-      );
-
-      const topicStatus = await determineTopicStatusService(questionText);
-
-      const updatedQuestionVersion = await QuestionVersion.findByIdAndUpdate(
-        foundQuestionVersion._id as string,
-        { topicStatus },
-        { new: true },
-      ).select("isActive");
-
-      if (!updatedQuestionVersion)
-        throw new HttpError("Question not found", 404);
-
-      await Question.findByIdAndUpdate(questionId as string, { topicStatus });
+      if (shouldInvalidateCache) {
+        await Promise.all([
+          getRedisCacheClient().del(
+            `question:${questionId}`,
+            `v:${version}:question:${questionId}`,
+          ),
+          clearVersionHistoryCache(questionId as string),
+        ]);
+      }
     },
     {
       connection: redisMessagingClientConnection,
