@@ -19,11 +19,11 @@ import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
+import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import crypto from "crypto";
-import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
