@@ -8,6 +8,8 @@ import {
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
+import initEditSessionListener from "./listeners/editSession.listener.js";
+
 import initSocketEmitSubscriber from "./subscribers/socketEmit.subscriber.js";
 import initSocketDisconnectSubscriber from "./subscribers/socketDisconnect.subscriber.js";
 
@@ -40,6 +42,8 @@ const initSocket = (server: http.Server) => {
 
       console.log(`Registering user ${userId} with socket ${socket.id}`);
     });
+
+    initEditSessionListener(socket);
 
     socket.on("disconnect", async () => {
       await removeUserSocket(socket.id);
