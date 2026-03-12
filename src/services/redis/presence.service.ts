@@ -1,4 +1,4 @@
-import { getRedisCacheClient } from "../config/redis.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 
 const addUserSocket = async (userId: string, socketId: string) => {
   await getRedisCacheClient().sadd(`online:users`, userId);
