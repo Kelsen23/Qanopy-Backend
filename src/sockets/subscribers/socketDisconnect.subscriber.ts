@@ -1,5 +1,5 @@
 import { io } from "../index.js";
-import { getUserSockets } from "../../redis/presence.service.js";
+import { getUserSockets } from "../../services/redis/presence.service.js";
 import { registerSubscriber } from "../../redis/redis.pubsub.js";
 
 const CHANNEL = "socket:disconnect";
