@@ -91,9 +91,17 @@ const voteSchema = z.object({
   ),
 });
 
+const generateSuggestionSchema = z.object({
+  version: z.coerce
+    .number()
+    .int("version must be an integer")
+    .positive("version must be greater than 0"),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
+  generateSuggestionSchema,
 };
