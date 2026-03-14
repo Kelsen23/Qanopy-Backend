@@ -30,7 +30,8 @@
     "dev:notification-worker": "tsx src/workers/notification.worker.ts",
     "dev:topicDetermination-worker": "tsx src/workers/topicDetermination.worker.ts",
     "dev:questionEmbedding-worker": "tsx src/workers/questionEmbedding.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\"",
+    "dev:aiSuggestion-worker": "tsx src/workers/aiSuggestion.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiSuggestion-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
