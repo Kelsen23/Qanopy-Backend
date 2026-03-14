@@ -956,12 +956,11 @@ const questionResolver = {
             id: "$_id",
             _id: 0,
             questionId: 1,
+            userId: 1,
             title: 1,
             body: 1,
             tags: 1,
             topicStatus: 1,
-            editedBy: 1,
-            editorId: 1,
             supersededByRollback: 1,
             version: 1,
             basedOnVersion: 1,
@@ -971,7 +970,7 @@ const questionResolver = {
       ]);
 
       const uniqueUserIds = [
-        ...new Set(foundVersionHistory.map((v) => v.editorId)),
+        ...new Set(foundVersionHistory.map((v) => v.userId)),
       ];
 
       const users = await loaders.userLoader.loadMany(uniqueUserIds);
@@ -979,12 +978,12 @@ const questionResolver = {
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
       const versionHistoryWithUser = foundVersionHistory.map((v) => {
-        if (v.editedBy === "USER" && v.editorId) {
-          let user = userMap.get(v.editorId);
+        if (v.userId) {
+          let user = userMap.get(v.userId);
 
           if (!user) {
             user = {
-              id: v.editorId,
+              id: v.userId,
               username: "Deleted User",
               email: "deleted@user.com",
               profilePictureUrl: null,
@@ -1049,12 +1048,12 @@ const questionResolver = {
 
       let user = null;
 
-      if (foundVersion.editedBy === "USER" && foundVersion.editorId) {
-        user = await loaders.userLoader.load(foundVersion.editorId);
+      if (foundVersion.userId) {
+        user = await loaders.userLoader.load(foundVersion.userId);
 
         if (!user) {
           user = {
-            id: foundVersion.editorId,
+            id: foundVersion.userId,
             username: "Deleted User",
             email: "deleted@user.com",
             profilePictureUrl: null,

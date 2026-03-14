@@ -105,20 +105,14 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
-  enum EditedBy {
-    USER
-    AI
-  }
-
   type QuestionVersion {
     id: ID!
     questionId: ID!
+    userId: ID!
     title: String!
     body: String!
     tags: [String]!
     topicStatus: String!
-    editedBy: EditedBy!
-    editorId: ID
     supersededByRollback: Boolean!
     version: Int!
     basedOnVersion: Int!
