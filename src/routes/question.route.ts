@@ -13,6 +13,7 @@ import {
   editQuestion,
   rollbackVersion,
   deleteContent,
+  generateSuggestion,
 } from "../controllers/question.controller.js";
 
 import {
@@ -20,6 +21,7 @@ import {
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
+  generateSuggestionSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -30,6 +32,7 @@ import {
   voteLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
+  generateSuggestionLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -120,6 +123,17 @@ router
     requireActiveUser,
     validate(createQuestionSchema),
     editQuestion,
+  );
+
+router
+  .route("/:questionId/suggestion")
+  .post(
+    generateSuggestionLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(generateSuggestionSchema),
+    generateSuggestion,
   );
 
 router
