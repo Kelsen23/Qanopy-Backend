@@ -3,7 +3,7 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
-import generateQuestionSuggestion from "../services/question/generateQuestionSuggestion.service.js";
+import generateQuestionSuggestionService from "../services/question/generateQuestionSuggestion.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -13,7 +13,7 @@ async function startWorker() {
     "aiSuggestionQueue",
     async (job) => {
       try {
-        await generateQuestionSuggestion(job.data);
+        await generateQuestionSuggestionService(job.data);
       } catch (error) {
         console.error("Failed to process ai suggestion job:", error);
         throw error;
