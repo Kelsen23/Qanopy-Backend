@@ -8,7 +8,8 @@ type NotificationType =
   | "UPVOTE"
   | "ANSWER"
   | "MENTION"
-  | "REPLY";
+  | "REPLY"
+  | "AI_SUGGESTION";
 
 const queueNotification = async ({
   userId,
