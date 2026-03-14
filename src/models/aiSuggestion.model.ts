@@ -2,11 +2,13 @@ import mongoose, { Schema } from "mongoose";
 
 const aiSuggestionSchema = new Schema(
   {
-    questionVersionId: {
+    questionId: {
       type: Schema.Types.ObjectId,
-      ref: "QuestionVersion",
+      ref: "Question",
       required: true,
     },
+
+    version: { type: Number, required: true, min: 1 },
 
     suggestions: {
       title: String,
@@ -47,7 +49,8 @@ const aiSuggestionSchema = new Schema(
 );
 
 aiSuggestionSchema.index({
-  questionVersion: 1,
+  questionId: 1,
+  version: 1,
   createdAt: -1,
 });
 
