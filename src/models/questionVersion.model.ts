@@ -15,7 +15,7 @@ const QuestionVersionSchema: Schema = new Schema(
     tags: { type: [String], default: [] },
 
     supersededByRollback: { type: Boolean, default: false, required: true },
-    version: { type: Number, required: true },
+    version: { type: Number, required: true, min: 1 },
     basedOnVersion: { type: Number, required: true },
     isActive: { type: Boolean, required: true, index: true },
 
