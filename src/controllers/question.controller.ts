@@ -16,6 +16,8 @@ import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.s
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 
+import mongoose from "mongoose";
+
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
@@ -25,6 +27,7 @@ import { getRedisCacheClient } from "../config/redis.config.js";
 import statsQueue from "../queues/stats.queue.js";
 import contentModerationQueue from "../queues/contentModeration.queue.js";
 import contentFinalizeQueue from "../queues/contentFinalize.queue.js";
+import aiSuggestionQueue from "../queues/aiSuggestion.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -312,6 +315,26 @@ const editQuestion = asyncHandler(
   },
 );
 
+const generateSuggestion = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { version } = req.body;
+    const versionNumber = Number(version);
+
+    if (!mongoose.Types.ObjectId.isValid(questionId))
+      throw new HttpError("Invalid questionId", 400);
+
+    await aiSuggestionQueue.add("generateSuggestion", {
+      userId,
+      questionId,
+      version: versionNumber,
+    });
+
+    return res.status(202).json({ message: "AI suggestion queued" });
+  },
+);
+
 const rollbackVersion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -353,6 +376,7 @@ export {
   markAnswerAsBest,
   unmarkAnswerAsBest,
   editQuestion,
+  generateSuggestion,
   rollbackVersion,
   deleteContent,
 };
