@@ -59,6 +59,13 @@ const rollbackVersionLimiter = new RateLimiterRedis({
   duration: 60 * 30,
 });
 
+const generateSuggestionLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "generateSuggestion",
+  points: 10,
+  duration: 60 * 30,
+});
+
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
   "Too many questions created, try again after half an hour",
@@ -99,6 +106,11 @@ const rollbackVersionLimiterMiddleware = createRateLimiterMiddleware(
   "Too many rollbacks, try again later",
 );
 
+const generateSuggestionLimiterMiddleware = createRateLimiterMiddleware(
+  generateSuggestionLimiter,
+  "Too many AI suggestions, try again later",
+);
+
 export {
   createQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
@@ -108,4 +120,5 @@ export {
   markAnswerAsBestLimiterMiddleware,
   editQuestionLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
+  generateSuggestionLimiterMiddleware,
 };
