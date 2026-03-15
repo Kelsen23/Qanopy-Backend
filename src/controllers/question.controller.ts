@@ -22,6 +22,8 @@ import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
 
+import AiSuggestion from "../models/aiSuggestion.model.js";
+
 import { getRedisCacheClient } from "../config/redis.config.js";
 
 import statsQueue from "../queues/stats.queue.js";
@@ -325,11 +327,24 @@ const generateSuggestion = asyncHandler(
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
 
-    await aiSuggestionQueue.add("generateSuggestion", {
-      userId,
+    const foundAiSuggestion = await AiSuggestion.findOne({
       questionId,
-      version: versionNumber,
-    });
+      version,
+    })
+      .select("_id")
+      .lean();
+
+    if (!foundAiSuggestion)
+      await aiSuggestionQueue.add("generateSuggestion", {
+        userId,
+        questionId,
+        version: versionNumber,
+      });
+    else
+      return res.status(202).json({
+        message: "AI suggestion successfully received",
+        suggestion: foundAiSuggestion,
+      });
 
     return res.status(202).json({ message: "AI suggestion queued" });
   },
