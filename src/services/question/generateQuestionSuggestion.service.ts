@@ -35,7 +35,9 @@ const generateQuestionSuggestion = async ({
     userId,
     $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
     topicStatus: "VALID",
-  }).select("_id title body tags");
+  })
+    .select("_id isActive title body tags")
+    .lean();
 
   if (!foundVersion) throw new HttpError("Version not found", 404);
   if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
