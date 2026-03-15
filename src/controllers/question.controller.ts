@@ -341,7 +341,7 @@ const generateSuggestion = asyncHandler(
         version: versionNumber,
       });
     else
-      return res.status(202).json({
+      return res.status(200).json({
         message: "AI suggestion successfully received",
         suggestion: foundAiSuggestion,
       });
