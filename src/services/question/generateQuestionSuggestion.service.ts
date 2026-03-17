@@ -3,6 +3,8 @@ import AiSuggestion from "../../models/aiSuggestion.model.js";
 
 import prisma from "../../config/prisma.config.js";
 
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import HttpError from "../../utils/httpError.util.js";
 import convertQuestionToText from "../../utils/convertQuestionToText.util.js";
 import normalizeText from "../../utils/normalizeText.util.js";
@@ -24,68 +26,80 @@ const generateQuestionSuggestion = async ({
   questionId: string;
   version: number;
 }) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { credits: true },
-  });
-  if (!user || user.credits < 5) throw new HttpError("Not enough credits", 403);
-
-  const foundVersion = await QuestionVersion.findOne({
-    questionId,
-    userId,
-    $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
-    topicStatus: "VALID",
-  })
-    .select("_id isActive title body tags")
-    .lean();
-
-  if (!foundVersion) throw new HttpError("Version not found", 404);
-  if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
-
-  const questionText = convertQuestionToText(
-    normalizeText(foundVersion.title as string),
-    normalizeText(foundVersion.body as string),
-    foundVersion.tags as string[],
-  );
-
-  const { suggestions, notes, confidence } =
-    await generateSuggestion(questionText);
-
-  const newSuggestion = await AiSuggestion.create({
-    questionId,
-    version,
-    suggestions,
-    notes,
-    confidence: Math.min(confidence, 1),
-    meta: {
-      questionVersion: version,
+  let suggestionCreated = false;
+  try {
+    const existingSuggestion = await AiSuggestion.findOne({
       questionId,
-      generatedAt: new Date().toISOString(),
-      source: "DeepSeek-v3.2",
-    },
-  });
+      version,
+    })
+      .select("_id")
+      .lean();
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { credits: { decrement: 5 } },
-  });
+    if (existingSuggestion)
+      throw new HttpError("AI suggestion already exists", 409);
 
-  const sockets = await getEditSessionSockets(version);
-
-  if (sockets.length > 0)
-    await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
-  else
-    await queueNotification({
+    const foundVersion = await QuestionVersion.findOne({
+      questionId,
       userId,
-      type: "AI_SUGGESTION",
-      referenceId: newSuggestion._id.toString(),
+      $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
+      topicStatus: "VALID",
+    })
+      .select("_id isActive title body tags")
+      .lean();
+
+    if (!foundVersion) throw new HttpError("Version not found", 404);
+    if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
+
+    const questionText = convertQuestionToText(
+      normalizeText(foundVersion.title as string),
+      normalizeText(foundVersion.body as string),
+      foundVersion.tags as string[],
+    );
+
+    const { suggestions, notes, confidence } =
+      await generateSuggestion(questionText);
+
+    const newSuggestion = await AiSuggestion.create({
+      questionId,
+      version,
+      suggestions,
+      notes,
+      confidence: Math.min(confidence, 1),
       meta: {
         questionVersion: version,
         questionId,
         generatedAt: new Date().toISOString(),
-        source: "DeepSeek-v3.2",
+        source: "DeepSeek-Chat",
       },
     });
+    suggestionCreated = true;
+
+    const sockets = await getEditSessionSockets(version);
+
+    if (sockets.length > 0)
+      await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
+    else
+      await queueNotification({
+        userId,
+        type: "AI_SUGGESTION",
+        referenceId: newSuggestion._id.toString(),
+        meta: {
+          questionVersion: version,
+          questionId,
+          generatedAt: new Date().toISOString(),
+          source: "DeepSeek-Chat",
+        },
+      });
+  } catch (error) {
+    if (!suggestionCreated) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { credits: { increment: 5 } },
+      });
+      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
+    }
+    throw error;
+  }
 };
 
 export default generateQuestionSuggestion;
