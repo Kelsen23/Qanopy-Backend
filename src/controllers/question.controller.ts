@@ -364,12 +364,6 @@ const generateSuggestion = asyncHandler(
 
       if (updatedUser.count === 0) {
         await getRedisCacheClient().del(pendingKey);
-        const foundUser = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { credits: true },
-        });
-
-        if (!foundUser) throw new HttpError("User not found", 404);
 
         throw new HttpError("Not enough credits", 400);
       }
