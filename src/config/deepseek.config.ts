@@ -8,7 +8,7 @@ const suggestionGenerationApiKey =
 
 const suggestionGenerationClient = new OpenAI({
   apiKey: suggestionGenerationApiKey,
-  baseURL: "https://api.deepseek.com/v1",
+  baseURL: "https://openrouter.ai/api/v1",
 });
 
 export { suggestionGenerationClient };
