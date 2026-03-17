@@ -1,5 +1,8 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../config/redis.config.js";
+import {
+  getRedisCacheClient,
+  redisMessagingClientConnection,
+} from "../config/redis.config.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
@@ -12,11 +15,16 @@ async function startWorker() {
   new Worker(
     "aiSuggestionQueue",
     async (job) => {
+      const { userId, questionId, version } = job.data;
       try {
         await generateQuestionSuggestionService(job.data);
       } catch (error) {
         console.error("Failed to process ai suggestion job:", error);
         throw error;
+      } finally {
+        await getRedisCacheClient().del(
+          `aiSuggestion:pending:${userId}:${questionId}:${version}`,
+        );
       }
     },
     {
