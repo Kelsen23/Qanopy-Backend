@@ -16,6 +16,8 @@ import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.s
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 
+import prisma from "../config/prisma.config.js";
+
 import mongoose from "mongoose";
 
 import Question from "../models/question.model.js";
@@ -329,24 +331,76 @@ const generateSuggestion = asyncHandler(
 
     const foundAiSuggestion = await AiSuggestion.findOne({
       questionId,
-      version,
+      version: versionNumber,
     })
-      .select("_id")
+      .sort({ createdAt: -1 })
       .lean();
 
-    if (!foundAiSuggestion)
-      await aiSuggestionQueue.add("generateSuggestion", {
-        userId,
-        questionId,
-        version: versionNumber,
+    if (!foundAiSuggestion) {
+      const pendingKey = `aiSuggestion:pending:${userId}:${questionId}:${versionNumber}`;
+      const pendingSet = await getRedisCacheClient().set(
+        pendingKey,
+        "1",
+        "EX",
+        60 * 15,
+        "NX",
+      );
+
+      if (!pendingSet) throw new HttpError("AI suggestion already queued", 409);
+
+      const cachedCredits = await getRedisCacheClient().get(
+        `credits:${userId}`,
+      );
+
+      if (cachedCredits && JSON.parse(cachedCredits) < 5) {
+        await getRedisCacheClient().del(pendingKey);
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      const updatedUser = await prisma.user.updateMany({
+        where: { id: userId, credits: { gte: 5 } },
+        data: { credits: { decrement: 5 } },
       });
-    else
+
+      if (updatedUser.count === 0) {
+        await getRedisCacheClient().del(pendingKey);
+        const foundUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { credits: true },
+        });
+
+        if (!foundUser) throw new HttpError("User not found", 404);
+
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
+
+      try {
+        await aiSuggestionQueue.add("generateSuggestion", {
+          userId,
+          questionId,
+          version: versionNumber,
+        });
+      } catch (error) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { credits: { increment: 5 } },
+        });
+        await getRedisCacheClient().del(
+          `credits:${userId}`,
+          `user:${userId}`,
+          pendingKey,
+        );
+        throw error;
+      }
+
+      return res.status(202).json({ message: "AI suggestion queued" });
+    } else
       return res.status(200).json({
         message: "AI suggestion successfully received",
         suggestion: foundAiSuggestion,
       });
-
-    return res.status(202).json({ message: "AI suggestion queued" });
   },
 );
 
