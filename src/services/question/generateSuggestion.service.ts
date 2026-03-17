@@ -38,7 +38,7 @@ const generateSuggestion = async (questionText: string) => {
 `;
 
   const res = await suggestionGenerationClient.chat.completions.create({
-    model: "deepseek-chat",
+    model: "deepseek/deepseek-chat",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
