@@ -41,6 +41,7 @@ const generateQuestionSuggestion = async ({
     const foundVersion = await QuestionVersion.findOne({
       questionId,
       userId,
+      version,
       $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
       topicStatus: "VALID",
     })
