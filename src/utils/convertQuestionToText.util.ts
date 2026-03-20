@@ -1,9 +1,12 @@
 const convertQuestionToText = (
   title: string,
   body: string,
-  tags?: string[],
+  tags: string[],
+  isSuggestion: boolean,
 ) => {
-  return `Title: ${title}\nBody: ${body.slice(0, 300)}\nTags: ${tags ? `${tags.slice(0, 10).join(", ")}` : ""}`;
+  const processedBody = isSuggestion ? body : body.slice(0, 300);
+
+  return `Title: ${title}\nBody: ${processedBody}\nTags: ${tags.slice(0, 10).join(", ")}`;
 };
 
 export default convertQuestionToText;
