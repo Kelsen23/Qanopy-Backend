@@ -9,7 +9,7 @@ import QuestionVersion from "../../models/questionVersion.model.js";
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 
-import { User } from "../../generated/prisma/index.js";
+import { Interest, User } from "../../generated/prisma/index.js";
 
 interface SearchQuestionStage {
   $search: {
@@ -21,6 +21,9 @@ interface SearchQuestionStage {
     };
   };
 }
+
+const isInterest = (tag: string): tag is Interest =>
+  interests.includes(tag as Interest);
 
 const questionResolver = {
   Query: {
@@ -781,7 +784,7 @@ const questionResolver = {
           400,
         );
 
-      const invalidTags = tags.filter((tag) => !interests.includes(tag));
+      const invalidTags = tags.filter((tag) => !isInterest(tag));
 
       if (invalidTags.length > 0)
         throw new HttpError(`Invalid tags: ${invalidTags.join(", ")}`, 400);
