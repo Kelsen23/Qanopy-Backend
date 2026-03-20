@@ -55,6 +55,7 @@ const generateQuestionSuggestion = async ({
       normalizeText(foundVersion.title as string),
       normalizeText(foundVersion.body as string),
       foundVersion.tags as string[],
+      true,
     );
 
     const { suggestions, notes, confidence } =

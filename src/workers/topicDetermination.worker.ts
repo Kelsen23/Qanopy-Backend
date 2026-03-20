@@ -98,6 +98,8 @@ async function startWorker() {
           const questionText = convertQuestionToText(
             normalizeText(foundQuestionVersion.title as string),
             normalizeText(foundQuestionVersion.body as string),
+            [],
+            false,
           );
 
           const topicStatus = await determineTopicStatusService(questionText);
