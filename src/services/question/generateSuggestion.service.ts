@@ -4,6 +4,8 @@ import HttpError from "../../utils/httpError.util.js";
 
 import interests from "../../utils/interests.util.js";
 
+import aiSuggestionSchema from "../../validations/aiSuggestion.schema.js";
+
 interface AISuggestion {
   suggestions: {
     title: string;
@@ -62,10 +64,12 @@ const generateSuggestion = async (questionText: string) => {
 
   try {
     const parsed: AISuggestion = JSON.parse(content);
-    return parsed;
+    const validated = aiSuggestionSchema.parse(parsed);
+    return validated;
   } catch (err) {
-    console.error("Failed to parse AI suggestion JSON:", content);
-    throw new Error("Invalid JSON returned by DeepSeek");
+    console.error("Invalid AI suggestion response:", err);
+    console.error("Raw AI response:", content);
+    throw new Error("Invalid AI suggestion returned by DeepSeek");
   }
 };
 
