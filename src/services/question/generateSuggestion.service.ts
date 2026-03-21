@@ -63,7 +63,9 @@ const generateSuggestion = async (questionText: string) => {
   if (!content) throw new HttpError("No suggestion returned by DeepSeek", 500);
 
   try {
-    const parsed: AISuggestion = JSON.parse(content);
+    const raw = content.trim();
+    const jsonString = raw.replace(/^```json\s*/, "").replace(/```$/, "");
+    const parsed: AISuggestion = JSON.parse(jsonString);
     const validated = aiSuggestionSchema.parse(parsed);
     return validated;
   } catch (err) {
