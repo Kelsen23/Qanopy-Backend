@@ -2,7 +2,7 @@ import { createRequire } from "module";
 
 import z from "zod";
 
-import interests from "../utils/interests.util.js";
+import { Interest } from "../generated/prisma/index.js";
 
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
@@ -17,15 +17,7 @@ const createQuestionSchema = z
       .string()
       .min(20, "Body must be at least 20 characters")
       .max(20000, "Body must be at most 20000 characters"),
-    tags: z.array(z.string()).superRefine((arr, ctx) => {
-      const invalid = arr.filter((i) => !interests.includes(i));
-      if (invalid.length > 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Invalid interests: ${invalid.join(", ")}`,
-        });
-      }
-    }),
+    tags: z.array(z.nativeEnum(Interest)),
   })
   .superRefine((data, ctx) => {
     if (leoProfanity.check(data.title)) {
@@ -91,9 +83,17 @@ const voteSchema = z.object({
   ),
 });
 
+const generateSuggestionSchema = z.object({
+  version: z.coerce
+    .number()
+    .int("version must be an integer")
+    .positive("version must be greater than 0"),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
+  generateSuggestionSchema,
 };

@@ -1,4 +1,6 @@
 import prisma from "../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import HttpError from "../../utils/httpError.util.js";
 
 const dailyCredit = 10;
@@ -11,6 +13,8 @@ const redeemCredits = async (userId: string) => {
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
+  await getRedisCacheClient().set(`credits:${userId}`, foundUser.credits);
+
   const now = new Date();
   const lastRedeemed = foundUser.creditsLastRedeemedAt?.getTime() ?? 0;
 
@@ -22,6 +26,9 @@ const redeemCredits = async (userId: string) => {
         creditsLastRedeemedAt: now,
       },
     });
+
+    await getRedisCacheClient().set(`credits:${userId}`, updatedUser.credits);
+    await getRedisCacheClient().del(`user:${userId}`);
 
     return {
       credited: dailyCredit,

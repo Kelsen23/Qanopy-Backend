@@ -5,8 +5,8 @@ import {
 } from "../../services/redis/editSession.service.js";
 
 const initEditSessionListener = (socket: Socket) => {
-  socket.on("startEditSession", async (versionId: string) => {
-    await startEditSession(socket.id, versionId);
+  socket.on("startEditSession", async (version: number) => {
+    await startEditSession(socket.id, version);
   });
 
   socket.on("endEditSession", async () => {

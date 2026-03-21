@@ -91,6 +91,8 @@ async function startWorker() {
           const questionText = convertQuestionToText(
             normalizeText(foundQuestionVersion.title as string),
             normalizeText(foundQuestionVersion.body as string),
+            [],
+            false,
           );
 
           const embedding = await generateEmbedding(questionText);

@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const moderationApiKey = process.env.OPENAI_API_KEY_MODERATION;
-const topicDeterminerApiKey = process.env.OPENAI_API_KEY_TOPIC_DETERMINER;
+const topicDeterminerApiKey = process.env.OPENAI_API_KEY_TOPIC_DETERMINATION;
 
 const moderationClient = new OpenAI({
   apiKey: moderationApiKey,

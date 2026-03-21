@@ -115,7 +115,6 @@ async function startWorker() {
             title: entity.title,
             body: newBody,
             tags: entity.tags,
-            editorId: entity.userId,
             basedOnVersion: null,
           },
           { removeOnComplete: true, removeOnFail: false },

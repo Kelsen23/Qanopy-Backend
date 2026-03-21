@@ -14,11 +14,8 @@ const QuestionVersionSchema: Schema = new Schema(
     body: { type: String, minlength: 20, maxlength: 20000, required: true },
     tags: { type: [String], default: [] },
 
-    editedBy: { type: String, enum: ["USER", "AI"], required: true },
-    editorId: { type: String },
-
     supersededByRollback: { type: Boolean, default: false, required: true },
-    version: { type: Number, required: true },
+    version: { type: Number, required: true, min: 1 },
     basedOnVersion: { type: Number, required: true },
     isActive: { type: Boolean, required: true, index: true },
 

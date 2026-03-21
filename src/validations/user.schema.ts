@@ -2,7 +2,7 @@ import { createRequire } from "module";
 
 import z from "zod";
 
-import interests from "../utils/interests.util.js";
+import { Interest } from "../generated/prisma/index.js";
 
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
@@ -38,17 +38,8 @@ const updateProfileSchema = z.object({
 
 const saveInterestsSchema = z.object({
   interests: z
-    .array(z.string())
-    .nonempty({ message: "You must select at least one interest" })
-    .superRefine((arr, ctx) => {
-      const invalid = arr.filter((i) => !interests.includes(i));
-      if (invalid.length > 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Invalid interests: ${invalid.join(", ")}`,
-        });
-      }
-    }),
+    .array(z.nativeEnum(Interest))
+    .nonempty({ message: "You must select at least one interest" }),
 });
 
 export { updateProfilePictureSchema, updateProfileSchema, saveInterestsSchema };

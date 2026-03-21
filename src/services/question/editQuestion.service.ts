@@ -48,6 +48,9 @@ const editQuestion = async (
       body,
       tags,
       currentVersion: newVersion,
+      moderationStatus: "PENDING",
+      topicStatus: "PENDING",
+      embedding: [],
     },
     { new: true },
   );

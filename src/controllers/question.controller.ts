@@ -16,15 +16,22 @@ import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.s
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 
+import prisma from "../config/prisma.config.js";
+
+import mongoose from "mongoose";
+
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
+
+import AiSuggestion from "../models/aiSuggestion.model.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
 import statsQueue from "../queues/stats.queue.js";
 import contentModerationQueue from "../queues/contentModeration.queue.js";
 import contentFinalizeQueue from "../queues/contentFinalize.queue.js";
+import aiSuggestionQueue from "../queues/aiSuggestion.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -312,6 +319,85 @@ const editQuestion = asyncHandler(
   },
 );
 
+const generateSuggestion = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { version } = req.body;
+    const versionNumber = Number(version);
+
+    if (!mongoose.Types.ObjectId.isValid(questionId))
+      throw new HttpError("Invalid questionId", 400);
+
+    const foundAiSuggestion = await AiSuggestion.findOne({
+      questionId,
+      version: versionNumber,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!foundAiSuggestion) {
+      const pendingKey = `aiSuggestion:pending:${userId}:${questionId}:${versionNumber}`;
+      const pendingSet = await getRedisCacheClient().set(
+        pendingKey,
+        "1",
+        "EX",
+        60 * 15,
+        "NX",
+      );
+
+      if (!pendingSet) throw new HttpError("AI suggestion already queued", 409);
+
+      const cachedCredits = await getRedisCacheClient().get(
+        `credits:${userId}`,
+      );
+
+      if (cachedCredits && JSON.parse(cachedCredits) < 5) {
+        await getRedisCacheClient().del(pendingKey);
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      const updatedUser = await prisma.user.updateMany({
+        where: { id: userId, credits: { gte: 5 } },
+        data: { credits: { decrement: 5 } },
+      });
+
+      if (updatedUser.count === 0) {
+        await getRedisCacheClient().del(pendingKey);
+
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
+
+      try {
+        await aiSuggestionQueue.add("generateSuggestion", {
+          userId,
+          questionId,
+          version: versionNumber,
+        });
+      } catch (error) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { credits: { increment: 5 } },
+        });
+        await getRedisCacheClient().del(
+          `credits:${userId}`,
+          `user:${userId}`,
+          pendingKey,
+        );
+        throw error;
+      }
+
+      return res.status(202).json({ message: "AI suggestion queued" });
+    } else
+      return res.status(200).json({
+        message: "AI suggestion successfully received",
+        suggestion: foundAiSuggestion,
+      });
+  },
+);
+
 const rollbackVersion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -353,6 +439,7 @@ export {
   markAnswerAsBest,
   unmarkAnswerAsBest,
   editQuestion,
+  generateSuggestion,
   rollbackVersion,
   deleteContent,
 };

@@ -78,12 +78,11 @@ const rollbackVersion = async (
         [
           {
             questionId,
+            userId: foundVersion.userId,
             version: nextVersion,
             title: foundVersion.title,
             body: foundVersion.body,
             tags: foundVersion.tags,
-            editedBy: foundVersion.editedBy,
-            editorId: foundVersion.editorId,
             basedOnVersion: foundVersion.version,
             isActive: true,
           },
