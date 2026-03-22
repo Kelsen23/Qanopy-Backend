@@ -37,6 +37,7 @@
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@aws-sdk/client-rekognition": "^3.980.0",
