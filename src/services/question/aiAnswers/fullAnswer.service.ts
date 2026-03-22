@@ -1,5 +1,7 @@
 import answerGenerationClient from "../../../config/anthropic.config.js";
 
+import { getRedisCacheClient } from "../../../config/redis.config.js";
+
 import { getAiAnswerSessionSockets } from "../../redis/aiAnswerSession.service.js";
 
 import publishSocketEvent from "../../../utils/publishSocketEvent.util.js";
@@ -9,7 +11,6 @@ import HttpError from "../../../utils/httpError.util.js";
 import AiAnswer from "../../../models/aiAnswer.model.js";
 
 import aiFullAnswerSchema from "../../../validations/aiFullAnswer.schema.js";
-import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 const fullAnswer = async (
   userId: string,
