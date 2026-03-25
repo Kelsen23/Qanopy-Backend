@@ -98,7 +98,7 @@ const fullAnswer = async (
     stream: true,
   });
 
-  const confidenceDelimiter = "\n<AI_CONFIDENCE_JSON>\n";
+  const confidenceDelimiter = "<AI_CONFIDENCE_JSON>";
 
   let fullBody = "";
   let streamedBodyLength = 0;
