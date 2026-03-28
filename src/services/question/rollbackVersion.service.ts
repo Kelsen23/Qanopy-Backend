@@ -49,6 +49,10 @@ const rollbackVersion = async (
   if (foundVersion.moderationStatus === "REJECTED")
     throw new HttpError("Cannot rollback to a rejected version", 400);
 
+  const inheritedEmbedding = Array.isArray(foundVersion.embedding)
+    ? foundVersion.embedding
+    : [];
+
   const session = await mongoose.startSession();
 
   const { nextVersion, newVersion } = await session.withTransaction(
@@ -87,7 +91,9 @@ const rollbackVersion = async (
             basedOnVersion: foundVersion.version,
             isActive: true,
             moderationStatus: foundVersion.moderationStatus,
+            moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
             topicStatus: foundVersion.topicStatus,
+            embedding: inheritedEmbedding,
           },
         ],
         { session },
@@ -101,7 +107,9 @@ const rollbackVersion = async (
           tags: foundVersion.tags,
           currentVersion: nextVersion,
           moderationStatus: foundVersion.moderationStatus,
+          moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
           topicStatus: foundVersion.topicStatus,
+          embedding: inheritedEmbedding,
         },
         { session },
       );
@@ -131,7 +139,7 @@ const rollbackVersion = async (
     );
   } else if (
     newVersion.topicStatus === "PENDING" ||
-    newVersion.topicStatus === "VALID"
+    (newVersion.topicStatus === "VALID" && inheritedEmbedding.length === 0)
   ) {
     await topicDeterminationQueue.add(
       "question",
