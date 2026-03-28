@@ -82,7 +82,7 @@ const generateContextualAnswerService = async (
   `;
 
   const stream = await answerGenerationClient.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5",
     max_tokens: 20000,
     temperature: 0.2,
     system: [
@@ -187,6 +187,14 @@ const generateContextualAnswerService = async (
       questionVersion,
       body: validatedAnswer.body,
       confidence: validatedAnswer.confidence,
+      meta: {
+        questionId,
+        questionVersion,
+        generatedAt: new Date().toISOString(),
+        source: "Claude-Haiku-4-5-Contextual",
+        mode: "CONTEXTUAL",
+        contextAnswerCount: contextualAnswerBodies.slice(0, 3).length,
+      },
     });
 
     if (shouldPublishToSocket)
