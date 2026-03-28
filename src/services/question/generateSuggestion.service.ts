@@ -68,8 +68,8 @@ const generateSuggestion = async (questionText: string) => {
     const parsed: AISuggestion = JSON.parse(jsonString);
     const validated = aiSuggestionSchema.parse(parsed);
     return validated;
-  } catch (err) {
-    console.error("Invalid AI suggestion response:", err);
+  } catch (error) {
+    console.error("Invalid AI suggestion response:", error);
     console.error("Raw AI response:", content);
     throw new Error("Invalid AI suggestion returned by DeepSeek");
   }
