@@ -89,13 +89,15 @@ async function startWorker() {
               );
             }
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              {
-                embedding: resolvedEmbedding,
-              },
-              { session },
-            );
+            if (updatedQuestionVersion.isActive) {
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                {
+                  embedding: resolvedEmbedding,
+                },
+                { session },
+              );
+            }
           });
           shouldInvalidateCache = true;
         } else {
