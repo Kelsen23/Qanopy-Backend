@@ -200,8 +200,8 @@ const fullAnswer = async (
           source: "Claude-Sonnet-4-6",
         },
       });
-  } catch (err) {
-    console.error("Invalid AI full answer response:", err);
+  } catch (error) {
+    console.error("Invalid AI full answer response:", error);
     console.error("Raw AI response:", fullBody);
     throw new HttpError("Invalid AI full answer returned by Claude", 500);
   }
