@@ -39,9 +39,9 @@ async function startWorker() {
           const rolledBackVersion = await QuestionVersion.findOne({
             questionId,
             version,
-            topicStatus: "PENDING",
+            topicStatus: { $in: ["PENDING", "VALID"] },
           })
-            .select("_id basedOnVersion")
+            .select("_id basedOnVersion topicStatus")
             .lean();
 
           if (!rolledBackVersion)
@@ -56,23 +56,32 @@ async function startWorker() {
 
           if (!baseVersion) throw new HttpError("Base version not found", 404);
 
-          let resolvedTopicStatus = baseVersion.topicStatus as
+          let resolvedTopicStatus = rolledBackVersion.topicStatus as
             | "PENDING"
             | "VALID"
             | "OFF_TOPIC";
 
           if (resolvedTopicStatus === "PENDING") {
-            const questionText = convertQuestionToText(
-              normalizeText(baseVersion.title as string),
-              normalizeText(baseVersion.body as string),
-              [],
-              false,
-            );
+            const inheritedBaseTopicStatus = baseVersion.topicStatus as
+              | "PENDING"
+              | "VALID"
+              | "OFF_TOPIC";
 
-            const determinedTopicStatus =
-              await determineTopicStatusService(questionText);
-            resolvedTopicStatus =
-              determinedTopicStatus === "VALID" ? "VALID" : "OFF_TOPIC";
+            resolvedTopicStatus = inheritedBaseTopicStatus;
+
+            if (resolvedTopicStatus === "PENDING") {
+              const questionText = convertQuestionToText(
+                normalizeText(baseVersion.title as string),
+                normalizeText(baseVersion.body as string),
+                [],
+                false,
+              );
+
+              const determinedTopicStatus =
+                await determineTopicStatusService(questionText);
+              resolvedTopicStatus =
+                determinedTopicStatus === "VALID" ? "VALID" : "OFF_TOPIC";
+            }
           }
 
           await session.withTransaction(async () => {
@@ -94,11 +103,13 @@ async function startWorker() {
               );
             }
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              { topicStatus: resolvedTopicStatus },
-              { session },
-            );
+            if (updatedQuestionVersion.isActive) {
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                { topicStatus: resolvedTopicStatus },
+                { session },
+              );
+            }
 
             shouldQueueEmbedding = resolvedTopicStatus === "VALID";
             shouldInvalidateCache = true;
@@ -139,11 +150,13 @@ async function startWorker() {
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              { topicStatus },
-              { session },
-            );
+            if (updatedQuestionVersion.isActive) {
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                { topicStatus },
+                { session },
+              );
+            }
           });
 
           shouldQueueEmbedding = topicStatus === "VALID";
