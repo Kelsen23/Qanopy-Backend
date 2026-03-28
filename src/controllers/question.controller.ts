@@ -25,6 +25,7 @@ import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
 
 import AiSuggestion from "../models/aiSuggestion.model.js";
+import AiAnswer from "../models/aiAnswer.model.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
 
@@ -32,6 +33,7 @@ import statsQueue from "../queues/stats.queue.js";
 import contentModerationQueue from "../queues/contentModeration.queue.js";
 import contentFinalizeQueue from "../queues/contentFinalize.queue.js";
 import aiSuggestionQueue from "../queues/aiSuggestion.queue.js";
+import aiAnswerQueue from "../queues/aiAnswer.queue.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -323,11 +325,23 @@ const generateSuggestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { questionId } = req.params;
-    const { version } = req.body;
-    const versionNumber = Number(version);
 
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
+
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId)
+          .select("_id isActive currentVersion")
+          .lean();
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+    if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
+
+    const versionNumber = Number(foundQuestion.currentVersion);
 
     const foundAiSuggestion = await AiSuggestion.findOne({
       questionId,
@@ -354,6 +368,7 @@ const generateSuggestion = asyncHandler(
 
       if (cachedCredits && JSON.parse(cachedCredits) < 5) {
         await getRedisCacheClient().del(pendingKey);
+
         throw new HttpError("Not enough credits", 400);
       }
 
@@ -381,11 +396,13 @@ const generateSuggestion = asyncHandler(
           where: { id: userId },
           data: { credits: { increment: 5 } },
         });
+
         await getRedisCacheClient().del(
           `credits:${userId}`,
           `user:${userId}`,
           pendingKey,
         );
+        
         throw error;
       }
 
@@ -394,6 +411,100 @@ const generateSuggestion = asyncHandler(
       return res.status(200).json({
         message: "AI suggestion successfully received",
         suggestion: foundAiSuggestion,
+      });
+  },
+);
+
+const generateAiAnswer = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(questionId))
+      throw new HttpError("Invalid questionId", 400);
+
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findById(questionId)
+          .select("_id isActive currentVersion")
+          .lean();
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+    if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
+
+    const versionNumber = Number(foundQuestion.currentVersion);
+
+    const foundAiAnswer = await AiAnswer.findOne({
+      questionId,
+      questionVersion: versionNumber,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!foundAiAnswer) {
+      const pendingKey = `aiAnswer:pending:${userId}:${questionId}:${versionNumber}`;
+      const pendingSet = await getRedisCacheClient().set(
+        pendingKey,
+        "1",
+        "EX",
+        60 * 15,
+        "NX",
+      );
+
+      if (!pendingSet) throw new HttpError("AI answer already queued", 409);
+
+      const cachedCredits = await getRedisCacheClient().get(
+        `credits:${userId}`,
+      );
+
+      if (cachedCredits && JSON.parse(cachedCredits) < 5) {
+        await getRedisCacheClient().del(pendingKey);
+
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      const updatedUser = await prisma.user.updateMany({
+        where: { id: userId, credits: { gte: 5 } },
+        data: { credits: { decrement: 5 } },
+      });
+
+      if (updatedUser.count === 0) {
+        await getRedisCacheClient().del(pendingKey);
+
+        throw new HttpError("Not enough credits", 400);
+      }
+
+      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
+
+      try {
+        await aiAnswerQueue.add("generateAiAnswer", {
+          userId,
+          questionId,
+          version: versionNumber,
+        });
+      } catch (error) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { credits: { increment: 5 } },
+        });
+
+        await getRedisCacheClient().del(
+          `credits:${userId}`,
+          `user:${userId}`,
+          pendingKey,
+        );
+
+        throw error;
+      }
+
+      return res.status(202).json({ message: "AI answer queued" });
+    } else
+      return res.status(200).json({
+        message: "AI answer successfully received",
+        answer: foundAiAnswer,
       });
   },
 );
@@ -440,6 +551,7 @@ export {
   unmarkAnswerAsBest,
   editQuestion,
   generateSuggestion,
+  generateAiAnswer,
   rollbackVersion,
   deleteContent,
 };
