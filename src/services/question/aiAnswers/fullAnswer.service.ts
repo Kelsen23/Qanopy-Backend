@@ -31,6 +31,7 @@ const fullAnswer = async (
     - This text will be streamed live to the frontend.
     - You MAY use **Markdown formatting** (e.g. headings, lists, inline code, and code blocks with \`\`\`).
     - Use Markdown especially for code examples when appropriate.
+    - Prefer concise explanations and skip unnecessary sections unless they help solve the problem.
     - Do NOT include any JSON in this section.
 
     2. After the answer body is fully generated, output the following delimiter **on its own line exactly once**:

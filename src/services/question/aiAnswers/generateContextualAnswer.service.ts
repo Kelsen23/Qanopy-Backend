@@ -32,7 +32,8 @@ const generateContextualAnswerService = async (
     3. Prefer points that are consistent across references; if references conflict, choose the safer and more generally correct guidance.
     4. If a reference includes details that do not apply to the new question, adjust or omit them.
     5. If needed, add missing details so the answer is complete and practical for the new question.
-    6. Output format must follow this exact structure:
+    6. Prefer concise explanations and avoid unnecessary sections unless they help solve the problem.
+    7. Output format must follow this exact structure:
 
     [Answer body text with optional Markdown]
 
