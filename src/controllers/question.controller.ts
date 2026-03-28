@@ -334,13 +334,15 @@ const generateSuggestion = asyncHandler(
     const cachedQuestion = await getRedisCacheClient().get(
       `question:${questionId}`,
     );
-    const foundQuestion = cachedQuestion
+    let foundQuestion = cachedQuestion
       ? JSON.parse(cachedQuestion)
       : await Question.findOne({
           _id: questionId,
           userId,
         })
-          .select("_id isActive currentVersion moderationStatus topicStatus")
+          .select(
+            "_id isActive currentVersion moderationStatus topicStatus embedding",
+          )
           .lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
@@ -354,6 +356,12 @@ const generateSuggestion = asyncHandler(
 
     if (foundQuestion.topicStatus !== "VALID")
       throw new HttpError("Question topic is not valid", 400);
+
+    if (
+      !Array.isArray(foundQuestion.embedding) ||
+      foundQuestion.embedding.length === 0
+    )
+      throw new HttpError("Question does not have embedding", 400);
 
     if (Number(foundQuestion.currentVersion) !== versionNumber)
       throw new HttpError(
