@@ -39,7 +39,10 @@ async function startWorker() {
         if (!foundQuestion.isActive)
           throw new HttpError("Question not active", 400);
 
-        if (!foundQuestion.embedding)
+        if (
+          !Array.isArray(foundQuestion.embedding) ||
+          foundQuestion.embedding.length === 0
+        )
           throw new HttpError("Question does not have embedding", 400);
 
         const questionObjectId = new mongoose.Types.ObjectId(
