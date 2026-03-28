@@ -24,7 +24,7 @@ async function startWorker() {
   new Worker(
     "aiAnswerQueue",
     async (job) => {
-      const { userId, questionId } = job.data;
+      const { userId, questionId, version } = job.data;
 
       try {
         const cachedQuestion = await getRedisCacheClient().get(
@@ -96,6 +96,10 @@ async function startWorker() {
         });
 
         throw error;
+      } finally {
+        await getRedisCacheClient().del(
+          `aiAnswer:pending:${userId}:${questionId}:${version}`,
+        );
       }
     },
     {
