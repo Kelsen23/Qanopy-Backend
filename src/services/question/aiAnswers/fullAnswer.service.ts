@@ -185,6 +185,13 @@ const fullAnswer = async (
       questionVersion,
       body: validatedAnswer.body,
       confidence: validatedAnswer.confidence,
+      meta: {
+        questionId,
+        questionVersion,
+        generatedAt: new Date().toISOString(),
+        source: "Claude-Sonnet-4-6",
+        mode: "FULL",
+      },
     });
 
     if (shouldPublishToSocket)
