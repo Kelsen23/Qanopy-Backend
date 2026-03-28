@@ -36,47 +36,71 @@ async function startWorker() {
 
       try {
         if (isRollback) {
+          const rolledBackVersion = await QuestionVersion.findOne({
+            questionId,
+            version,
+            topicStatus: "PENDING",
+          })
+            .select("_id basedOnVersion")
+            .lean();
+
+          if (!rolledBackVersion)
+            throw new HttpError("Question version not found", 404);
+
+          const baseVersion = await QuestionVersion.findOne({
+            questionId,
+            version: rolledBackVersion.basedOnVersion,
+          })
+            .select("_id title body topicStatus")
+            .lean();
+
+          if (!baseVersion) throw new HttpError("Base version not found", 404);
+
+          let resolvedTopicStatus = baseVersion.topicStatus as
+            | "PENDING"
+            | "VALID"
+            | "OFF_TOPIC";
+
+          if (resolvedTopicStatus === "PENDING") {
+            const questionText = convertQuestionToText(
+              normalizeText(baseVersion.title as string),
+              normalizeText(baseVersion.body as string),
+              [],
+              false,
+            );
+
+            const determinedTopicStatus =
+              await determineTopicStatusService(questionText);
+            resolvedTopicStatus =
+              determinedTopicStatus === "VALID" ? "VALID" : "OFF_TOPIC";
+          }
+
           await session.withTransaction(async () => {
-            const rolledBackVersion = await QuestionVersion.findOne({
-              questionId,
-              version,
-              topicStatus: "PENDING",
-            })
-              .select("_id basedOnVersion isActive")
-              .session(session)
-              .lean();
-
-            if (!rolledBackVersion)
-              throw new HttpError("Question version not found", 404);
-
-            const baseVersion = await QuestionVersion.findOne({
-              questionId,
-              version: rolledBackVersion.basedOnVersion,
-            })
-              .select("topicStatus")
-              .session(session)
-              .lean();
-
-            if (!baseVersion)
-              throw new HttpError("Base version not found", 404);
-
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
                 rolledBackVersion._id as string,
-                { topicStatus: baseVersion.topicStatus },
+                { topicStatus: resolvedTopicStatus },
                 { new: true, session },
               ).select("isActive");
 
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
+            if (baseVersion.topicStatus === "PENDING") {
+              await QuestionVersion.findByIdAndUpdate(
+                baseVersion._id as string,
+                { topicStatus: resolvedTopicStatus },
+                { session },
+              );
+            }
+
             await Question.findByIdAndUpdate(
               questionId as string,
-              { topicStatus: baseVersion.topicStatus },
+              { topicStatus: resolvedTopicStatus },
               { session },
             );
 
-            shouldQueueEmbedding = baseVersion.topicStatus === "VALID";
+            shouldQueueEmbedding = resolvedTopicStatus === "VALID";
             shouldInvalidateCache = true;
           });
         } else {
