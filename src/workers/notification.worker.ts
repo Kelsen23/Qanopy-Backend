@@ -7,6 +7,8 @@ import Notification from "../models/notification.model.js";
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
+import { getUserSockets } from "../services/redis/presence.service.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting notification worker...");
@@ -16,10 +18,18 @@ async function startWorker() {
     async (job) => {
       const { userId, type, referenceId, meta } = job.data;
 
+      const sockets = await getUserSockets(userId);
+      const shouldPublishToSocket = sockets.length > 0;
+
       try {
         await Notification.create({ userId, type, referenceId, meta });
 
-        publishSocketEvent(userId, "notification", { type, referenceId, meta });
+        if (shouldPublishToSocket)
+          await publishSocketEvent(userId, "notification", {
+            type,
+            referenceId,
+            meta,
+          });
       } catch (error) {
         console.error("Failed to process notification job:", error);
         throw error;
