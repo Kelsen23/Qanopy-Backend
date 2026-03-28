@@ -10,7 +10,7 @@ async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting report moderation worker...");
 
-  new Worker(
+  const worker = new Worker(
     "contentModerationQueue",
     async (job) => {
       try {
@@ -29,6 +29,18 @@ async function startWorker() {
       limiter: { max: 7, duration: 1000 },
     },
   );
+
+  worker.on("completed", (job) => {
+    console.log(`Job ${job.id} completed`);
+  });
+
+  worker.on("failed", (job, err) => {
+    console.error(`Job ${job?.id} failed:`, err);
+  });
+
+  worker.on("error", (err) => {
+    console.error("Worker crashed:", err);
+  });
 }
 
 startWorker().catch((error) => {

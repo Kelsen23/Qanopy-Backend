@@ -26,7 +26,7 @@ async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting topic determination worker...");
 
-  new Worker(
+  const worker = new Worker(
     "topicDeterminationQueue",
     async (job) => {
       const { questionId, version, isRollback } = job.data;
@@ -149,6 +149,18 @@ async function startWorker() {
       limiter: { max: 10, duration: 1000 },
     },
   );
+
+  worker.on("completed", (job) => {
+    console.log(`Job ${job.id} completed`);
+  });
+
+  worker.on("failed", (job, err) => {
+    console.error(`Job ${job?.id} failed:`, err);
+  });
+
+  worker.on("error", (err) => {
+    console.error("Worker crashed:", err);
+  });
 }
 
 startWorker().catch((error) => {

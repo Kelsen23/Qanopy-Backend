@@ -3,7 +3,7 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import transporter from "../config/nodemailer.config.js";
 
-new Worker(
+const worker = new Worker(
   "emailQueue",
   async (job) => {
     const { email, subject, htmlContent } = job.data;
@@ -24,3 +24,15 @@ new Worker(
     },
   },
 );
+
+worker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed`);
+});
+
+worker.on("failed", (job, err) => {
+  console.error(`Job ${job?.id} failed:`, err);
+});
+
+worker.on("error", (err) => {
+  console.error("Worker crashed:", err);
+});
