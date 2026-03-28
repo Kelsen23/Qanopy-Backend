@@ -22,6 +22,8 @@ import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
 
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import crypto from "crypto";
 
 const queueTopicDetermination = async (
@@ -65,6 +67,7 @@ async function removeTargetContent(
   switch (contentType) {
     case "Question":
       await Question.findByIdAndUpdate(contentId, { isActive: false });
+      await getRedisCacheClient().del(`question:${contentId}`);
       break;
     case "Answer":
       await Answer.findByIdAndUpdate(contentId, { isActive: false });

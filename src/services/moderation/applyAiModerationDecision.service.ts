@@ -1,10 +1,14 @@
+import mongoose from "mongoose";
+
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
-import mongoose from "mongoose";
+import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+
+import { getRedisCacheClient } from "../../config/redis.config.js";
 
 const MODERATION_STATUS_ORDER = {
   PENDING: 0,
@@ -108,6 +112,14 @@ const applyAiModerationDecisionService = async (
         );
       }
     });
+
+    if (contentType === "Question" && version !== undefined) {
+      await getRedisCacheClient().del(
+        `question:${contentId}`,
+        `v:${version}:question:${contentId}`,
+      );
+      await clearVersionHistoryCache(contentId);
+    }
   } finally {
     session.endSession();
   }
