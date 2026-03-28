@@ -339,18 +339,22 @@ const generateSuggestion = asyncHandler(
       : await Question.findOne({
           _id: questionId,
           userId,
-          $or: [
-            { moderationStatus: "APPROVED" },
-            { moderationStatus: "FLAGGED" },
-          ],
-          topicStatus: "VALID",
         })
-          .select("_id isActive currentVersion")
+          .select("_id isActive currentVersion moderationStatus topicStatus")
           .lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
     if (!foundQuestion.isActive)
       throw new HttpError("Question not active", 410);
+
+    if (
+      !["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus))
+    )
+      throw new HttpError("Question moderation status is not eligible", 400);
+
+    if (foundQuestion.topicStatus !== "VALID")
+      throw new HttpError("Question topic is not valid", 400);
+
     if (Number(foundQuestion.currentVersion) !== versionNumber)
       throw new HttpError(
         `Stale version. Current version is ${foundQuestion.currentVersion}`,
@@ -447,18 +451,22 @@ const generateAiAnswer = asyncHandler(
       : await Question.findOne({
           _id: questionId,
           userId,
-          $or: [
-            { moderationStatus: "APPROVED" },
-            { moderationStatus: "FLAGGED" },
-          ],
-          topicStatus: "VALID",
         })
-          .select("_id isActive currentVersion")
+          .select("_id isActive currentVersion moderationStatus topicStatus")
           .lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
     if (!foundQuestion.isActive)
       throw new HttpError("Question not active", 410);
+
+    if (
+      !["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus))
+    )
+      throw new HttpError("Question moderation status is not eligible", 400);
+
+    if (foundQuestion.topicStatus !== "VALID")
+      throw new HttpError("Question topic is not valid", 400);
+
     if (Number(foundQuestion.currentVersion) !== versionNumber)
       throw new HttpError(
         `Stale version. Current version is ${foundQuestion.currentVersion}`,
