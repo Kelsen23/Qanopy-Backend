@@ -33,44 +33,66 @@ async function startWorker() {
 
       try {
         if (isRollback) {
+          const rolledBackVersion = await QuestionVersion.findOne({
+            questionId,
+            version,
+            topicStatus: "VALID",
+          })
+            .select("_id basedOnVersion")
+            .lean();
+
+          if (!rolledBackVersion)
+            throw new HttpError("Question version not found", 404);
+
+          const baseVersion = await QuestionVersion.findOne({
+            questionId,
+            version: rolledBackVersion.basedOnVersion,
+          })
+            .select("_id title body embedding")
+            .lean();
+
+          if (!baseVersion) throw new HttpError("Base version not found", 404);
+
+          let resolvedEmbedding = Array.isArray(baseVersion.embedding)
+            ? baseVersion.embedding
+            : [];
+
+          const shouldBackfillBaseEmbedding = resolvedEmbedding.length === 0;
+
+          if (shouldBackfillBaseEmbedding) {
+            const questionText = convertQuestionToText(
+              normalizeText(baseVersion.title as string),
+              normalizeText(baseVersion.body as string),
+              [],
+              false,
+            );
+
+            resolvedEmbedding = await generateEmbedding(questionText);
+          }
+
           await session.withTransaction(async () => {
-            const rolledBackVersion = await QuestionVersion.findOne({
-              questionId,
-              version,
-              topicStatus: "VALID",
-            })
-              .select("_id basedOnVersion")
-              .session(session)
-              .lean();
-
-            if (!rolledBackVersion)
-              throw new HttpError("Question version not found", 404);
-
-            const baseVersion = await QuestionVersion.findOne({
-              questionId,
-              version: rolledBackVersion.basedOnVersion,
-            })
-              .select("embedding")
-              .session(session)
-              .lean();
-
-            if (!baseVersion)
-              throw new HttpError("Base version not found", 404);
-
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
                 rolledBackVersion._id as string,
-                { embedding: baseVersion.embedding },
+                { embedding: resolvedEmbedding },
                 { new: true, session },
               ).select("isActive");
 
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
+            if (shouldBackfillBaseEmbedding) {
+              await QuestionVersion.findByIdAndUpdate(
+                baseVersion._id as string,
+                { embedding: resolvedEmbedding },
+                { session },
+              );
+            }
+
             await Question.findByIdAndUpdate(
               questionId as string,
               {
-                embedding: baseVersion.embedding,
+                embedding: resolvedEmbedding,
               },
               { session },
             );
