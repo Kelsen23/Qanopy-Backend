@@ -83,12 +83,9 @@ const voteSchema = z.object({
   ),
 });
 
-const generateSuggestionSchema = z.object({
-  version: z.coerce
-    .number()
-    .int("version must be an integer")
-    .positive("version must be greater than 0"),
-});
+const generateSuggestionSchema = z.object({});
+
+const generateAiAnswerSchema = z.object({});
 
 export {
   createQuestionSchema,
@@ -96,4 +93,5 @@ export {
   createReplyOnAnswerSchema,
   voteSchema,
   generateSuggestionSchema,
+  generateAiAnswerSchema,
 };
