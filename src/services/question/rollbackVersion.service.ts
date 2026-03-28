@@ -87,6 +87,7 @@ const rollbackVersion = async (
             basedOnVersion: foundVersion.version,
             isActive: true,
             moderationStatus: foundVersion.moderationStatus,
+            topicStatus: foundVersion.topicStatus,
           },
         ],
         { session },
@@ -100,6 +101,7 @@ const rollbackVersion = async (
           tags: foundVersion.tags,
           currentVersion: nextVersion,
           moderationStatus: foundVersion.moderationStatus,
+          topicStatus: foundVersion.topicStatus,
         },
         { session },
       );
@@ -127,7 +129,7 @@ const rollbackVersion = async (
       },
       { removeOnComplete: true, removeOnFail: false },
     );
-  } else {
+  } else if (foundVersion.topicStatus === "PENDING") {
     await topicDeterminationQueue.add(
       "question",
       {
