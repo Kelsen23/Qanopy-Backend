@@ -83,15 +83,9 @@ const voteSchema = z.object({
   ),
 });
 
-const generateSuggestionSchema = z.object({});
-
-const generateAiAnswerSchema = z.object({});
-
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
-  generateSuggestionSchema,
-  generateAiAnswerSchema,
 };

@@ -22,8 +22,6 @@ import {
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
-  generateSuggestionSchema,
-  generateAiAnswerSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -135,7 +133,6 @@ router
     isAuthenticated,
     isVerified,
     requireActiveUser,
-    validate(generateSuggestionSchema),
     generateSuggestion,
   );
 
@@ -146,7 +143,6 @@ router
     isAuthenticated,
     isVerified,
     requireActiveUser,
-    validate(generateAiAnswerSchema),
     generateAiAnswer,
   );
 
