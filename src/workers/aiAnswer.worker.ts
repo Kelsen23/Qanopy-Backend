@@ -107,8 +107,8 @@ async function startWorker() {
     },
     {
       connection: redisMessagingClientConnection,
-      concurrency: 5,
-      limiter: { max: 5, duration: 1000 },
+      concurrency: 2,
+      limiter: { max: 2, duration: 1000 },
     },
   );
 
