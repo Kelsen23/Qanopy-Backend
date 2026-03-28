@@ -331,6 +331,32 @@ const generateSuggestion = asyncHandler(
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
 
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findOne({
+          _id: questionId,
+          userId,
+          $or: [
+            { moderationStatus: "APPROVED" },
+            { moderationStatus: "FLAGGED" },
+          ],
+          topicStatus: "VALID",
+        })
+          .select("_id isActive currentVersion")
+          .lean();
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+    if (!foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+    if (Number(foundQuestion.currentVersion) !== versionNumber)
+      throw new HttpError(
+        `Stale version. Current version is ${foundQuestion.currentVersion}`,
+        409,
+      );
+
     const foundAiSuggestion = await AiSuggestion.findOne({
       questionId,
       version: versionNumber,
@@ -390,7 +416,7 @@ const generateSuggestion = asyncHandler(
           `user:${userId}`,
           pendingKey,
         );
-        
+
         throw error;
       }
 
@@ -412,6 +438,32 @@ const generateAiAnswer = asyncHandler(
 
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
+
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
+    const foundQuestion = cachedQuestion
+      ? JSON.parse(cachedQuestion)
+      : await Question.findOne({
+          _id: questionId,
+          userId,
+          $or: [
+            { moderationStatus: "APPROVED" },
+            { moderationStatus: "FLAGGED" },
+          ],
+          topicStatus: "VALID",
+        })
+          .select("_id isActive currentVersion")
+          .lean();
+
+    if (!foundQuestion) throw new HttpError("Question not found", 404);
+    if (!foundQuestion.isActive)
+      throw new HttpError("Question not active", 410);
+    if (Number(foundQuestion.currentVersion) !== versionNumber)
+      throw new HttpError(
+        `Stale version. Current version is ${foundQuestion.currentVersion}`,
+        409,
+      );
 
     const foundAiAnswer = await AiAnswer.findOne({
       questionId,
