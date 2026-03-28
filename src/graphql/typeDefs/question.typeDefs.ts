@@ -12,6 +12,7 @@ const questionTypeDefs = gql`
     answerCount: Int!
     currentVersion: Int!
     topicStatus: String!
+    moderationStatus: String!
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
@@ -59,6 +60,7 @@ const questionTypeDefs = gql`
     topAnswer: Answer
     currentVersion: Int!
     topicStatus: String!
+    moderationStatus: String!
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
@@ -81,6 +83,8 @@ const questionTypeDefs = gql`
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
+    topicStatus: String!
+    moderationStatus: String!
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
@@ -113,6 +117,7 @@ const questionTypeDefs = gql`
     body: String!
     tags: [String]!
     topicStatus: String!
+    moderationStatus: String!
     supersededByRollback: Boolean!
     version: Int!
     basedOnVersion: Int!
