@@ -325,23 +325,11 @@ const generateSuggestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { questionId } = req.params;
+    const { version } = req.body;
+    const versionNumber = Number(version);
 
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
-
-    const cachedQuestion = await getRedisCacheClient().get(
-      `question:${questionId}`,
-    );
-    const foundQuestion = cachedQuestion
-      ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId)
-          .select("_id isActive currentVersion")
-          .lean();
-
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
-    if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
-
-    const versionNumber = Number(foundQuestion.currentVersion);
 
     const foundAiSuggestion = await AiSuggestion.findOne({
       questionId,
@@ -419,23 +407,11 @@ const generateAiAnswer = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { questionId } = req.params;
+    const { version } = req.body;
+    const versionNumber = Number(version);
 
     if (!mongoose.Types.ObjectId.isValid(questionId))
       throw new HttpError("Invalid questionId", 400);
-
-    const cachedQuestion = await getRedisCacheClient().get(
-      `question:${questionId}`,
-    );
-    const foundQuestion = cachedQuestion
-      ? JSON.parse(cachedQuestion)
-      : await Question.findById(questionId)
-          .select("_id isActive currentVersion")
-          .lean();
-
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
-    if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
-
-    const versionNumber = Number(foundQuestion.currentVersion);
 
     const foundAiAnswer = await AiAnswer.findOne({
       questionId,
