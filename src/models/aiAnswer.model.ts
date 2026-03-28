@@ -24,6 +24,11 @@ const aiAnswerSchema = new Schema(
       ],
     },
 
+    meta: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+
     isPublished: { type: Boolean, default: false },
 
     feedback: [
