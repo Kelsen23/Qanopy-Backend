@@ -120,7 +120,7 @@ const rollbackVersion = async (
 
   await clearVersionHistoryCache(questionId);
 
-  if (foundVersion.moderationStatus === "PENDING") {
+  if (newVersion.moderationStatus === "PENDING") {
     await contentModerationQueue.add(
       "Question",
       {
@@ -129,7 +129,10 @@ const rollbackVersion = async (
       },
       { removeOnComplete: true, removeOnFail: false },
     );
-  } else if (foundVersion.topicStatus === "PENDING") {
+  } else if (
+    newVersion.topicStatus === "PENDING" ||
+    newVersion.topicStatus === "VALID"
+  ) {
     await topicDeterminationQueue.add(
       "question",
       {
