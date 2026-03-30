@@ -97,6 +97,10 @@ const generateAiAnswerSchema = z.object({
     .positive("version must be greater than 0"),
 });
 
+const publishAiAnswerSchema = z.object({
+  aiAnswerId: z.string().min(1, "aiAnswerId is required"),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
@@ -104,4 +108,5 @@ export {
   voteSchema,
   generateSuggestionSchema,
   generateAiAnswerSchema,
+  publishAiAnswerSchema,
 };
