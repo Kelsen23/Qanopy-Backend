@@ -16,6 +16,7 @@ import {
   generateSuggestion,
   generateAiAnswer,
   publishAiAnswer,
+  unpublishAiAnswer,
 } from "../controllers/question.controller.js";
 
 import {
@@ -26,6 +27,7 @@ import {
   generateSuggestionSchema,
   generateAiAnswerSchema,
   publishAiAnswerSchema,
+  unpublishAiAnswerSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -39,6 +41,7 @@ import {
   generateSuggestionLimiterMiddleware,
   generateAiAnswerLimiterMiddleware,
   publishAiAnswerLimiterMiddleware,
+  unpublishAiAnswerLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -162,6 +165,17 @@ router
     requireActiveUser,
     validate(publishAiAnswerSchema),
     publishAiAnswer,
+  );
+
+router
+  .route("/:questionId/ai/answer/unpublish")
+  .patch(
+    unpublishAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(unpublishAiAnswerSchema),
+    unpublishAiAnswer,
   );
 
 router
