@@ -16,6 +16,7 @@ import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.s
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
 import publishAiAnswerService from "../services/question/publishAiAnswer.service.js";
+import unpublishAiAnswerService from "../services/question/unpublishAiAnswer.service.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -581,6 +582,22 @@ const publishAiAnswer = asyncHandler(
   },
 );
 
+const unpublishAiAnswer = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { aiAnswerId } = req.body;
+
+    const result = await unpublishAiAnswerService(
+      userId,
+      questionId,
+      aiAnswerId,
+    );
+
+    return res.status(200).json(result);
+  },
+);
+
 const deleteContent = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -611,5 +628,6 @@ export {
   generateAiAnswer,
   rollbackVersion,
   publishAiAnswer,
+  unpublishAiAnswer,
   deleteContent,
 };
