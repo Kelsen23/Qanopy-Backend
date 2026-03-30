@@ -15,6 +15,7 @@ import {
   deleteContent,
   generateSuggestion,
   generateAiAnswer,
+  publishAiAnswer,
 } from "../controllers/question.controller.js";
 
 import {
@@ -24,6 +25,7 @@ import {
   voteSchema,
   generateSuggestionSchema,
   generateAiAnswerSchema,
+  publishAiAnswerSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -36,6 +38,7 @@ import {
   rollbackVersionLimiterMiddleware,
   generateSuggestionLimiterMiddleware,
   generateAiAnswerLimiterMiddleware,
+  publishAiAnswerLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -148,6 +151,17 @@ router
     requireActiveUser,
     validate(generateAiAnswerSchema),
     generateAiAnswer,
+  );
+
+router
+  .route("/:questionId/ai/answer/publish")
+  .patch(
+    publishAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(publishAiAnswerSchema),
+    publishAiAnswer,
   );
 
 router
