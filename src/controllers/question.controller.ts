@@ -15,6 +15,7 @@ import markAnswerAsBestService from "../services/question/markAnswerAsBest.servi
 import unmarkAnswerAsBestService from "../services/question/unmarkAnswerAsBest.service.js";
 import editQuestionService from "../services/question/editQuestion.service.js";
 import rollbackVersionService from "../services/question/rollbackVersion.service.js";
+import publishAiAnswerService from "../services/question/publishAiAnswer.service.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -568,6 +569,18 @@ const rollbackVersion = asyncHandler(
   },
 );
 
+const publishAiAnswer = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { questionId } = req.params;
+    const { aiAnswerId } = req.body;
+
+    const result = await publishAiAnswerService(userId, questionId, aiAnswerId);
+
+    return res.status(200).json(result);
+  },
+);
+
 const deleteContent = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -597,5 +610,6 @@ export {
   generateSuggestion,
   generateAiAnswer,
   rollbackVersion,
+  publishAiAnswer,
   deleteContent,
 };
