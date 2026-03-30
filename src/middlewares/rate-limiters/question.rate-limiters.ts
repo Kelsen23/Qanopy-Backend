@@ -80,6 +80,13 @@ const publishAiAnswerLimiter = new RateLimiterRedis({
   duration: 60 * 30,
 });
 
+const unpublishAiAnswerLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "unpublishAiAnswer",
+  points: 15,
+  duration: 60 * 30,
+});
+
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
   "Too many questions created, try again after half an hour",
@@ -135,6 +142,11 @@ const publishAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   "Too many AI answer publish requests, try again later",
 );
 
+const unpublishAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
+  unpublishAiAnswerLimiter,
+  "Too many AI answer unpublish requests, try again later",
+);
+
 export {
   createQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
@@ -147,4 +159,5 @@ export {
   generateSuggestionLimiterMiddleware,
   generateAiAnswerLimiterMiddleware,
   publishAiAnswerLimiterMiddleware,
+  unpublishAiAnswerLimiterMiddleware,
 };
