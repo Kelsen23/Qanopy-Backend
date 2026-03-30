@@ -101,6 +101,10 @@ const publishAiAnswerSchema = z.object({
   aiAnswerId: z.string().min(1, "aiAnswerId is required"),
 });
 
+const unpublishAiAnswerSchema = z.object({
+  aiAnswerId: z.string().min(1, "aiAnswerId is required"),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
@@ -109,4 +113,5 @@ export {
   generateSuggestionSchema,
   generateAiAnswerSchema,
   publishAiAnswerSchema,
+  unpublishAiAnswerSchema,
 };
