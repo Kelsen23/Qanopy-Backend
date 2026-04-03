@@ -30,20 +30,6 @@ const aiAnswerSchema = new Schema(
     },
 
     isPublished: { type: Boolean, default: false },
-
-    feedback: [
-      {
-        userId: { type: String, required: true },
-        type: {
-          type: String,
-          enum: ["HELPFUL", "NOT_HELPFUL", "FLAG"],
-          required: true,
-        },
-        comment: { type: String, maxlength: 500, default: null },
-        questionVersionAtFeedback: { type: Number, min: 1, required: true },
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
   },
   {
     timestamps: true,
