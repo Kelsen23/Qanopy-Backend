@@ -18,8 +18,8 @@ import {
   publishAiAnswer,
   unpublishAiAnswer,
   createFeedbackOnAiAnswer,
-  editAiFeedback,
-  deleteAiFeedback,
+  editFeedbackOnAiAnswer,
+  deleteFeedbackOnAiAnswer,
 } from "../controllers/question.controller.js";
 
 import {
@@ -206,7 +206,7 @@ router
     isVerified,
     requireActiveUser,
     validate(editAiFeedbackSchema),
-    editAiFeedback,
+    editFeedbackOnAiAnswer,
   );
 
 router
@@ -217,7 +217,7 @@ router
     isVerified,
     requireActiveUser,
     validate(deleteAiFeedbackSchema),
-    deleteAiFeedback,
+    deleteFeedbackOnAiAnswer,
   );
 
 router
