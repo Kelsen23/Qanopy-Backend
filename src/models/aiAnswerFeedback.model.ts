@@ -16,7 +16,7 @@ const aiAnswerFeedbackSchema = new Schema(
       required: true,
     },
 
-    comment: { type: String, maxlength: 500, default: null },
+    body: { type: String, minlength: 1, maxlength: 150, default: null },
 
     questionVersionAtFeedback: { type: Number, min: 1, required: true },
   },
