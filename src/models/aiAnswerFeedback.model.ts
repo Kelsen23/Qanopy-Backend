@@ -19,6 +19,16 @@ const aiAnswerFeedbackSchema = new Schema(
     body: { type: String, minlength: 1, maxlength: 150, default: null },
 
     questionVersionAtFeedback: { type: Number, min: 1, required: true },
+
+    moderationStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
+      default: "PENDING",
+    },
+    moderationUpdatedAt: { type: Date },
+
+    isDeleted: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true,
@@ -37,7 +47,10 @@ const aiAnswerFeedbackSchema = new Schema(
 );
 
 aiAnswerFeedbackSchema.index({ aiAnswerId: 1, createdAt: -1 });
-aiAnswerFeedbackSchema.index({ aiAnswerId: 1, userId: 1 }, { unique: true });
+aiAnswerFeedbackSchema.index(
+  { aiAnswerId: 1, userId: 1, type: 1 },
+  { unique: true },
+);
 
 export default mongoose.model(
   "AiAnswerFeedback",
