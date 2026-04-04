@@ -11,6 +11,7 @@ import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -28,7 +29,7 @@ import crypto from "crypto";
 
 const queueTopicDetermination = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply",
+  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
   version?: number,
 ) => {
   if (contentType !== "Question" || version === undefined) return;
@@ -52,17 +53,18 @@ const mapSeverityToDecision = (riskScore: number) => {
 };
 
 const moderationContentTypeMap: Record<
-  "Question" | "Answer" | "Reply",
+  "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
   ContentType
 > = {
   Question: ContentType.QUESTION,
   Answer: ContentType.ANSWER,
   Reply: ContentType.REPLY,
+  AiAnswerFeedback: ContentType.AI_ANSWER_FEEDBACK,
 };
 
 async function removeTargetContent(
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply",
+  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
 ) {
   switch (contentType) {
     case "Question":
@@ -75,19 +77,24 @@ async function removeTargetContent(
     case "Reply":
       await Reply.findByIdAndUpdate(contentId, { isActive: false });
       break;
+    case "AiAnswerFeedback":
+      await AiAnswerFeedback.findByIdAndUpdate(contentId, { isActive: false });
+      break;
   }
 }
 
 const processContent = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply",
+  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
   version?: number,
 ) => {
   const content = await (contentType === "Question"
     ? QuestionVersion.findOne({ questionId: contentId, version }).lean()
     : contentType === "Answer"
       ? Answer.findById(contentId).lean()
-      : Reply.findById(contentId).lean());
+      : contentType === "Reply"
+        ? Reply.findById(contentId).lean()
+        : AiAnswerFeedback.findById(contentId).lean());
 
   if (!content) throw new HttpError("Content not found", 404);
 
@@ -97,7 +104,9 @@ const processContent = async (
   if (content.moderationStatus !== "PENDING")
     throw new HttpError("Content already moderated", 500);
 
-  const contentFields = `Title: ${content.title || ""}\nBody: ${content.body || ""}`;
+  const contentTitle = "title" in content ? String(content.title ?? "") : "";
+  const contentBody = "body" in content ? String(content.body ?? "") : "";
+  const contentFields = `Title: ${contentTitle}\nBody: ${contentBody}`;
 
   const {
     confidence: aiConfidence,
@@ -234,7 +243,7 @@ const processContent = async (
       contentId,
       contentType,
       "REJECTED",
-      contentType === "Question" ? (content.version as number) : undefined,
+      contentType === "Question" ? (version as number) : undefined,
     );
 
     await removeTargetContent(contentId, contentType);
@@ -298,7 +307,7 @@ const processContent = async (
       contentId,
       contentType,
       "FLAGGED",
-      contentType === "Question" ? (content.version as number) : undefined,
+      contentType === "Question" ? (version as number) : undefined,
     );
 
     const meta = {
@@ -341,7 +350,7 @@ const processContent = async (
       contentId,
       contentType,
       "APPROVED",
-      contentType === "Question" ? (content.version as number) : undefined,
+      contentType === "Question" ? (version as number) : undefined,
     );
 
     const meta = {
