@@ -463,7 +463,9 @@ const generateAiAnswer = asyncHandler(
           _id: questionId,
           userId,
         })
-          .select("_id isActive currentVersion moderationStatus topicStatus")
+          .select(
+            "_id isActive currentVersion moderationStatus topicStatus embedding",
+          )
           .lean();
 
     if (!foundQuestion) throw new HttpError("Question not found", 404);
@@ -484,7 +486,10 @@ const generateAiAnswer = asyncHandler(
     if (foundQuestion.topicStatus !== "VALID")
       throw new HttpError("Question topic is not valid", 400);
 
-    if (foundQuestion.embedding.length === 0)
+    if (
+      !Array.isArray(foundQuestion.embedding) ||
+      foundQuestion.embedding.length === 0
+    )
       throw new HttpError("Question does not have embedding", 400);
 
     const foundAiAnswer = await AiAnswer.findOne({
