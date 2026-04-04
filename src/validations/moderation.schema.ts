@@ -3,7 +3,10 @@ import z from "zod";
 const reportSchema = z.object({
   targetId: z.string(),
   targetUserId: z.string().uuid("Invalid targetUserId"),
-  targetType: z.enum(["Question", "Answer", "Reply"], "Invalid targetType"),
+  targetType: z.enum(
+    ["Question", "Answer", "Reply", "AiAnswerFeedback"],
+    "Invalid targetType",
+  ),
   reportReason: z.enum(
     [
       "SPAM",
@@ -26,7 +29,10 @@ const moderateSchema = z
   .object({
     type: z.enum(["Report", "Strike"]),
     targetId: z.string(),
-    targetType: z.enum(["Question", "Answer", "Reply"], "Invalid targetType"),
+    targetType: z.enum(
+      ["Question", "Answer", "Reply", "AiAnswerFeedback"],
+      "Invalid targetType",
+    ),
     reviewComment: z
       .string()
       .max(500, "Review comment must be at most 500 characters")
