@@ -94,6 +94,20 @@ const createFeedbackOnAiAnswerLimiter = new RateLimiterRedis({
   duration: 60 * 15,
 });
 
+const editAiFeedbackLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "editAiFeedback",
+  points: 10,
+  duration: 60 * 15,
+});
+
+const deleteAiFeedbackLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "deleteAiFeedback",
+  points: 10,
+  duration: 60 * 15,
+});
+
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
   "Too many questions created, try again after half an hour",
@@ -159,6 +173,16 @@ const createFeedbackOnAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   "Too many AI answer feedback requests, try again later",
 );
 
+const editAiFeedbackLimiterMiddleware = createRateLimiterMiddleware(
+  editAiFeedbackLimiter,
+  "Too many AI answer feedback edit requests, try again later",
+);
+
+const deleteAiFeedbackLimiterMiddleware = createRateLimiterMiddleware(
+  deleteAiFeedbackLimiter,
+  "Too many AI answer feedback delete requests, try again later",
+);
+
 export {
   createQuestionLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
@@ -173,4 +197,6 @@ export {
   publishAiAnswerLimiterMiddleware,
   unpublishAiAnswerLimiterMiddleware,
   createFeedbackOnAiAnswerLimiterMiddleware,
+  editAiFeedbackLimiterMiddleware,
+  deleteAiFeedbackLimiterMiddleware,
 };
