@@ -31,6 +31,9 @@ const aiSuggestionSchema = new Schema(
       type: Schema.Types.Mixed,
       default: {},
     },
+
+    isDeleted: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true,
