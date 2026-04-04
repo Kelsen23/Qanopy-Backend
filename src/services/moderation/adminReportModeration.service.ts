@@ -27,7 +27,7 @@ const adminModerateReport = async ({
   warningDurationMs,
 }: {
   targetId: string;
-  targetType: "Question" | "Answer" | "Reply";
+  targetType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback";
   reviewedBy: string;
   reviewComment?: string;
   actionTaken: AdminReportActionTaken;
