@@ -13,6 +13,7 @@ import addAdminModPoints from "../services/moderation/modPoints.service.js";
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
+import AiAnswerFeedback from "../models/aiAnswerFeedback.model.js";
 
 import Report from "../models/report.model.js";
 
@@ -45,6 +46,13 @@ const createReport = asyncHandler(
 
       case "Reply":
         foundContent = await Reply.findOne(
+          { _id: targetId, isActive: true },
+          { userId: 1 },
+        );
+        break;
+
+      case "AiAnswerFeedback":
+        foundContent = await AiAnswerFeedback.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
