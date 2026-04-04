@@ -5,6 +5,29 @@ const getVersionSocketKey = (questionId: string, questionVersion: number) =>
 
 const getSocketBindingKey = (socketId: string) => `aiAnswer:socket:${socketId}`;
 
+const getAiAnswerCancelKey = (questionId: string, questionVersion: number) =>
+  `cancel:aiAnswer:question:${questionId}:version:${questionVersion}`;
+
+const setAiAnswerCancelFlagFromSocketBinding = async (socketId: string) => {
+  const binding = await getRedisCacheClient().get(
+    getSocketBindingKey(socketId),
+  );
+
+  if (!binding) return;
+
+  const { questionId, questionVersion } = JSON.parse(binding) as {
+    questionId: string;
+    questionVersion: number;
+  };
+
+  await getRedisCacheClient().set(
+    getAiAnswerCancelKey(questionId, questionVersion),
+    "1",
+    "EX",
+    60,
+  );
+};
+
 const startAiAnswerSession = async (
   socketId: string,
   questionId: string,
@@ -60,4 +83,10 @@ const getAiAnswerSessionSockets = async (
   return sockets || [];
 };
 
-export { startAiAnswerSession, endAiAnswerSession, getAiAnswerSessionSockets };
+export {
+  startAiAnswerSession,
+  endAiAnswerSession,
+  getAiAnswerSessionSockets,
+  getAiAnswerCancelKey,
+  setAiAnswerCancelFlagFromSocketBinding,
+};
