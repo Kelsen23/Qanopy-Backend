@@ -48,8 +48,11 @@ const aiAnswerFeedbackSchema = new Schema(
 
 aiAnswerFeedbackSchema.index({ aiAnswerId: 1, createdAt: -1 });
 aiAnswerFeedbackSchema.index(
-  { aiAnswerId: 1, userId: 1, type: 1 },
-  { unique: true },
+  { aiAnswerId: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isActive: true, isDeleted: false },
+  },
 );
 
 export default mongoose.model(
