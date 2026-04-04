@@ -18,6 +18,8 @@ import {
   publishAiAnswer,
   unpublishAiAnswer,
   createFeedbackOnAiAnswer,
+  editAiFeedback,
+  deleteAiFeedback,
 } from "../controllers/question.controller.js";
 
 import {
@@ -30,6 +32,8 @@ import {
   publishAiAnswerSchema,
   unpublishAiAnswerSchema,
   createFeedbackOnAiAnswerSchema,
+  editAiFeedbackSchema,
+  deleteAiFeedbackSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -45,6 +49,8 @@ import {
   publishAiAnswerLimiterMiddleware,
   unpublishAiAnswerLimiterMiddleware,
   createFeedbackOnAiAnswerLimiterMiddleware,
+  editAiFeedbackLimiterMiddleware,
+  deleteAiFeedbackLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -190,6 +196,28 @@ router
     requireActiveUser,
     validate(createFeedbackOnAiAnswerSchema),
     createFeedbackOnAiAnswer,
+  );
+
+router
+  .route("/ai/answer/feedback/edit")
+  .patch(
+    editAiFeedbackLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(editAiFeedbackSchema),
+    editAiFeedback,
+  );
+
+router
+  .route("/ai/answer/feedback/delete")
+  .delete(
+    deleteAiFeedbackLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(deleteAiFeedbackSchema),
+    deleteAiFeedback,
   );
 
 router
