@@ -14,7 +14,11 @@ async function startWorker() {
     "contentModerationQueue",
     async (job) => {
       try {
-        const contentType = job.name as "Question" | "Answer" | "Reply";
+        const contentType = job.name as
+          | "Question"
+          | "Answer"
+          | "Reply"
+          | "AiAnswerFeedback";
         const { contentId, version } = job.data;
 
         await processContent(contentId, contentType, version);
