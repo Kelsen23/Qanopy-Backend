@@ -4,6 +4,7 @@ import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
@@ -38,7 +39,7 @@ const shouldAdvanceModerationStatus = (
 
 const applyAiModerationDecisionService = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply",
+  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
   moderationStatus: "APPROVED" | "FLAGGED" | "REJECTED",
   version?: number,
 ) => {
@@ -86,9 +87,15 @@ const applyAiModerationDecisionService = async (
         return;
       }
 
-      const model = contentType === "Answer" ? Answer : Reply;
+      const model =
+        contentType === "Answer"
+          ? Answer
+          : contentType === "Reply"
+            ? Reply
+            : AiAnswerFeedback;
+      const ContentModel = model as any;
 
-      const foundContent = await model
+      const foundContent = await ContentModel
         .findById(contentId)
         .select("moderationStatus isActive")
         .session(session);
@@ -102,7 +109,7 @@ const applyAiModerationDecisionService = async (
           moderationStatus,
         )
       ) {
-        await model.findByIdAndUpdate(
+        await ContentModel.findByIdAndUpdate(
           contentId,
           {
             moderationStatus,
