@@ -470,6 +470,12 @@ const generateAiAnswer = asyncHandler(
     if (!foundQuestion.isActive)
       throw new HttpError("Question not active", 410);
 
+    if (Number(foundQuestion.currentVersion) !== versionNumber)
+      throw new HttpError(
+        `Stale version. Current version is ${foundQuestion.currentVersion}`,
+        409,
+      );
+
     if (
       !["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus))
     )
@@ -478,11 +484,8 @@ const generateAiAnswer = asyncHandler(
     if (foundQuestion.topicStatus !== "VALID")
       throw new HttpError("Question topic is not valid", 400);
 
-    if (Number(foundQuestion.currentVersion) !== versionNumber)
-      throw new HttpError(
-        `Stale version. Current version is ${foundQuestion.currentVersion}`,
-        409,
-      );
+    if (foundQuestion.embedding.length === 0)
+      throw new HttpError("Question does not have embedding", 400);
 
     const foundAiAnswer = await AiAnswer.findOne({
       questionId,
