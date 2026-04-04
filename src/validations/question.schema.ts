@@ -131,7 +131,7 @@ const createFeedbackOnAiAnswerSchema = z
 
 const editAiFeedbackSchema = z
   .object({
-    aiFeedbackId: z.string().min(1, "aiFeedbackId is required"),
+    feedbackId: z.string().min(1, "feedbackId is required"),
     type: z.enum(["HELPFUL", "NOT_HELPFUL"]),
     body: z
       .string()
@@ -149,7 +149,7 @@ const editAiFeedbackSchema = z
   });
 
 const deleteAiFeedbackSchema = z.object({
-  aiFeedbackId: z.string().min(1, "aiFeedbackId is required"),
+  feedbackId: z.string().min(1, "feedbackId is required"),
 });
 
 export {
