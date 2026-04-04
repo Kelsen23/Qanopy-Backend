@@ -15,8 +15,8 @@ import Vote from "../../models/vote.model.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
-type TargetType = "Question" | "Answer" | "Reply";
-type VoteType = "upvote" | "downvote";
+type TargetType = "QUESTION" | "ANSWER" | "REPLY";
+type VoteType = "UPVOTE" | "DOWNVOTE";
 
 const vote = async (
   userId: string,
@@ -35,15 +35,18 @@ const vote = async (
     targetType,
     targetId,
   });
+  const existingVoteType = existingVote
+    ? String(existingVote.voteType).toUpperCase()
+    : null;
 
-  if (existingVote && existingVote.voteType === voteType) {
+  if (existingVote && existingVoteType === voteType) {
     return {
-      message: `This ${targetType.toLowerCase()} is already ${voteType}d`,
+      message: `This ${targetType.toLowerCase()} is already ${voteType.toLowerCase()}d`,
       vote: existingVote,
     };
   }
 
-  if (targetType === "Question") {
+  if (targetType === "QUESTION") {
     const cachedQuestion = await getRedisCacheClient().get(
       `question:${targetId}`,
     );
@@ -70,7 +73,7 @@ const vote = async (
           foundQuestion._id || foundQuestion.id,
           {
             $inc:
-              voteType === "upvote"
+              voteType === "UPVOTE"
                 ? { upvoteCount: 1, downvoteCount: -1 }
                 : { upvoteCount: -1, downvoteCount: 1 },
           },
@@ -87,7 +90,7 @@ const vote = async (
           foundQuestion._id || foundQuestion.id,
           {
             $inc:
-              voteType === "upvote" ? { upvoteCount: 1 } : { downvoteCount: 1 },
+              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
           },
           { session },
         );
@@ -99,10 +102,10 @@ const vote = async (
     await statsQueue.add("changeReputationPoints", {
       userId: foundQuestion.userId as string,
       action: existingVote
-        ? voteType === "upvote"
+        ? voteType === "UPVOTE"
           ? "CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION"
           : "CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION"
-        : voteType === "upvote"
+        : voteType === "UPVOTE"
           ? "RECEIVE_UPVOTE_QUESTION"
           : "RECEIVE_DOWNVOTE_QUESTION",
     });
@@ -115,7 +118,7 @@ const vote = async (
     };
   }
 
-  if (targetType === "Answer") {
+  if (targetType === "ANSWER") {
     const foundAnswer = await Answer.findById(targetId);
     if (!foundAnswer) throw new HttpError("Answer not found", 404);
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
@@ -136,7 +139,7 @@ const vote = async (
           foundAnswer._id,
           {
             $inc:
-              voteType === "upvote"
+              voteType === "UPVOTE"
                 ? { upvoteCount: 1, downvoteCount: -1 }
                 : { upvoteCount: -1, downvoteCount: 1 },
           },
@@ -153,7 +156,7 @@ const vote = async (
           foundAnswer._id,
           {
             $inc:
-              voteType === "upvote" ? { upvoteCount: 1 } : { downvoteCount: 1 },
+              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
           },
           { session },
         );
@@ -165,10 +168,10 @@ const vote = async (
     await statsQueue.add("changeReputationPoints", {
       userId: foundAnswer.userId as string,
       action: existingVote
-        ? voteType === "upvote"
+        ? voteType === "UPVOTE"
           ? "CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER"
           : "CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER"
-        : voteType === "upvote"
+        : voteType === "UPVOTE"
           ? "RECEIVE_UPVOTE_ANSWER"
           : "RECEIVE_DOWNVOTE_ANSWER",
     });
@@ -182,7 +185,7 @@ const vote = async (
     };
   }
 
-  if (targetType === "Reply") {
+  if (targetType === "REPLY") {
     const foundReply = await Reply.findById(targetId);
     if (!foundReply) throw new HttpError("Reply not found", 404);
     if (foundReply.isDeleted || !foundReply.isActive)
@@ -203,7 +206,7 @@ const vote = async (
           foundReply._id,
           {
             $inc:
-              voteType === "upvote"
+              voteType === "UPVOTE"
                 ? { upvoteCount: 1, downvoteCount: -1 }
                 : { upvoteCount: -1, downvoteCount: 1 },
           },
@@ -220,7 +223,7 @@ const vote = async (
           foundReply._id,
           {
             $inc:
-              voteType === "upvote" ? { upvoteCount: 1 } : { downvoteCount: 1 },
+              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
           },
           { session },
         );
@@ -232,10 +235,10 @@ const vote = async (
     await statsQueue.add("changeReputationPoints", {
       userId: foundReply.userId as string,
       action: existingVote
-        ? voteType === "upvote"
+        ? voteType === "UPVOTE"
           ? "CHANGE_DOWNVOTE_TO_UPVOTE_REPLY"
           : "CHANGE_UPVOTE_TO_DOWNVOTE_REPLY"
-        : voteType === "upvote"
+        : voteType === "UPVOTE"
           ? "RECEIVE_UPVOTE_REPLY"
           : "RECEIVE_DOWNVOTE_REPLY",
     });

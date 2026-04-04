@@ -3,23 +3,23 @@ import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
 
 const deactivateContent = async (
-  targetType: "Question" | "Answer" | "Reply",
+  targetType: "QUESTION" | "ANSWER" | "REPLY",
   targetId: string,
 ) => {
   switch (targetType) {
-    case "Question":
+    case "QUESTION":
       await Question.updateOne(
         { _id: targetId, isActive: true },
         { isActive: false },
       );
       break;
-    case "Answer":
+    case "ANSWER":
       await Answer.updateOne(
         { _id: targetId, isActive: true },
         { isActive: false },
       );
       break;
-    case "Reply":
+    case "REPLY":
       await Reply.updateOne(
         { _id: targetId, isActive: true },
         { isActive: false },

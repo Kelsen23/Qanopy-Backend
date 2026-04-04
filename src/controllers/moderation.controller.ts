@@ -30,28 +30,28 @@ const createReport = asyncHandler(
     let foundContent;
 
     switch (targetType) {
-      case "Question":
+      case "QUESTION":
         foundContent = await Question.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
         break;
 
-      case "Answer":
+      case "ANSWER":
         foundContent = await Answer.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
         break;
 
-      case "Reply":
+      case "REPLY":
         foundContent = await Reply.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
         break;
 
-      case "AiAnswerFeedback":
+      case "AI_ANSWER_FEEDBACK":
         foundContent = await AiAnswerFeedback.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
@@ -86,8 +86,9 @@ const moderate = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { type, actionTaken } = req.body;
+    const normalizedType = String(type).toUpperCase();
 
-    if (type === "Report") {
+    if (normalizedType === "REPORT") {
       await adminModerateReportService({ ...req.body, reviewedBy: userId });
     } else {
       await adminModerateStrikeService({ ...req.body, reviewedBy: userId });
@@ -96,7 +97,7 @@ const moderate = asyncHandler(
     await addAdminModPoints(userId, actionTaken);
 
     return res.status(200).json({
-      message: `Successfully moderated ${type.toString().toLowerCase()}`,
+      message: `Successfully moderated ${normalizedType.toLowerCase()}`,
     });
   },
 );

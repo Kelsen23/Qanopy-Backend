@@ -120,7 +120,7 @@ async function startWorker() {
           { removeOnComplete: true, removeOnFail: false },
         );
       } else {
-        await contentModerationQueue.add("Answer", { contentId: entityId });
+        await contentModerationQueue.add("ANSWER", { contentId: entityId });
 
         await clearAnswerCache(entity.questionId as string);
       }

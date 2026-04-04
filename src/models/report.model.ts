@@ -9,7 +9,7 @@ const ReportSchema: Schema = new Schema(
     targetType: {
       type: String,
       required: true,
-      enum: ["Question", "Answer", "Reply", "AiAnswerFeedback"],
+      enum: ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK"],
     },
 
     reportReason: {

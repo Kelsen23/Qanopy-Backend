@@ -12,26 +12,26 @@ import invalidateCacheOnUnvote from "../../utils/invalidateCacheOnUnvote.util.js
 
 import statsQueue from "../../queues/stats.queue.js";
 
-type TargetType = "Question" | "Answer" | "Reply";
+type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 
 const modelMap = {
-  Question,
-  Answer,
-  Reply,
+  QUESTION: Question,
+  ANSWER: Answer,
+  REPLY: Reply,
 } as const;
 
 const actionMap = {
-  Question: {
-    upvote: "UNVOTE_UPVOTE_QUESTION",
-    downvote: "UNVOTE_DOWNVOTE_QUESTION",
+  QUESTION: {
+    UPVOTE: "UNVOTE_UPVOTE_QUESTION",
+    DOWNVOTE: "UNVOTE_DOWNVOTE_QUESTION",
   },
-  Answer: {
-    upvote: "UNVOTE_UPVOTE_ANSWER",
-    downvote: "UNVOTE_DOWNVOTE_ANSWER",
+  ANSWER: {
+    UPVOTE: "UNVOTE_UPVOTE_ANSWER",
+    DOWNVOTE: "UNVOTE_DOWNVOTE_ANSWER",
   },
-  Reply: {
-    upvote: "UNVOTE_UPVOTE_REPLY",
-    downvote: "UNVOTE_DOWNVOTE_REPLY",
+  REPLY: {
+    UPVOTE: "UNVOTE_UPVOTE_REPLY",
+    DOWNVOTE: "UNVOTE_DOWNVOTE_REPLY",
   },
 } as const;
 
@@ -43,8 +43,7 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
   )
     throw new HttpError("Invalid target type", 400);
 
-  const normalizedTargetType = (targetType.charAt(0).toUpperCase() +
-    targetType.slice(1)) as TargetType;
+  const normalizedTargetType = targetType.toUpperCase() as TargetType;
 
   if (
     typeof targetId !== "string" ||
@@ -64,7 +63,7 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
   const Model = modelMap[normalizedTargetType];
   let foundContent: any;
 
-  if (normalizedTargetType === "Question") {
+  if (normalizedTargetType === "QUESTION") {
     const cachedQuestion = await getRedisCacheClient().get(
       `question:${targetId}`,
     );
@@ -83,8 +82,12 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
     throw new HttpError(`${normalizedTargetType} not active`, 410);
   }
 
+  const normalizedVoteType = String(foundVote.voteType).toUpperCase() as
+    | "UPVOTE"
+    | "DOWNVOTE";
+
   const updateField =
-    foundVote.voteType === "upvote"
+    normalizedVoteType === "UPVOTE"
       ? { $inc: { upvoteCount: -1 } }
       : { $inc: { downvoteCount: -1 } };
 
@@ -107,7 +110,7 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
 
   await statsQueue.add("unvote", {
     userId: foundContent.userId as string,
-    action: actionMap[normalizedTargetType][foundVote.voteType],
+    action: actionMap[normalizedTargetType][normalizedVoteType],
   });
 
   await invalidateCacheOnUnvote(normalizedTargetType, targetId);

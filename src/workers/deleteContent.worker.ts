@@ -15,7 +15,7 @@ async function startWorker() {
     async (job) => {
       const { userId, targetType, targetId } = job.data;
 
-      await deleteContent(userId, targetType.toLowerCase(), targetId);
+      await deleteContent(userId, targetType, targetId);
     },
     {
       connection: redisMessagingClientConnection,

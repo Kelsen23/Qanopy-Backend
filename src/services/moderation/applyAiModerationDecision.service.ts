@@ -39,7 +39,7 @@ const shouldAdvanceModerationStatus = (
 
 const applyAiModerationDecisionService = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
+  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   moderationStatus: "APPROVED" | "FLAGGED" | "REJECTED",
   version?: number,
 ) => {
@@ -48,7 +48,7 @@ const applyAiModerationDecisionService = async (
 
   try {
     await session.withTransaction(async () => {
-      if (contentType === "Question") {
+      if (contentType === "QUESTION") {
         if (version === undefined)
           throw new HttpError("Version required for Question moderation", 400);
 
@@ -88,9 +88,9 @@ const applyAiModerationDecisionService = async (
       }
 
       const model =
-        contentType === "Answer"
+        contentType === "ANSWER"
           ? Answer
-          : contentType === "Reply"
+          : contentType === "REPLY"
             ? Reply
             : AiAnswerFeedback;
       const ContentModel = model as any;
@@ -120,7 +120,7 @@ const applyAiModerationDecisionService = async (
       }
     });
 
-    if (contentType === "Question" && version !== undefined) {
+    if (contentType === "QUESTION" && version !== undefined) {
       await getRedisCacheClient().del(
         `question:${contentId}`,
         `v:${version}:question:${contentId}`,

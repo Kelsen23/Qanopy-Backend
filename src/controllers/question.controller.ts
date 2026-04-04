@@ -142,7 +142,7 @@ const createReplyOnAnswer = asyncHandler(
       mongoTargetId: foundAnswer._id || foundAnswer.id,
     });
 
-    await contentModerationQueue.add("Reply", { contentId: newReply._id });
+    await contentModerationQueue.add("REPLY", { contentId: newReply._id });
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);

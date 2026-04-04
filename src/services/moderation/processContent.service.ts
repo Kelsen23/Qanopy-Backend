@@ -29,10 +29,10 @@ import crypto from "crypto";
 
 const queueTopicDetermination = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
+  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   version?: number,
 ) => {
-  if (contentType !== "Question" || version === undefined) return;
+  if (contentType !== "QUESTION" || version === undefined) return;
 
   await topicDeterminationQueue.add(
     "question",
@@ -53,31 +53,31 @@ const mapSeverityToDecision = (riskScore: number) => {
 };
 
 const moderationContentTypeMap: Record<
-  "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
+  "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   ContentType
 > = {
-  Question: ContentType.QUESTION,
-  Answer: ContentType.ANSWER,
-  Reply: ContentType.REPLY,
-  AiAnswerFeedback: ContentType.AI_ANSWER_FEEDBACK,
+  QUESTION: ContentType.QUESTION,
+  ANSWER: ContentType.ANSWER,
+  REPLY: ContentType.REPLY,
+  AI_ANSWER_FEEDBACK: ContentType.AI_ANSWER_FEEDBACK,
 };
 
 async function removeTargetContent(
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
+  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
 ) {
   switch (contentType) {
-    case "Question":
+    case "QUESTION":
       await Question.findByIdAndUpdate(contentId, { isActive: false });
       await getRedisCacheClient().del(`question:${contentId}`);
       break;
-    case "Answer":
+    case "ANSWER":
       await Answer.findByIdAndUpdate(contentId, { isActive: false });
       break;
-    case "Reply":
+    case "REPLY":
       await Reply.findByIdAndUpdate(contentId, { isActive: false });
       break;
-    case "AiAnswerFeedback":
+    case "AI_ANSWER_FEEDBACK":
       await AiAnswerFeedback.findByIdAndUpdate(contentId, { isActive: false });
       break;
   }
@@ -85,20 +85,20 @@ async function removeTargetContent(
 
 const processContent = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback",
+  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   version?: number,
 ) => {
-  const content = await (contentType === "Question"
+  const content = await (contentType === "QUESTION"
     ? QuestionVersion.findOne({ questionId: contentId, version }).lean()
-    : contentType === "Answer"
+    : contentType === "ANSWER"
       ? Answer.findById(contentId).lean()
-      : contentType === "Reply"
+      : contentType === "REPLY"
         ? Reply.findById(contentId).lean()
         : AiAnswerFeedback.findById(contentId).lean());
 
   if (!content) throw new HttpError("Content not found", 404);
 
-  if (contentType !== "Question")
+  if (contentType !== "QUESTION")
     if (!content.isActive) throw new HttpError("Content not found", 404);
 
   if (content.moderationStatus !== "PENDING")
@@ -167,7 +167,7 @@ const processContent = async (
 
     await moderationAuditQueue.add("modActionLog", {
       decisionId,
-      targetType: "User",
+      targetType: "USER",
       targetId: content.userId,
       targetUserId: content.userId,
       actorType: "AI_MODERATION",
@@ -243,7 +243,7 @@ const processContent = async (
       contentId,
       contentType,
       "REJECTED",
-      contentType === "Question" ? (version as number) : undefined,
+      contentType === "QUESTION" ? (version as number) : undefined,
     );
 
     await removeTargetContent(contentId, contentType);
@@ -264,7 +264,7 @@ const processContent = async (
 
     await moderationAuditQueue.add("modActionLog", {
       decisionId,
-      targetType: "User",
+      targetType: "USER",
       targetId: content.userId,
       targetUserId: content.userId,
       actorType: "AI_MODERATION",
@@ -307,7 +307,7 @@ const processContent = async (
       contentId,
       contentType,
       "FLAGGED",
-      contentType === "Question" ? (version as number) : undefined,
+      contentType === "QUESTION" ? (version as number) : undefined,
     );
 
     const meta = {
@@ -325,7 +325,7 @@ const processContent = async (
 
     await moderationAuditQueue.add("modActionLog", {
       decisionId,
-      targetType: "User",
+      targetType: "USER",
       targetId: content.userId,
       targetUserId: content.userId,
       actorType: "AI_MODERATION",
@@ -350,7 +350,7 @@ const processContent = async (
       contentId,
       contentType,
       "APPROVED",
-      contentType === "Question" ? (version as number) : undefined,
+      contentType === "QUESTION" ? (version as number) : undefined,
     );
 
     const meta = {
@@ -366,7 +366,7 @@ const processContent = async (
 
     await moderationAuditQueue.add("modActionLog", {
       decisionId,
-      targetType: "User",
+      targetType: "USER",
       targetId: content.userId,
       targetUserId: content.userId,
       actorType: "AI_MODERATION",

@@ -5,11 +5,11 @@ const VoteSchema = new Schema(
     userId: { type: String, required: true },
     targetType: {
       type: String,
-      enum: ["Question", "Answer", "Reply"],
+      enum: ["QUESTION", "ANSWER", "REPLY"],
       required: true,
     },
     targetId: { type: Schema.Types.ObjectId, required: true },
-    voteType: { type: String, enum: ["upvote", "downvote"], required: true },
+    voteType: { type: String, enum: ["UPVOTE", "DOWNVOTE"], required: true },
   },
   {
     timestamps: true,

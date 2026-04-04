@@ -130,7 +130,7 @@ const rollbackVersion = async (
 
   if (newVersion.moderationStatus === "PENDING") {
     await contentModerationQueue.add(
-      "Question",
+      "QUESTION",
       {
         contentId: questionId,
         version: nextVersion,

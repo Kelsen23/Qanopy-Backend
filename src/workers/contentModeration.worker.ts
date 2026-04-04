@@ -15,10 +15,10 @@ async function startWorker() {
     async (job) => {
       try {
         const contentType = job.name as
-          | "Question"
-          | "Answer"
-          | "Reply"
-          | "AiAnswerFeedback";
+          | "QUESTION"
+          | "ANSWER"
+          | "REPLY"
+          | "AI_ANSWER_FEEDBACK";
         const { contentId, version } = job.data;
 
         await processContent(contentId, contentType, version);

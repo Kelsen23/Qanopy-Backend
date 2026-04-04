@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
@@ -15,18 +16,19 @@ import {
 import statsQueue from "../../queues/stats.queue.js";
 import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
 
-type TargetType = "question" | "answer" | "reply";
+type TargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 
 const modelMap = {
-  question: Question,
-  answer: Answer,
-  reply: Reply,
+  QUESTION: Question,
+  ANSWER: Answer,
+  REPLY: Reply,
+  AI_ANSWER_FEEDBACK: AiAnswerFeedback,
 } as const;
 
 const actionMap = {
-  question: "DELETE_QUESTION",
-  answer: "DELETE_ANSWER",
-  reply: "DELETE_REPLY",
+  QUESTION: "DELETE_QUESTION",
+  ANSWER: "DELETE_ANSWER",
+  REPLY: "DELETE_REPLY",
 } as const;
 
 const deleteContent = async (
@@ -34,7 +36,12 @@ const deleteContent = async (
   targetType: string,
   targetId: string,
 ) => {
-  const validTargetTypes: TargetType[] = ["question", "answer", "reply"];
+  const validTargetTypes: TargetType[] = [
+    "QUESTION",
+    "ANSWER",
+    "REPLY",
+    "AI_ANSWER_FEEDBACK",
+  ];
 
   if (!validTargetTypes.includes(targetType as TargetType)) {
     throw new HttpError("Invalid target type", 400);
@@ -47,10 +54,10 @@ const deleteContent = async (
     throw new HttpError("Invalid targetId", 400);
   }
 
-  const Model = modelMap[targetType as TargetType];
+  const Model = modelMap[targetType as TargetType] as any;
   let foundContent: any;
 
-  if (targetType === "question") {
+  if (targetType === "QUESTION") {
     const cachedQuestion = await getRedisCacheClient().get(
       `question:${targetId}`,
     );
@@ -62,10 +69,7 @@ const deleteContent = async (
   }
 
   if (!foundContent) {
-    throw new HttpError(
-      `${targetType.charAt(0).toUpperCase() + targetType.slice(1)} not found`,
-      404,
-    );
+    throw new HttpError(`${targetType} not found`, 404);
   }
 
   if (foundContent.userId?.toString() !== userId) {
@@ -80,10 +84,10 @@ const deleteContent = async (
     $set: { isDeleted: true, isActive: false },
   });
 
-  if (targetType === "question") {
+  if (targetType === "QUESTION") {
     await statsQueue.add("deleteQuestion", {
       userId,
-      action: actionMap.question,
+      action: actionMap.QUESTION,
     });
     await imageDeletionQueue.add("deleteFromBody", {
       body: foundContent.body,
@@ -92,10 +96,10 @@ const deleteContent = async (
     });
 
     await getRedisCacheClient().del(`question:${targetId}`);
-  } else if (targetType === "answer") {
+  } else if (targetType === "ANSWER") {
     await statsQueue.add("deleteAnswer", {
       userId,
-      action: actionMap.answer,
+      action: actionMap.ANSWER,
       mongoTargetId: foundContent.questionId as string,
     });
     await imageDeletionQueue.add("deleteFromBody", {
@@ -106,7 +110,7 @@ const deleteContent = async (
 
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
-  } else if (targetType === "reply") {
+  } else if (targetType === "REPLY") {
     const foundAnswer = await Answer.findById(foundContent.answerId).lean();
 
     if (!foundAnswer) {
@@ -114,13 +118,15 @@ const deleteContent = async (
     }
 
     await statsQueue.add("deleteReply", {
-      action: actionMap.reply,
+      action: actionMap.REPLY,
       mongoTargetId: foundAnswer._id,
     });
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
+  } else if (targetType === "AI_ANSWER_FEEDBACK") {
+    // Cache invalidation for AI answer feedbacks goes here after it gets added
   }
 
   return {

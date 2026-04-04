@@ -100,6 +100,9 @@ const moderationResolver = {
 
       const reportsWithUsers = foundReports.map((report) => ({
         ...report,
+        targetType: String(report.targetType)
+          .replace(/([a-z])([A-Z])/g, "$1_$2")
+          .toUpperCase(),
         reviewedAt: report.reviewedAt
           ? new Date(report.reviewedAt).toISOString()
           : null,

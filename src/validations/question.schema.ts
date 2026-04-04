@@ -73,13 +73,13 @@ const createReplyOnAnswerSchema = z
 
 const voteSchema = z.object({
   targetType: z.enum(
-    ["Question", "Answer", "Reply"],
-    "Target type is either 'Question', 'Answer' or 'Reply'",
+    ["QUESTION", "ANSWER", "REPLY"],
+    "Target type is either 'QUESTION', 'ANSWER' or 'REPLY'",
   ),
   targetId: z.string().min(1, "targetId is required"),
   voteType: z.enum(
-    ["upvote", "downvote"],
-    "Vote type must be either 'upvote' or 'downvote'",
+    ["UPVOTE", "DOWNVOTE"],
+    "Vote type must be either 'UPVOTE' or 'DOWNVOTE'",
   ),
 });
 

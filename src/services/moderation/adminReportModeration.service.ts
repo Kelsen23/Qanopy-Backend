@@ -27,7 +27,7 @@ const adminModerateReport = async ({
   warningDurationMs,
 }: {
   targetId: string;
-  targetType: "Question" | "Answer" | "Reply" | "AiAnswerFeedback";
+  targetType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
   reviewedBy: string;
   reviewComment?: string;
   actionTaken: AdminReportActionTaken;
@@ -118,7 +118,7 @@ const adminModerateReport = async ({
 
     await moderationAuditQueue.add("updateReportStatus", {
       decisionId,
-      targetType: "Report",
+      targetType: "REPORT",
       targetId: updatedReport.id,
       targetUserId: updatedReport.targetUserId,
       actorType: "ADMIN_MODERATION",
@@ -150,7 +150,7 @@ const adminModerateReport = async ({
 
     await moderationAuditQueue.add("removeContent", {
       decisionId,
-      targetType: "Content",
+      targetType: "CONTENT",
       targetId: foundReport.targetId,
       targetUserId: foundReport.targetUserId,
       actorType: "ADMIN_MODERATION",
@@ -233,7 +233,7 @@ const adminModerateReport = async ({
 
         await moderationAuditQueue.add("banUserTemp", {
           decisionId,
-          targetType: "User",
+          targetType: "USER",
           targetId: reportTargetUserId,
           targetUserId: reportTargetUserId,
           actorType: "ADMIN_MODERATION",
@@ -310,7 +310,7 @@ const adminModerateReport = async ({
 
         await moderationAuditQueue.add("banUserPerm", {
           decisionId,
-          targetType: "User",
+          targetType: "USER",
           targetId: reportTargetUserId,
           targetUserId: reportTargetUserId,
           actorType: "ADMIN_MODERATION",

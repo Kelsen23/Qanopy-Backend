@@ -52,7 +52,7 @@ async function startWorker() {
         isActive: true,
       });
 
-      await contentModerationQueue.add("Question", {
+      await contentModerationQueue.add("QUESTION", {
         contentId: questionId,
         version: nextVersion,
       });

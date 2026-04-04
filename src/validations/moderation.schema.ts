@@ -4,7 +4,7 @@ const reportSchema = z.object({
   targetId: z.string(),
   targetUserId: z.string().uuid("Invalid targetUserId"),
   targetType: z.enum(
-    ["Question", "Answer", "Reply", "AiAnswerFeedback"],
+    ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK"],
     "Invalid targetType",
   ),
   reportReason: z.enum(
@@ -27,10 +27,10 @@ const reportSchema = z.object({
 
 const moderateSchema = z
   .object({
-    type: z.enum(["Report", "Strike"]),
+    type: z.enum(["REPORT", "STRIKE"]),
     targetId: z.string(),
     targetType: z.enum(
-      ["Question", "Answer", "Reply", "AiAnswerFeedback"],
+      ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK"],
       "Invalid targetType",
     ),
     reviewComment: z

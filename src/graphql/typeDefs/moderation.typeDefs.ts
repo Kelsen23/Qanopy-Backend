@@ -2,10 +2,10 @@ import { gql } from "graphql-tag";
 
 const moderationTypeDefs = gql`
   enum ReportTargetType {
-    Question
-    Answer
-    Reply
-    AiAnswerFeedback
+    QUESTION
+    ANSWER
+    REPLY
+    AI_ANSWER_FEEDBACK
   }
 
   enum StrikeTargetType {
