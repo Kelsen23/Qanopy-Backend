@@ -2,30 +2,33 @@ import mongoose from "mongoose";
 
 import HttpError from "../../utils/httpError.util.js";
 
+import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
+import QuestionVersion from "../../models/questionVersion.model.js";
 
 import contentModerationQueue from "../../queues/contentModeration.queue.js";
 
 const editFeedbackOnAiAnswer = async (
   userId: string,
   {
-    aiFeedbackId,
+    feedbackId,
     type,
     body,
+    questionVersionAtFeedback,
   }: {
-    aiFeedbackId: string;
+    feedbackId: string;
     type: "HELPFUL" | "NOT_HELPFUL";
     body: string;
+    questionVersionAtFeedback: number;
   },
 ) => {
-  if (!mongoose.Types.ObjectId.isValid(aiFeedbackId))
-    throw new HttpError("Invalid aiFeedbackId", 400);
+  if (!mongoose.Types.ObjectId.isValid(feedbackId))
+    throw new HttpError("Invalid feedbackId", 400);
 
-  if (!type || body === undefined)
-    throw new HttpError("Both type and body are required", 400);
-
-  const foundFeedback = await AiAnswerFeedback.findById(aiFeedbackId)
-    .select("userId aiAnswerId type body isDeleted isActive")
+  const foundFeedback = await AiAnswerFeedback.findById(feedbackId)
+    .select(
+      "userId aiAnswerId type body questionVersionAtFeedback isDeleted isActive",
+    )
     .lean();
 
   if (!foundFeedback) throw new HttpError("AI feedback not found", 404);
@@ -34,30 +37,35 @@ const editFeedbackOnAiAnswer = async (
   if (foundFeedback.isDeleted || !foundFeedback.isActive)
     throw new HttpError("AI feedback not active", 410);
 
-  const hasNoChanges =
-    type === foundFeedback.type && body === (foundFeedback.body ?? null);
+  const foundAiAnswer = await AiAnswer.findById(foundFeedback.aiAnswerId)
+    .select("questionId")
+    .lean();
 
-  if (hasNoChanges)
-    throw new HttpError("At least one feedback field must be changed", 400);
+  if (!foundAiAnswer) throw new HttpError("AI answer not found", 404);
 
-  const duplicateFeedback = await AiAnswerFeedback.findOne({
-    _id: { $ne: aiFeedbackId },
-    aiAnswerId: foundFeedback.aiAnswerId,
-    userId,
-    isActive: true,
-    isDeleted: false,
+  const foundQuestionVersion = await QuestionVersion.findOne({
+    questionId: foundAiAnswer.questionId,
+    version: questionVersionAtFeedback,
   })
     .select("_id")
     .lean();
 
-  if (duplicateFeedback)
-    throw new HttpError("Feedback already exists for this AI answer", 409);
+  if (!foundQuestionVersion)
+    throw new HttpError("Question version not found", 404);
+
+  const hasNoChanges =
+    type === foundFeedback.type &&
+    body === (foundFeedback.body ?? null)
+
+  if (hasNoChanges)
+    throw new HttpError("No changes made to the feedback", 400);
 
   const editedFeedback = await AiAnswerFeedback.findByIdAndUpdate(
-    aiFeedbackId,
+    feedbackId,
     {
       type,
       body,
+      questionVersionAtFeedback,
       moderationStatus: "PENDING",
       moderationUpdatedAt: null,
     },
@@ -65,7 +73,7 @@ const editFeedbackOnAiAnswer = async (
   );
 
   await contentModerationQueue.add("AI_ANSWER_FEEDBACK", {
-    contentId: aiFeedbackId,
+    contentId: feedbackId,
   });
 
   return {
