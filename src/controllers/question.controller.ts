@@ -18,6 +18,8 @@ import rollbackVersionService from "../services/question/rollbackVersion.service
 import publishAiAnswerService from "../services/question/publishAiAnswer.service.js";
 import unpublishAiAnswerService from "../services/question/unpublishAiAnswer.service.js";
 import createFeedbackOnAiAnswerService from "../services/question/createFeedbackOnAiAnswer.service.js";
+import editAiFeedbackService from "../services/question/editAiFeedback.service.js";
+import deleteAiFeedbackService from "../services/question/deleteAiFeedback.service.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -617,6 +619,26 @@ const createFeedbackOnAiAnswer = asyncHandler(
   },
 );
 
+const editAiFeedback = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    const result = await editAiFeedbackService(userId, req.body);
+
+    return res.status(200).json(result);
+  },
+);
+
+const deleteAiFeedback = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    const result = await deleteAiFeedbackService(userId, req.body);
+
+    return res.status(200).json(result);
+  },
+);
+
 const deleteContent = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -649,5 +671,7 @@ export {
   publishAiAnswer,
   unpublishAiAnswer,
   createFeedbackOnAiAnswer,
+  editAiFeedback,
+  deleteAiFeedback,
   deleteContent,
 };
