@@ -97,6 +97,13 @@ async function startWorker() {
           message: err.message,
           statusCode: err.statusCode || 500,
         });
+        console.log("publishSocketEvent", {
+          message: "aiAnswerFailed",
+          data: {
+            message: err.message,
+            statusCode: err.statusCode || 500,
+          },
+        });
 
         throw error;
       } finally {
