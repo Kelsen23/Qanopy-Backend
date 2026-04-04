@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import Question from "../../models/question.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
+import questionEmbeddingQueue from "../../queues/questionEmbedding.queue.js";
 import contentModerationQueue from "../../queues/contentModeration.queue.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
@@ -137,11 +138,21 @@ const rollbackVersion = async (
       },
       { removeOnComplete: true, removeOnFail: false },
     );
-  } else if (
-    newVersion.topicStatus === "PENDING" ||
-    (newVersion.topicStatus === "VALID" && inheritedEmbedding.length === 0)
-  ) {
+  } else if (newVersion.topicStatus === "PENDING") {
     await topicDeterminationQueue.add(
+      "question",
+      {
+        questionId,
+        version: nextVersion,
+        isRollback: true,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+  } else if (
+    newVersion.topicStatus === "VALID" &&
+    inheritedEmbedding.length === 0
+  ) {
+    await questionEmbeddingQueue.add(
       "question",
       {
         questionId,
