@@ -2,7 +2,10 @@ import answerGenerationClient from "../../../config/anthropic.config.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import { getAiAnswerSessionSockets } from "../../redis/aiAnswerSession.service.js";
+import {
+  getAiAnswerCancelKey,
+  getAiAnswerSessionSockets,
+} from "../../redis/aiAnswerSession.service.js";
 
 import publishSocketEvent from "../../../utils/publishSocketEvent.util.js";
 import queueNotification from "../../../utils/queueNotification.util.js";
@@ -110,12 +113,16 @@ const fullAnswer = async (
       event.delta.type === "text_delta"
     ) {
       const cancelFlag = await getRedisCacheClient().get(
-        `cancel:aiAnswer:question:${questionId}:version:${questionVersion}`,
+        getAiAnswerCancelKey(questionId, questionVersion),
       );
 
       if (cancelFlag) {
         await publishSocketEvent(userId, "aiAnswerCancelled", {
           message: "AI answer generation cancelled",
+        });
+        console.log("publishSocketEvent", {
+          message: "aiAnswerCancelled",
+          data: { message: "AI answer generation cancelled" },
         });
 
         break;
@@ -132,8 +139,14 @@ const fullAnswer = async (
 
           streamedBodyLength = delimiterStart;
 
-          if (shouldPublishToSocket)
+          if (shouldPublishToSocket) {
             await publishSocketEvent(userId, "aiAnswerToken", bodyChunk);
+          }
+
+          console.log("publishSocketEvent", {
+            message: "aiAnswerToken",
+            data: bodyChunk,
+          });
         }
         continue;
       }
@@ -148,8 +161,14 @@ const fullAnswer = async (
 
         streamedBodyLength = safeToStreamUntil;
 
-        if (shouldPublishToSocket)
+        if (shouldPublishToSocket) {
           await publishSocketEvent(userId, "aiAnswerToken", bodyChunk);
+        }
+
+        console.log("publishSocketEvent", {
+          message: "aiAnswerToken",
+          data: bodyChunk,
+        });
       }
     }
   }
@@ -176,8 +195,14 @@ const fullAnswer = async (
     if (streamedBodyLength < validatedAnswer.body.length) {
       const tail = validatedAnswer.body.slice(streamedBodyLength);
 
-      if (tail && shouldPublishToSocket)
+      if (tail && shouldPublishToSocket) {
         await publishSocketEvent(userId, "aiAnswerToken", tail);
+      }
+
+      console.log("publishSocketEvent", {
+        message: "aiAnswerToken",
+        data: tail,
+      });
     }
 
     const newAiAnswer = await AiAnswer.create({
@@ -194,9 +219,9 @@ const fullAnswer = async (
       },
     });
 
-    if (shouldPublishToSocket)
+    if (shouldPublishToSocket) {
       await publishSocketEvent(userId, "aiAnswerReady", newAiAnswer);
-    else
+    } else
       await queueNotification({
         userId,
         type: "AI_ANSWER",
