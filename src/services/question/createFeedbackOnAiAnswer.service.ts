@@ -44,17 +44,16 @@ const createFeedbackOnAiAnswerService = async (
     throw new HttpError("Question version not found", 404);
 
   const existingFeedback = await AiAnswerFeedback.findOne({
+    aiAnswerId,
     userId,
+    isActive: true,
+    isDeleted: false,
   })
     .select("_id")
     .lean();
 
-  if (existingFeedback) {
-    throw new HttpError(
-      "Feedback already exists for this AI answer and type",
-      409,
-    );
-  }
+  if (existingFeedback)
+    throw new HttpError("Feedback already exists for this AI answer", 409);
 
   const newFeedback = await AiAnswerFeedback.create({
     aiAnswerId,
