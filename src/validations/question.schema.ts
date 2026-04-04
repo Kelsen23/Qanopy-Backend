@@ -137,6 +137,10 @@ const editAiFeedbackSchema = z
       .string()
       .min(1, "Feedback body must be at least 1 character")
       .max(150, "Feedback body must be at most 150 characters"),
+    questionVersionAtFeedback: z.coerce
+      .number()
+      .int("questionVersionAtFeedback must be an integer")
+      .positive("questionVersionAtFeedback must be greater than 0"),
   })
   .superRefine((data, ctx) => {
     if (data.body && leoProfanity.check(data.body)) {
