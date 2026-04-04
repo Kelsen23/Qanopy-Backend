@@ -129,6 +129,29 @@ const createFeedbackOnAiAnswerSchema = z
     }
   });
 
+const editAiFeedbackSchema = z
+  .object({
+    aiFeedbackId: z.string().min(1, "aiFeedbackId is required"),
+    type: z.enum(["HELPFUL", "NOT_HELPFUL", "FLAG"]),
+    body: z
+      .string()
+      .min(1, "Feedback body must be at least 1 character")
+      .max(150, "Feedback body must be at most 150 characters"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.body && leoProfanity.check(data.body)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message: "Feedback contains inappropriate language",
+      });
+    }
+  });
+
+const deleteAiFeedbackSchema = z.object({
+  aiFeedbackId: z.string().min(1, "aiFeedbackId is required"),
+});
+
 export {
   createQuestionSchema,
   createAnswerOnQuestionSchema,
@@ -139,4 +162,6 @@ export {
   publishAiAnswerSchema,
   unpublishAiAnswerSchema,
   createFeedbackOnAiAnswerSchema,
+  editAiFeedbackSchema,
+  deleteAiFeedbackSchema,
 };
