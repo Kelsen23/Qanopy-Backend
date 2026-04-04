@@ -108,7 +108,7 @@ const unpublishAiAnswerSchema = z.object({
 const createFeedbackOnAiAnswerSchema = z
   .object({
     aiAnswerId: z.string().min(1, "aiAnswerId is required"),
-    type: z.enum(["HELPFUL", "NOT_HELPFUL", "FLAG"]),
+    type: z.enum(["HELPFUL", "NOT_HELPFUL"]),
     body: z
       .string()
       .min(1, "Feedback body must be at least 1 character")
@@ -132,7 +132,7 @@ const createFeedbackOnAiAnswerSchema = z
 const editAiFeedbackSchema = z
   .object({
     aiFeedbackId: z.string().min(1, "aiFeedbackId is required"),
-    type: z.enum(["HELPFUL", "NOT_HELPFUL", "FLAG"]),
+    type: z.enum(["HELPFUL", "NOT_HELPFUL"]),
     body: z
       .string()
       .min(1, "Feedback body must be at least 1 character")

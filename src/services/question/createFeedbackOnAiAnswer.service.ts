@@ -17,7 +17,7 @@ const createFeedbackOnAiAnswerService = async (
     questionVersionAtFeedback,
   }: {
     aiAnswerId: string;
-    type: "HELPFUL" | "NOT_HELPFUL" | "FLAG";
+    type: "HELPFUL" | "NOT_HELPFUL";
     body?: string;
     questionVersionAtFeedback: number;
   },

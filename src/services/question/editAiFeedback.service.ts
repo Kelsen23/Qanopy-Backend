@@ -14,7 +14,7 @@ const editFeedbackOnAiAnswer = async (
     body,
   }: {
     aiFeedbackId: string;
-    type: "HELPFUL" | "NOT_HELPFUL" | "FLAG";
+    type: "HELPFUL" | "NOT_HELPFUL";
     body: string;
   },
 ) => {

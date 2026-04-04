@@ -12,7 +12,7 @@ const aiAnswerFeedbackSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["HELPFUL", "NOT_HELPFUL", "FLAG"],
+      enum: ["HELPFUL", "NOT_HELPFUL"],
       required: true,
     },
 
