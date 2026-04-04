@@ -70,7 +70,7 @@ const generateAiAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "generateAiAnswer",
   points: 10,
-  duration: 5 * 30,
+  duration: 60 * 30,
 });
 
 const publishAiAnswerLimiter = new RateLimiterRedis({
