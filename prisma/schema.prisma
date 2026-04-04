@@ -247,6 +247,7 @@ enum ContentType {
   QUESTION
   ANSWER
   REPLY
+  AI_ANSWER_FEEDBACK
 }
 
 enum Mods {
@@ -279,7 +280,7 @@ model ModerationStrike {
 
   targetContentId      String
   targetType           ContentType
-  targetContentVersion Int
+  targetContentVersion Int?
 
   strikedBy     Mods
   adminId       String?
