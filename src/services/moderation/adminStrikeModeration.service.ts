@@ -8,6 +8,7 @@ import prisma from "../../config/prisma.config.js";
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
@@ -19,19 +20,21 @@ import applyAiModerationDecisionService from "./applyAiModerationDecision.servic
 
 type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
-type TargetType = "QUESTION" | "ANSWER" | "REPLY";
-type ReadableTargetType = "Question" | "Answer" | "Reply";
+type TargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
+type ReadableTargetType = "Question" | "Answer" | "Reply" | "AiAnswerFeedback";
 
 const targetTypeMap: Record<TargetType, ReadableTargetType> = {
   QUESTION: "Question",
   ANSWER: "Answer",
   REPLY: "Reply",
+  AI_ANSWER_FEEDBACK: "AiAnswerFeedback",
 };
 
 const contentModelMap = {
   QUESTION: Question,
   ANSWER: Answer,
   REPLY: Reply,
+  AI_ANSWER_FEEDBACK: AiAnswerFeedback,
 } as const;
 
 const actionToModerationStatus: Record<
@@ -49,7 +52,7 @@ const getTargetContentState = async (
   targetContentId: string,
   targetUserId: string,
 ) => {
-  const Model = contentModelMap[targetType];
+  const Model = contentModelMap[targetType] as any;
   const foundContent = await Model.findById(targetContentId)
     .select("userId isActive isDeleted")
     .lean();
@@ -319,7 +322,7 @@ const adminModerateStrike = async ({
     const mappedStatus = actionToModerationStatus[actionTaken];
     const questionVersion =
       readableTargetType === "Question"
-        ? foundStrike.targetContentVersion
+        ? (foundStrike.targetContentVersion ?? undefined)
         : undefined;
 
     await applyAiModerationDecisionService(
