@@ -6,12 +6,12 @@ import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 const deleteFeedbackOnAiAnswer = async (
   userId: string,
-  { aiFeedbackId }: { aiFeedbackId: string },
+  { feedbackId }: { feedbackId: string },
 ) => {
-  if (!mongoose.Types.ObjectId.isValid(aiFeedbackId))
-    throw new HttpError("Invalid aiFeedbackId", 400);
+  if (!mongoose.Types.ObjectId.isValid(feedbackId))
+    throw new HttpError("Invalid feedbackId", 400);
 
-  const foundFeedback = await AiAnswerFeedback.findById(aiFeedbackId)
+  const foundFeedback = await AiAnswerFeedback.findById(feedbackId)
     .select("_id userId isDeleted isActive")
     .lean();
 
@@ -21,7 +21,7 @@ const deleteFeedbackOnAiAnswer = async (
   if (foundFeedback.isDeleted || !foundFeedback.isActive)
     throw new HttpError("AI feedback not active", 410);
 
-  await AiAnswerFeedback.findByIdAndUpdate(aiFeedbackId, {
+  await AiAnswerFeedback.findByIdAndUpdate(feedbackId, {
     isDeleted: true,
     isActive: false,
   });
