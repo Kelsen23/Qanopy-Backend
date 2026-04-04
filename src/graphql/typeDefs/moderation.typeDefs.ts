@@ -5,12 +5,14 @@ const moderationTypeDefs = gql`
     Question
     Answer
     Reply
+    AiAnswerFeedback
   }
 
   enum StrikeTargetType {
     QUESTION
     ANSWER
     REPLY
+    AI_ANSWER_FEEDBACK
   }
 
   enum ReportReason {
@@ -100,7 +102,7 @@ const moderationTypeDefs = gql`
 
     targetContentId: String!
     targetType: StrikeTargetType!
-    targetContentVersion: Int!
+    targetContentVersion: Int
 
     strikedBy: Mods!
     adminId: ID
