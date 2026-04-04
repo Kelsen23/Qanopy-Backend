@@ -6,7 +6,7 @@ import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import contentModerationQueue from "../../queues/contentModeration.queue.js";
 
-const editAiFeedbackService = async (
+const editFeedbackOnAiAnswer = async (
   userId: string,
   {
     aiFeedbackId,
@@ -74,4 +74,4 @@ const editAiFeedbackService = async (
   };
 };
 
-export default editAiFeedbackService;
+export default editFeedbackOnAiAnswer;

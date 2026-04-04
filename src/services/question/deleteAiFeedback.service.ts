@@ -4,7 +4,7 @@ import HttpError from "../../utils/httpError.util.js";
 
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
-const deleteAiFeedbackService = async (
+const deleteFeedbackOnAiAnswer = async (
   userId: string,
   { aiFeedbackId }: { aiFeedbackId: string },
 ) => {
@@ -31,4 +31,4 @@ const deleteAiFeedbackService = async (
   };
 };
 
-export default deleteAiFeedbackService;
+export default deleteFeedbackOnAiAnswer;
