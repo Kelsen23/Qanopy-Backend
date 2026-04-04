@@ -1,9 +1,8 @@
 import { Socket } from "socket.io";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
 import {
   endAiAnswerSession,
+  setAiAnswerCancelFlagFromSocketBinding,
   startAiAnswerSession,
 } from "../../services/redis/aiAnswerSession.service.js";
 
@@ -21,19 +20,11 @@ const initAiAnswerSessionListener = (socket: Socket) => {
     },
   );
 
-  socket.on(
-    "cancelAiAnswerSession",
-    async (questionId: string, questionVersion: string) => {
-      await getRedisCacheClient().set(
-        `cancel:aiAnswer:question:${questionId}:version:${questionVersion}`,
-        "1",
-        "EX",
-        60,
-      );
+  socket.on("cancelAiAnswerSession", async () => {
+    await setAiAnswerCancelFlagFromSocketBinding(socket.id);
 
-      await endAiAnswerSession(socket.id);
-    },
-  );
+    await endAiAnswerSession(socket.id);
+  });
 
   socket.on("endAiAnswerSession", async () => {
     await endAiAnswerSession(socket.id);
