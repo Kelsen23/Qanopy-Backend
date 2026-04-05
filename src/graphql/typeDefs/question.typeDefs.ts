@@ -1,6 +1,8 @@
 import { gql } from "graphql-tag";
 
 const questionTypeDefs = gql`
+  scalar JSON
+
   type Question {
     id: ID!
     searchScore: Float!
@@ -15,22 +17,39 @@ const questionTypeDefs = gql`
     user: User
   }
 
-  type RecommendedQuestionsCursor {
-    id: String!
+  type QuestionDetails {
+    id: ID!
+    userId: String!
+    title: String!
+    body: String!
+    tags: [String]!
     upvoteCount: Int!
-    searchScore: Float!
+    downvoteCount: Int!
+    answerCount: Int!
+    currentVersion: Int!
+    canGenerateAiAnswer: Boolean!
+    createdAt: String!
+    user: User
+    aiAnswer: QuestionAiAnswer
   }
 
-  input RecommendedQuestionsCursorInput {
-    id: String!
-    upvoteCount: Int!
-    searchScore: Float!
+  type QuestionAiAnswerConfidenceSection {
+    sectionName: String!
+    confidence: Float
+    note: String
   }
 
-  type QuestionConnection {
-    questions: [Question!]!
-    nextCursor: RecommendedQuestionsCursor
-    hasMore: Boolean!
+  type QuestionAiAnswerConfidence {
+    overall: Float!
+    note: String
+    sections: [QuestionAiAnswerConfidenceSection!]!
+  }
+
+  type QuestionAiAnswer {
+    questionVersion: Int!
+    body: String!
+    confidence: QuestionAiAnswerConfidence!
+    meta: JSON!
   }
 
   type Reply {
@@ -62,25 +81,6 @@ const questionTypeDefs = gql`
     user: User
   }
 
-  type QuestionDetails {
-    id: ID!
-    userId: String!
-    title: String!
-    body: String!
-    tags: [String]!
-    upvoteCount: Int!
-    downvoteCount: Int!
-    answerCount: Int!
-    topAnswer: Answer
-    currentVersion: Int!
-    topicStatus: String!
-    moderationStatus: String!
-    isActive: Boolean!
-    isDeleted: Boolean!
-    createdAt: String!
-    user: User
-  }
-
   type SearchQuestion {
     id: ID!
     userId: String!
@@ -97,6 +97,18 @@ const questionTypeDefs = gql`
     isActive: Boolean!
     createdAt: String!
     user: User
+  }
+
+  type RecommendedQuestionsCursor {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
+  }
+
+  type QuestionConnection {
+    questions: [Question!]!
+    nextCursor: RecommendedQuestionsCursor
+    hasMore: Boolean!
   }
 
   type SearchQuestionConnection {
@@ -139,13 +151,19 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
-  type Query {
+  input RecommendedQuestionsCursorInput {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
+  }
+
+  extend type Query {
     recommendedQuestions(
       cursor: RecommendedQuestionsCursorInput
       limitCount: Int
     ): QuestionConnection!
 
-    getQuestionById(id: ID!): QuestionDetails!
+    question(id: ID!): QuestionDetails
 
     loadMoreAnswers(
       questionId: ID!
