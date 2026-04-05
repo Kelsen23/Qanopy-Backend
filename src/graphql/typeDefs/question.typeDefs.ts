@@ -15,12 +15,6 @@ const questionTypeDefs = gql`
     user: User
   }
 
-  type QuestionConnection {
-    questions: [Question!]!
-    nextCursor: RecommendedQuestionsCursor
-    hasMore: Boolean!
-  }
-
   type RecommendedQuestionsCursor {
     id: String!
     upvoteCount: Int!
@@ -31,6 +25,12 @@ const questionTypeDefs = gql`
     id: String!
     upvoteCount: Int!
     searchScore: Float!
+  }
+
+  type QuestionConnection {
+    questions: [Question!]!
+    nextCursor: RecommendedQuestionsCursor
+    hasMore: Boolean!
   }
 
   type Reply {
