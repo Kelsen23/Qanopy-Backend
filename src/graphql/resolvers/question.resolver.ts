@@ -11,6 +11,12 @@ import interests from "../../utils/interests.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
+type RecommendedQuestionsCursor = {
+  id: string;
+  upvoteCount: number;
+  searchScore: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -27,9 +33,15 @@ const isInterest = (tag: string): tag is Interest =>
 
 const questionResolver = {
   Query: {
-    getRecommendedQuestions: async (
+    recommendedQuestions: async (
       _: any,
-      { cursor, limitCount = 10 }: { cursor?: string; limitCount: number },
+      {
+        cursor,
+        limitCount = 10,
+      }: {
+        cursor?: RecommendedQuestionsCursor;
+        limitCount: number;
+      },
       {
         user,
         getRedisCacheClient,
@@ -42,9 +54,12 @@ const questionResolver = {
     ) => {
       const interests = user.interests || [];
       const sortedInterests = [...interests].sort().join(",");
+      const cursorCacheKey = cursor
+        ? `${cursor.id}:${cursor.upvoteCount}:${cursor.searchScore}`
+        : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `recommendedQuestions:${sortedInterests}:${cursor || "initial"}`,
+        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${limitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -68,7 +83,17 @@ const questionResolver = {
 
       const pipeline: any[] = [];
 
-      if (searchStage) pipeline.push(searchStage);
+      if (searchStage) {
+        pipeline.push(searchStage);
+      }
+
+      pipeline.push({
+        $addFields: {
+          searchScore: searchStage
+            ? { $ifNull: [{ $meta: "searchScore" }, 0] }
+            : 0,
+        },
+      });
 
       const matchStage: any = {
         isDeleted: false,
@@ -78,7 +103,40 @@ const questionResolver = {
       };
 
       if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        if (
+          !mongoose.isValidObjectId(cursor.id) ||
+          !Number.isFinite(cursor.upvoteCount) ||
+          (searchStage && !Number.isFinite(cursor.searchScore))
+        )
+          throw new HttpError("Invalid cursor", 400);
+
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+
+        if (searchStage) {
+          matchStage.$or = [
+            { searchScore: { $lt: cursor.searchScore } },
+
+            {
+              searchScore: cursor.searchScore,
+              upvoteCount: { $lt: cursor.upvoteCount },
+            },
+
+            {
+              searchScore: cursor.searchScore,
+              upvoteCount: cursor.upvoteCount,
+              _id: { $lt: cursorObjectId },
+            },
+          ];
+        } else {
+          matchStage.$or = [
+            { upvoteCount: { $lt: cursor.upvoteCount } },
+            
+            {
+              upvoteCount: cursor.upvoteCount,
+              _id: { $lt: cursorObjectId },
+            },
+          ];
+        }
       }
 
       pipeline.push(
@@ -86,6 +144,7 @@ const questionResolver = {
 
         {
           $sort: {
+            ...(searchStage ? { searchScore: -1 } : {}),
             upvoteCount: -1,
             _id: -1,
           } as any,
@@ -97,18 +156,14 @@ const questionResolver = {
           $project: {
             id: "$_id",
             _id: 0,
+            searchScore: 1,
             title: 1,
-            body: 1,
             tags: 1,
             userId: 1,
-            upvotes: "$upvoteCount",
-            downvotes: "$downvoteCount",
+            upvoteCount: 1,
+            downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
-            topicStatus: 1,
-            moderationStatus: 1,
-            isDeleted: 1,
-            isActive: 1,
             createdAt: 1,
           },
         },
@@ -126,22 +181,7 @@ const questionResolver = {
         let user = userMap.get(q.userId);
 
         if (!user) {
-          user = {
-            id: q.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
+          user = null;
         }
 
         return { ...q, user };
@@ -151,13 +191,17 @@ const questionResolver = {
         questions: questionsWithUsers,
         nextCursor:
           questionsWithUsers.length === limitCount
-            ? questionsWithUsers[questionsWithUsers.length - 1].id
+            ? ({
+                id: questions[questions.length - 1].id,
+                upvoteCount: questions[questions.length - 1].upvoteCount,
+                searchScore: questions[questions.length - 1].searchScore,
+              } as RecommendedQuestionsCursor)
             : null,
         hasMore: questionsWithUsers.length === limitCount,
       };
 
       await getRedisCacheClient().set(
-        `recommendedQuestions:${sortedInterests}:${cursor || "initial"}`,
+        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${limitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 5,
@@ -279,8 +323,8 @@ const questionResolver = {
             title: 1,
             body: 1,
             tags: 1,
-            upvotes: "$upvoteCount",
-            downvotes: "$downvoteCount",
+            upvoteCount: 1,
+            downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
             topicStatus: 1,
@@ -300,8 +344,8 @@ const questionResolver = {
                   id: "$topAnswer._id",
                   userId: "$topAnswer.userId",
                   body: "$topAnswer.body",
-                  upvotes: "$topAnswer.upvoteCount",
-                  downvotes: "$topAnswer.downvoteCount",
+                  upvoteCount: "$topAnswer.upvoteCount",
+                  downvoteCount: "$topAnswer.downvoteCount",
                   isAccepted: "$topAnswer.isAccepted",
                   isBestAnswerByAsker: "$topAnswer.isBestAnswerByAsker",
                   questionVersion: "$topAnswer.questionVersion",
@@ -317,8 +361,8 @@ const questionResolver = {
                         id: "$$reply._id",
                         userId: "$$reply.userId",
                         body: "$$reply.body",
-                        upvotes: "$$reply.upvoteCount",
-                        downvotes: "$$reply.downvoteCount",
+                        upvoteCount: "$$reply.upvoteCount",
+                        downvoteCount: "$$reply.downvoteCount",
                         isActive: "$$reply.isActive",
                         isDeleted: "$$reply.isDeleted",
                         createdAt: "$$reply.createdAt",
@@ -371,43 +415,12 @@ const questionResolver = {
         });
 
         if (question.userId) {
-          question.user = userMap.get(question.userId.toString()) || {
-            id: question.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
+          question.user = userMap.get(question.userId.toString()) || null;
         }
 
         if (question.topAnswer?.userId) {
-          question.topAnswer.user = userMap.get(
-            question.topAnswer.userId.toString(),
-          ) || {
-            id: question.topAnswer.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
+          question.topAnswer.user =
+            userMap.get(question.topAnswer.userId.toString()) || null;
         }
 
         if (
@@ -417,24 +430,7 @@ const questionResolver = {
           question.topAnswer.replies = question.topAnswer.replies.map(
             (r: any) => ({
               ...r,
-              user: r?.userId
-                ? userMap.get(r.userId.toString()) || {
-                    id: r.userId,
-                    username: "Deleted User",
-                    email: "deleted@user.com",
-                    profilePictureUrl: null,
-                    bio: null,
-                    reputationPoints: 0,
-                    role: "USER",
-                    questionsAsked: 0,
-                    answersGiven: 0,
-                    bestAnswers: 0,
-                    achievements: [],
-                    status: "TERMINATED",
-                    isVerified: false,
-                    createdAt: new Date(0).toISOString(),
-                  }
-                : null,
+              user: r?.userId ? userMap.get(r.userId.toString()) || null : null,
             }),
           );
         }
@@ -534,8 +530,8 @@ const questionResolver = {
             replyCount: 1,
             isAccepted: 1,
             isBestAnswerByAsker: 1,
-            upvotes: "$upvoteCount",
-            downvotes: "$downvoteCount",
+            upvoteCount: 1,
+            downvoteCount: 1,
             questionVersion: 1,
             isDeleted: 1,
             isActive: 1,
@@ -550,30 +546,10 @@ const questionResolver = {
 
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
-      const answersWithUsers = answers.map((a) => {
-        let user = userMap.get(a.userId);
-
-        if (!user) {
-          user = {
-            id: a.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
-        }
-
-        return { ...a, user };
-      });
+      const answersWithUsers = answers.map((a) => ({
+        ...a,
+        user: userMap.get(a.userId) || null,
+      }));
 
       const result = {
         answers: answersWithUsers,
@@ -646,8 +622,8 @@ const questionResolver = {
             _id: 0,
             userId: 1,
             body: 1,
-            upvotes: "$upvoteCount",
-            downvotes: "$downvoteCount",
+            upvoteCount: 1,
+            downvoteCount: 1,
             isActive: 1,
             isDeleted: 1,
             createdAt: 1,
@@ -661,30 +637,10 @@ const questionResolver = {
 
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
-      const repliesWithUsers = replies.map((r) => {
-        let user = userMap.get(r.userId);
-
-        if (!user) {
-          user = {
-            id: r.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
-        }
-
-        return { ...r, user };
-      });
+      const repliesWithUsers = replies.map((r) => ({
+        ...r,
+        user: userMap.get(r.userId) || null,
+      }));
 
       const result = {
         replies: repliesWithUsers,
@@ -863,8 +819,8 @@ const questionResolver = {
             body: 1,
             tags: 1,
             userId: 1,
-            upvotes: "$upvoteCount",
-            downvotes: "$downvoteCount",
+            upvoteCount: 1,
+            downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
             topicStatus: 1,
@@ -882,30 +838,10 @@ const questionResolver = {
 
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
-      const questionsWithUsers = questions.map((q) => {
-        let user = userMap.get(q.userId);
-
-        if (!user) {
-          user = {
-            id: q.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
-        }
-
-        return { ...q, user };
-      });
+      const questionsWithUsers = questions.map((q) => ({
+        ...q,
+        user: userMap.get(q.userId) || null,
+      }));
 
       const result = {
         questions: questionsWithUsers,
@@ -988,28 +924,7 @@ const questionResolver = {
 
       const versionHistoryWithUser = foundVersionHistory.map((v) => {
         if (v.userId) {
-          let user = userMap.get(v.userId);
-
-          if (!user) {
-            user = {
-              id: v.userId,
-              username: "Deleted User",
-              email: "deleted@user.com",
-              profilePictureUrl: null,
-              bio: null,
-              reputationPoints: 0,
-              role: "USER",
-              questionsAsked: 0,
-              answersGiven: 0,
-              bestAnswers: 0,
-              achievements: [],
-              status: "TERMINATED",
-              isVerified: false,
-              createdAt: new Date(0).toISOString(),
-            };
-          }
-
-          return { ...v, user };
+          return { ...v, user: userMap.get(v.userId) || null };
         } else {
           return { ...v, user: null };
         }
@@ -1059,25 +974,7 @@ const questionResolver = {
 
       if (foundVersion.userId) {
         user = await loaders.userLoader.load(foundVersion.userId);
-
-        if (!user) {
-          user = {
-            id: foundVersion.userId,
-            username: "Deleted User",
-            email: "deleted@user.com",
-            profilePictureUrl: null,
-            bio: null,
-            reputationPoints: 0,
-            role: "USER",
-            questionsAsked: 0,
-            answersGiven: 0,
-            bestAnswers: 0,
-            achievements: [],
-            status: "TERMINATED",
-            isVerified: false,
-            createdAt: new Date(0).toISOString(),
-          };
-        }
+        if (!user) user = null;
       }
 
       const result = {
