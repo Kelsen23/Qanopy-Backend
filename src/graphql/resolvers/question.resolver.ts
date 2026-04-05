@@ -19,6 +19,22 @@ type RecommendedQuestionsCursor = {
   searchScore: number;
 };
 
+type LoadMoreAnswersDefaultCursor = {
+  id: string;
+  ownerPriority: number;
+  bestPriority: number;
+  acceptedPriority: number;
+  upvoteCount: number;
+};
+
+type LoadMoreAnswersCursor = {
+  id: string;
+  ownerPriority?: number;
+  bestPriority?: number;
+  acceptedPriority?: number;
+  upvoteCount?: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -353,22 +369,49 @@ const questionResolver = {
       _: any,
       {
         questionId,
-        topAnswerId,
+        sortOption = "DEFAULT",
         cursor,
         limitCount = 10,
       }: {
         questionId: string;
-        topAnswerId: string;
-        cursor?: string;
+        sortOption: "DEFAULT" | "RECENT";
+        cursor?: LoadMoreAnswersCursor;
         limitCount: number;
       },
       {
+        user,
         loaders,
         getRedisCacheClient,
-      }: { loaders: any; getRedisCacheClient: () => Redis },
+      }: { user: User; loaders: any; getRedisCacheClient: () => Redis },
     ) => {
+      if (!mongoose.isValidObjectId(questionId))
+        throw new HttpError("Invalid questionId", 400);
+
+      if (!["DEFAULT", "RECENT"].includes(sortOption))
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["DEFAULT", "RECENT"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const requesterUserId = String(user.id);
+
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.ownerPriority ?? "",
+            cursor.bestPriority ?? "",
+            cursor.acceptedPriority ?? "",
+            cursor.upvoteCount ?? "",
+          ].join(":")
+        : "initial";
+
       const cachedAnswers = await getRedisCacheClient().get(
-        `answers:${questionId}:${cursor || "initial"}`,
+        `answers:${questionId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedAnswers) return JSON.parse(cachedAnswers);
 
@@ -376,48 +419,108 @@ const questionResolver = {
         questionId: new mongoose.Types.ObjectId(questionId),
         isDeleted: false,
         isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
       };
 
-      const idConditions: any[] = [];
+      const pipeline: any[] = [{ $match: matchStage }];
 
-      if (topAnswerId) {
-        idConditions.push({
-          _id: { $ne: new mongoose.Types.ObjectId(topAnswerId) },
-        });
-      }
+      if (sortOption === "RECENT") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
 
-      if (cursor) {
-        idConditions.push({
-          _id: { $lt: new mongoose.Types.ObjectId(cursor) },
-        });
-      }
-
-      if (idConditions.length > 0) {
-        if (idConditions.length === 1) {
-          Object.assign(matchStage, idConditions[0]);
-        } else {
-          matchStage.$and = idConditions;
+          pipeline.push({
+            $match: { _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+          });
         }
-      }
 
-      const answers = await Answer.aggregate([
-        { $match: matchStage },
-
-        {
-          $addFields: {
-            score: { $subtract: ["$upvoteCount", "$downvoteCount"] },
-          },
-        },
-
-        {
+        pipeline.push({
           $sort: {
-            score: -1,
-            replyCount: -1,
             _id: -1,
           },
-        },
+        });
+      } else {
+        pipeline.push({
+          $addFields: {
+            ownerPriority: {
+              $cond: [{ $eq: ["$userId", requesterUserId] }, 0, 1],
+            },
+            bestPriority: { $cond: ["$isBestAnswerByAsker", 0, 1] },
+            acceptedPriority: { $cond: ["$isAccepted", 0, 1] },
+          },
+        });
 
-        { $limit: limitCount },
+        if (cursor) {
+          if (
+            !mongoose.isValidObjectId(cursor.id) ||
+            !Number.isFinite(cursor.ownerPriority) ||
+            !Number.isFinite(cursor.bestPriority) ||
+            !Number.isFinite(cursor.acceptedPriority) ||
+            !Number.isFinite(cursor.upvoteCount)
+          )
+            throw new HttpError("Invalid cursor", 400);
+
+          const parsedCursor: LoadMoreAnswersDefaultCursor = {
+            id: cursor.id,
+            ownerPriority: Number(cursor.ownerPriority),
+            bestPriority: Number(cursor.bestPriority),
+            acceptedPriority: Number(cursor.acceptedPriority),
+            upvoteCount: Number(cursor.upvoteCount),
+          };
+
+          const cursorObjectId = new mongoose.Types.ObjectId(parsedCursor.id);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { ownerPriority: { $gt: parsedCursor.ownerPriority } },
+
+                {
+                  ownerPriority: parsedCursor.ownerPriority,
+                  bestPriority: { $gt: parsedCursor.bestPriority },
+                },
+
+                {
+                  ownerPriority: parsedCursor.ownerPriority,
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: { $gt: parsedCursor.acceptedPriority },
+                },
+
+                {
+                  ownerPriority: parsedCursor.ownerPriority,
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: parsedCursor.acceptedPriority,
+                  upvoteCount: { $lt: parsedCursor.upvoteCount },
+                },
+
+                {
+                  ownerPriority: parsedCursor.ownerPriority,
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: parsedCursor.acceptedPriority,
+                  upvoteCount: parsedCursor.upvoteCount,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({
+          $sort: {
+            ownerPriority: 1,
+            bestPriority: 1,
+            acceptedPriority: 1,
+            upvoteCount: -1,
+            _id: -1,
+          },
+        });
+      }
+
+      pipeline.push(
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -425,19 +528,21 @@ const questionResolver = {
             _id: 0,
             userId: 1,
             body: 1,
-            replies: [],
             replyCount: 1,
             isAccepted: 1,
             isBestAnswerByAsker: 1,
             upvoteCount: 1,
             downvoteCount: 1,
             questionVersion: 1,
-            isDeleted: 1,
-            isActive: 1,
             createdAt: 1,
+            ownerPriority: { $ifNull: ["$ownerPriority", null] },
+            bestPriority: { $ifNull: ["$bestPriority", null] },
+            acceptedPriority: { $ifNull: ["$acceptedPriority", null] },
           },
         },
-      ]);
+      );
+
+      const answers = await Answer.aggregate(pipeline);
 
       const uniqueUserIds = [...new Set(answers.map((a) => a.userId))];
 
@@ -446,21 +551,39 @@ const questionResolver = {
       const userMap = new Map(users.map((u: any) => [u?.id, u]));
 
       const answersWithUsers = answers.map((a) => ({
-        ...a,
+        id: a.id,
+        userId: a.userId,
+        body: a.body,
+        replyCount: a.replyCount,
+        isAccepted: a.isAccepted,
+        isBestAnswerByAsker: a.isBestAnswerByAsker,
+        upvoteCount: a.upvoteCount,
+        downvoteCount: a.downvoteCount,
+        questionVersion: a.questionVersion,
+        createdAt: a.createdAt,
         user: userMap.get(a.userId) || null,
       }));
 
       const result = {
         answers: answersWithUsers,
         nextCursor:
-          answersWithUsers.length === limitCount
-            ? answersWithUsers[answersWithUsers.length - 1].id
+          answersWithUsers.length === normalizedLimitCount
+            ? sortOption === "RECENT"
+              ? { id: answersWithUsers[answersWithUsers.length - 1].id }
+              : ({
+                  ownerPriority: answers[answers.length - 1].ownerPriority ?? 1,
+                  bestPriority: answers[answers.length - 1].bestPriority ?? 1,
+                  acceptedPriority:
+                    answers[answers.length - 1].acceptedPriority ?? 1,
+                  upvoteCount: answers[answers.length - 1].upvoteCount,
+                  id: answers[answers.length - 1].id,
+                } as LoadMoreAnswersDefaultCursor)
             : null,
-        hasMore: answersWithUsers.length === limitCount,
+        hasMore: answersWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
-        `answers:${questionId}:${cursor || "initial"}`,
+        `answers:${questionId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 5,
