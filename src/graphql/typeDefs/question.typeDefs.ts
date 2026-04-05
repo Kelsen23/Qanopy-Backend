@@ -71,12 +71,9 @@ const questionTypeDefs = gql`
     upvoteCount: Int!
     downvoteCount: Int!
     replyCount: Int!
-    replies: [Reply!]!
     isAccepted: Boolean!
     isBestAnswerByAsker: Boolean!
     questionVersion: Int!
-    isActive: Boolean!
-    isDeleted: Boolean!
     createdAt: String!
     user: User
   }
@@ -119,7 +116,7 @@ const questionTypeDefs = gql`
 
   type AnswerConnection {
     answers: [Answer!]!
-    nextCursor: String
+    nextCursor: AnswerCursor
     hasMore: Boolean!
   }
 
@@ -151,6 +148,27 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  enum AnswerSortOption {
+    DEFAULT
+    RECENT
+  }
+
+  type AnswerCursor {
+    id: String!
+    ownerPriority: Int
+    bestPriority: Int
+    acceptedPriority: Int
+    upvoteCount: Int
+  }
+
+  input AnswerCursorInput {
+    id: String!
+    ownerPriority: Int
+    bestPriority: Int
+    acceptedPriority: Int
+    upvoteCount: Int
+  }
+
   input RecommendedQuestionsCursorInput {
     id: String!
     upvoteCount: Int!
@@ -167,8 +185,8 @@ const questionTypeDefs = gql`
 
     loadMoreAnswers(
       questionId: ID!
-      topAnswerId: ID
-      cursor: String
+      sortOption: AnswerSortOption!
+      cursor: AnswerCursorInput
       limitCount: Int
     ): AnswerConnection!
 
