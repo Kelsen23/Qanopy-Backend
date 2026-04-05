@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
 import { Redis } from "ioredis";
+import { GraphQLScalarType, Kind } from "graphql";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
+import AiAnswer from "../../models/aiAnswer.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
@@ -31,7 +33,40 @@ interface SearchQuestionStage {
 const isInterest = (tag: string): tag is Interest =>
   interests.includes(tag as Interest);
 
+const parseJsonLiteral = (ast: any): any => {
+  switch (ast.kind) {
+    case Kind.STRING:
+    case Kind.BOOLEAN:
+      return ast.value;
+    case Kind.INT:
+    case Kind.FLOAT:
+      return Number(ast.value);
+    case Kind.OBJECT: {
+      const value: Record<string, any> = {};
+      for (const field of ast.fields) {
+        value[field.name.value] = parseJsonLiteral(field.value);
+      }
+      return value;
+    }
+    case Kind.LIST:
+      return ast.values.map(parseJsonLiteral);
+    case Kind.NULL:
+      return null;
+    default:
+      return null;
+  }
+};
+
+const jsonScalar = new GraphQLScalarType({
+  name: "JSON",
+  description: "Arbitrary JSON value",
+  serialize: (value) => value,
+  parseValue: (value) => value,
+  parseLiteral: parseJsonLiteral,
+});
+
 const questionResolver = {
+  JSON: jsonScalar,
   Query: {
     recommendedQuestions: async (
       _: any,
@@ -135,7 +170,7 @@ const questionResolver = {
         } else {
           matchStage.$or = [
             { upvoteCount: { $lt: cursor.upvoteCount } },
-            
+
             {
               upvoteCount: cursor.upvoteCount,
               _id: { $lt: cursorObjectId },
@@ -215,244 +250,103 @@ const questionResolver = {
       return result;
     },
 
-    getQuestionById: async (
+    question: async (
       _: any,
       { id }: { id: string },
       {
         getRedisCacheClient,
         loaders,
-      }: { getRedisCacheClient: () => Redis; loaders: any },
+      }: { user: User; getRedisCacheClient: () => Redis; loaders: any },
     ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid questionId", 400);
+
       const cachedQuestion = await getRedisCacheClient().get(`question:${id}`);
-      if (cachedQuestion) return JSON.parse(cachedQuestion);
+      if (cachedQuestion) {
+        const parsedCachedQuestion = JSON.parse(cachedQuestion);
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          embedding: _embedding,
+          topicStatus: _topicStatus,
+          moderationStatus: _moderationStatus,
+          ...publicQuestion
+        } = parsedCachedQuestion;
+        return publicQuestion;
+      }
 
-      const questionData = await Question.aggregate([
-        {
-          $match: {
-            _id: new mongoose.Types.ObjectId(id),
-          },
-        },
-
-        {
-          $lookup: {
-            from: "answers",
-            localField: "_id",
-            foreignField: "questionId",
-            as: "answers",
-          },
-        },
-
-        {
-          $addFields: {
-            answers: {
-              $filter: {
-                input: "$answers",
-                as: "a",
-                cond: {
-                  $and: [
-                    { $eq: ["$$a.isActive", true] },
-                    { $eq: ["$$a.isDeleted", false] },
-                  ],
-                },
-              },
-            },
-          },
-        },
-
-        {
-          $addFields: {
-            topAnswer: {
-              $cond: {
-                if: { $eq: [{ $size: "$answers" }, 0] },
-                then: null,
-                else: {
-                  $let: {
-                    vars: {
-                      filteredTop: {
-                        $filter: {
-                          input: "$answers",
-                          as: "a",
-                          cond: { $eq: ["$$a.isBestAnswerByAsker", true] },
-                        },
-                      },
-                    },
-                    in: {
-                      $cond: {
-                        if: {
-                          $gt: [
-                            { $size: { $ifNull: ["$$filteredTop", []] } },
-                            0,
-                          ],
-                        },
-                        then: { $first: "$$filteredTop" },
-                        else: {
-                          $first: {
-                            $sortArray: {
-                              input: "$answers",
-                              sortBy: { upvoteCount: -1, createdAt: 1 },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-
-        {
-          $lookup: {
-            from: "replies",
-            let: { topAnswerId: "$topAnswer._id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$answerId", "$$topAnswerId"] },
-                  isActive: true,
-                  isDeleted: false,
-                },
-              },
-              { $sort: { upvoteCount: -1, _id: -1 } },
-            ],
-            as: "topReplies",
-          },
-        },
-
-        {
-          $project: {
-            id: "$_id",
-            _id: 0,
-            userId: 1,
-            title: 1,
-            body: 1,
-            tags: 1,
-            upvoteCount: 1,
-            downvoteCount: 1,
-            answerCount: 1,
-            currentVersion: 1,
-            topicStatus: 1,
-            moderationStatus: 1,
-            isActive: 1,
-            isDeleted: 1,
-            createdAt: 1,
-            topAnswer: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$topAnswer", null] },
-                    { $ne: ["$topAnswer._id", null] },
-                  ],
-                },
-                then: {
-                  id: "$topAnswer._id",
-                  userId: "$topAnswer.userId",
-                  body: "$topAnswer.body",
-                  upvoteCount: "$topAnswer.upvoteCount",
-                  downvoteCount: "$topAnswer.downvoteCount",
-                  isAccepted: "$topAnswer.isAccepted",
-                  isBestAnswerByAsker: "$topAnswer.isBestAnswerByAsker",
-                  questionVersion: "$topAnswer.questionVersion",
-                  isActive: "$topAnswer.isActive",
-                  isDeleted: "$topAnswer.isDeleted",
-                  createdAt: "$topAnswer.createdAt",
-                  replyCount: "$topAnswer.replyCount",
-                  replies: {
-                    $map: {
-                      input: "$topReplies",
-                      as: "reply",
-                      in: {
-                        id: "$$reply._id",
-                        userId: "$$reply.userId",
-                        body: "$$reply.body",
-                        upvoteCount: "$$reply.upvoteCount",
-                        downvoteCount: "$$reply.downvoteCount",
-                        isActive: "$$reply.isActive",
-                        isDeleted: "$$reply.isDeleted",
-                        createdAt: "$$reply.createdAt",
-                      },
-                    },
-                  },
-                },
-                else: null,
-              },
-            },
-          },
-        },
+      const [question, aiAnswer] = await Promise.all([
+        Question.findOne({
+          _id: new mongoose.Types.ObjectId(id),
+          isActive: true,
+          isDeleted: false,
+        })
+          .select(
+            "_id userId title body tags upvoteCount downvoteCount answerCount currentVersion topicStatus moderationStatus isActive isDeleted embedding createdAt",
+          )
+          .lean(),
+        AiAnswer.findOne({
+          questionId: new mongoose.Types.ObjectId(id),
+          isPublished: true,
+        })
+          .select("questionVersion body confidence meta")
+          .lean(),
       ]);
 
-      const question = questionData[0];
+      if (!question) return null;
 
-      if (!question) {
-        return null;
-      }
+      const user = question.userId
+        ? await loaders.userLoader.load(question.userId.toString())
+        : null;
 
-      const userIds = new Set<string>();
+      const result = {
+        id: question._id,
+        userId: question.userId,
+        title: question.title,
+        body: question.body,
+        tags: question.tags,
+        upvoteCount: question.upvoteCount,
+        downvoteCount: question.downvoteCount,
+        answerCount: question.answerCount,
+        currentVersion: question.currentVersion,
+        canGenerateAiAnswer:
+          question.topicStatus === "VALID" &&
+          ["APPROVED", "REJECTED"].includes(String(question.moderationStatus)),
+        createdAt: question.createdAt,
+        user: user && !(user as any)?.error ? user : null,
+        aiAnswer: aiAnswer
+          ? {
+              questionVersion: aiAnswer.questionVersion,
+              body: aiAnswer.body,
+              confidence: {
+                overall: aiAnswer.confidence?.overall,
+                note: aiAnswer.confidence?.note || null,
+                sections: Array.isArray(aiAnswer.confidence?.sections)
+                  ? aiAnswer.confidence.sections
+                  : [],
+              },
+              meta: aiAnswer.meta ?? {},
+            }
+          : null,
+      };
 
-      if (question.userId) {
-        userIds.add(question.userId.toString());
-      }
-
-      if (question.topAnswer?.userId) {
-        userIds.add(question.topAnswer.userId.toString());
-      }
-
-      if (
-        question.topAnswer?.replies &&
-        Array.isArray(question.topAnswer.replies)
-      ) {
-        question.topAnswer.replies.forEach((r: any) => {
-          if (r?.userId) userIds.add(r.userId.toString());
-        });
-      }
-
-      const allUserIds = Array.from(userIds);
-
-      if (allUserIds.length > 0) {
-        const users = await loaders.userLoader.loadMany(allUserIds);
-        const userMap = new Map();
-
-        users.forEach((u: any) => {
-          if (u && !u.error && u.id) {
-            userMap.set(u.id.toString(), u);
-          }
-        });
-
-        if (question.userId) {
-          question.user = userMap.get(question.userId.toString()) || null;
-        }
-
-        if (question.topAnswer?.userId) {
-          question.topAnswer.user =
-            userMap.get(question.topAnswer.userId.toString()) || null;
-        }
-
-        if (
-          question.topAnswer?.replies &&
-          Array.isArray(question.topAnswer.replies)
-        ) {
-          question.topAnswer.replies = question.topAnswer.replies.map(
-            (r: any) => ({
-              ...r,
-              user: r?.userId ? userMap.get(r.userId.toString()) || null : null,
-            }),
-          );
-        }
-      }
+      const cachePayload = {
+        ...result,
+        isActive: question.isActive,
+        isDeleted: question.isDeleted,
+        embedding: Array.isArray(question.embedding) ? question.embedding : [],
+        topicStatus: question.topicStatus,
+        moderationStatus: question.moderationStatus,
+      };
 
       await getRedisCacheClient().set(
         `question:${id}`,
-        JSON.stringify(question),
+        JSON.stringify(cachePayload),
         "EX",
         60 * 15,
       );
 
-      if (question.topAnswer && !question.topAnswer.id) {
-        question.topAnswer = null;
-      }
-
-      return question;
+      return result;
     },
 
     loadMoreAnswers: async (
