@@ -6,8 +6,8 @@ const questionTypeDefs = gql`
     userId: String!
     title: String!
     body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
@@ -16,27 +16,27 @@ const questionTypeDefs = gql`
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
-    user: User!
+    user: User
   }
 
   type Reply {
     id: ID!
     userId: String!
     body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
-    user: User!
+    user: User
   }
 
   type Answer {
     id: ID!
     userId: String!
     body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     replyCount: Int!
     replies: [Reply!]!
     isAccepted: Boolean!
@@ -45,7 +45,7 @@ const questionTypeDefs = gql`
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
-    user: User!
+    user: User
   }
 
   type QuestionDetails {
@@ -54,8 +54,8 @@ const questionTypeDefs = gql`
     title: String!
     body: String!
     tags: [String]!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     answerCount: Int!
     topAnswer: Answer
     currentVersion: Int!
@@ -64,13 +64,23 @@ const questionTypeDefs = gql`
     isActive: Boolean!
     isDeleted: Boolean!
     createdAt: String!
-    user: User!
+    user: User
   }
 
   type QuestionConnection {
     questions: [Question!]!
-    nextCursor: String
+    nextCursor: RecommendedQuestionsCursor
     hasMore: Boolean!
+  }
+
+  type RecommendedQuestionsCursor {
+    id: String!
+    upvoteCount: Int!
+  }
+
+  input RecommendedQuestionsCursorInput {
+    id: String!
+    upvoteCount: Int!
   }
 
   type SearchQuestion {
@@ -78,8 +88,8 @@ const questionTypeDefs = gql`
     userId: String!
     title: String!
     body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
@@ -88,7 +98,7 @@ const questionTypeDefs = gql`
     isDeleted: Boolean!
     isActive: Boolean!
     createdAt: String!
-    user: User!
+    user: User
   }
 
   type SearchQuestionConnection {
@@ -122,7 +132,7 @@ const questionTypeDefs = gql`
     version: Int!
     basedOnVersion: Int!
     isActive: Boolean!
-    user: User!
+    user: User
   }
 
   type QuestionVersionConnection {
@@ -133,7 +143,7 @@ const questionTypeDefs = gql`
 
   type Query {
     getRecommendedQuestions(
-      cursor: String
+      cursor: RecommendedQuestionsCursorInput
       limitCount: Int
     ): QuestionConnection!
 
