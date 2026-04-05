@@ -123,7 +123,7 @@ const moderationTypeDefs = gql`
     hasMore: Boolean!
   }
 
-  type Query {
+  extend type Query {
     getReports(
       cursor: String
       limitCount: Int
