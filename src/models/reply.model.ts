@@ -27,12 +27,7 @@ const ReplySchema: Schema = new Schema(
       versionKey: false,
       transform: (_, ret: any) => {
         ret.id = ret._id;
-        ret.upvotes = ret.upvoteCount;
-        ret.downvotes = ret.downvoteCount;
-
         delete ret._id;
-        delete ret.upvoteCount;
-        delete ret.downvoteCount;
 
         return ret;
       },
