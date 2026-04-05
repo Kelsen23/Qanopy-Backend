@@ -3,20 +3,34 @@ import { gql } from "graphql-tag";
 const questionTypeDefs = gql`
   type Question {
     id: ID!
+    searchScore: Float!
     userId: String!
     title: String!
-    body: String!
     upvoteCount: Int!
     downvoteCount: Int!
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
-    topicStatus: String!
-    moderationStatus: String!
-    isDeleted: Boolean!
-    isActive: Boolean!
     createdAt: String!
     user: User
+  }
+
+  type QuestionConnection {
+    questions: [Question!]!
+    nextCursor: RecommendedQuestionsCursor
+    hasMore: Boolean!
+  }
+
+  type RecommendedQuestionsCursor {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
+  }
+
+  input RecommendedQuestionsCursorInput {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
   }
 
   type Reply {
@@ -65,22 +79,6 @@ const questionTypeDefs = gql`
     isDeleted: Boolean!
     createdAt: String!
     user: User
-  }
-
-  type QuestionConnection {
-    questions: [Question!]!
-    nextCursor: RecommendedQuestionsCursor
-    hasMore: Boolean!
-  }
-
-  type RecommendedQuestionsCursor {
-    id: String!
-    upvoteCount: Int!
-  }
-
-  input RecommendedQuestionsCursorInput {
-    id: String!
-    upvoteCount: Int!
   }
 
   type SearchQuestion {
@@ -142,7 +140,7 @@ const questionTypeDefs = gql`
   }
 
   type Query {
-    getRecommendedQuestions(
+    recommendedQuestions(
       cursor: RecommendedQuestionsCursorInput
       limitCount: Int
     ): QuestionConnection!
