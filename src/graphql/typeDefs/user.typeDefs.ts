@@ -33,7 +33,7 @@ const userTypeDefs = gql`
     createdAt: String!
   }
 
-  type Query {
+  extend type Query {
     getUserById(id: ID!): User
   }
 `;
