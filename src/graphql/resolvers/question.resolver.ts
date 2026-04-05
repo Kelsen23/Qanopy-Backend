@@ -52,6 +52,11 @@ const questionResolver = {
         loaders: any;
       },
     ) => {
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
       const interests = user.interests || [];
       const sortedInterests = [...interests].sort().join(",");
       const cursorCacheKey = cursor
@@ -59,7 +64,7 @@ const questionResolver = {
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${limitCount}`,
+        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -150,7 +155,7 @@ const questionResolver = {
           } as any,
         },
 
-        { $limit: limitCount },
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -190,18 +195,18 @@ const questionResolver = {
       const result = {
         questions: questionsWithUsers,
         nextCursor:
-          questionsWithUsers.length === limitCount
+          questionsWithUsers.length === normalizedLimitCount
             ? ({
                 id: questions[questions.length - 1].id,
                 upvoteCount: questions[questions.length - 1].upvoteCount,
                 searchScore: questions[questions.length - 1].searchScore,
               } as RecommendedQuestionsCursor)
             : null,
-        hasMore: questionsWithUsers.length === limitCount,
+        hasMore: questionsWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${limitCount}`,
+        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 5,
