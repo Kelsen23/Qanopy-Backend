@@ -144,7 +144,7 @@ const questionTypeDefs = gql`
 
   type QuestionVersionConnection {
     questionVersions: [QuestionVersion!]!
-    nextCursor: String
+    nextCursor: VersionHistoryCursor
     hasMore: Boolean!
   }
 
@@ -198,6 +198,14 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
+  type VersionHistoryCursor {
+    id: String!
+  }
+
+  input VersionHistoryCursorInput {
+    id: String!
+  }
+
   input RecommendedQuestionsCursorInput {
     id: String!
     upvoteCount: Int!
@@ -235,9 +243,9 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): SearchQuestionConnection!
 
-    getVersionHistory(
+    versionHistory(
       questionId: String!
-      cursor: ID
+      cursor: VersionHistoryCursorInput
       limitCount: Int
     ): QuestionVersionConnection!
     getQuestionVersion(questionId: String!, version: Int!): QuestionVersion!
