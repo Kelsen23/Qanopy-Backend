@@ -777,6 +777,7 @@ const questionResolver = {
             topicStatus: "VALID",
             isDeleted: false,
             isActive: true,
+            moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
           },
         },
         
@@ -1133,7 +1134,7 @@ const questionResolver = {
       return result;
     },
 
-    getQuestionVersion: async (
+    questionVersion: async (
       _: any,
       { questionId, version }: { questionId: string; version: number },
       {
@@ -1141,6 +1142,9 @@ const questionResolver = {
         loaders,
       }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
+      if (!mongoose.isValidObjectId(questionId))
+        throw new HttpError("Invalid questionId", 400);
+
       const cachedVersion = await getRedisCacheClient().get(
         `v:${version}:question:${questionId}`,
       );
