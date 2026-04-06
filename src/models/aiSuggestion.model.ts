@@ -59,7 +59,7 @@ aiSuggestionSchema.index(
   { unique: true },
 );
 
-aiSuggestionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 15 });
+aiSuggestionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 45 });
 
 export default mongoose.model(
   "AiSuggestion",
