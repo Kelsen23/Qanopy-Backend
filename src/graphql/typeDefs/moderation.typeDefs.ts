@@ -77,8 +77,8 @@ const moderationTypeDefs = gql`
 
     status: ReportStatus!
 
-    reporter: User!
-    targetUser: User!
+    reporter: User
+    targetUser: User
 
     createdAt: String!
     updatedAt: String!
@@ -86,8 +86,16 @@ const moderationTypeDefs = gql`
 
   type ReportConnection {
     reports: [Report!]!
-    nextCursor: String
+    nextCursor: ReportCursor
     hasMore: Boolean!
+  }
+
+  type ReportCursor {
+    id: String!
+  }
+
+  input ReportCursorInput {
+    id: String!
   }
 
   type ModerationStrike {
@@ -110,7 +118,7 @@ const moderationTypeDefs = gql`
 
     expiresAt: String
 
-    targetUser: User!
+    targetUser: User
     admin: User
 
     createdAt: String!
@@ -124,8 +132,8 @@ const moderationTypeDefs = gql`
   }
 
   extend type Query {
-    getReports(
-      cursor: String
+    reports(
+      cursor: ReportCursorInput
       limitCount: Int
       showReviewed: Boolean
     ): ReportConnection!
