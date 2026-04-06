@@ -41,6 +41,8 @@ const contextualAnswerService = async (
     const foundBestAnswers = await Answer.find({
       questionId: { $in: similarQuestionIds },
       isActive: true,
+      isDeleted: false,
+      moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       isAccepted: true,
       isBestAnswerByAsker: true,
     }).select("questionId body");
