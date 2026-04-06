@@ -8,6 +8,9 @@ const getSocketBindingKey = (socketId: string) => `aiAnswer:socket:${socketId}`;
 const getAiAnswerCancelKey = (questionId: string, questionVersion: number) =>
   `cancel:aiAnswer:question:${questionId}:version:${questionVersion}`;
 
+const getPendingKey = (userId: string, questionId: string, version: number) =>
+  `aiAnswer:pending:${userId}:${questionId}:${version}`;
+
 const setAiAnswerCancelFlagFromSocketBinding = async (socketId: string) => {
   const binding = await getRedisCacheClient().get(
     getSocketBindingKey(socketId),
@@ -30,16 +33,29 @@ const setAiAnswerCancelFlagFromSocketBinding = async (socketId: string) => {
 
 const startAiAnswerSession = async (
   socketId: string,
+  userId: string,
   questionId: string,
   questionVersion: number,
 ) => {
+  const pendingKey = getPendingKey(userId, questionId, questionVersion);
+  const pendingSet = await getRedisCacheClient().set(
+    pendingKey,
+    "1",
+    "EX",
+    60 * 15,
+    "NX",
+  );
+
+  if (!pendingSet) throw new Error("AI answer already queued");
+
   await getRedisCacheClient().sadd(
     getVersionSocketKey(questionId, questionVersion),
     socketId,
   );
+
   await getRedisCacheClient().set(
     getSocketBindingKey(socketId),
-    JSON.stringify({ questionId, questionVersion }),
+    JSON.stringify({ userId, questionId, questionVersion }),
   );
 };
 

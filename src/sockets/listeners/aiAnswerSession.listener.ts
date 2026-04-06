@@ -16,7 +16,12 @@ const initAiAnswerSessionListener = (socket: Socket) => {
       questionId: string;
       questionVersion: number;
     }) => {
-      await startAiAnswerSession(socket.id, questionId, questionVersion);
+      await startAiAnswerSession(
+        socket.id,
+        socket.data.userId,
+        questionId,
+        questionVersion,
+      );
     },
   );
 
