@@ -110,7 +110,7 @@ const questionTypeDefs = gql`
 
   type SearchQuestionConnection {
     questions: [SearchQuestion!]!
-    nextCursor: String
+    nextCursor: SearchQuestionCursor
     hasMore: Boolean!
   }
 
@@ -153,6 +153,18 @@ const questionTypeDefs = gql`
     RECENT
   }
 
+  enum SearchQuestionSortOption {
+    LATEST
+    RELEVANT
+  }
+
+  type SearchQuestionCursor {
+    id: String!
+    createdAt: String
+    searchScore: Float
+    upvoteCount: Int
+  }
+
   type ReplyCursor {
     id: String!
     upvoteCount: Int!
@@ -176,6 +188,13 @@ const questionTypeDefs = gql`
     ownerPriority: Int
     bestPriority: Int
     acceptedPriority: Int
+    upvoteCount: Int
+  }
+
+  input SearchQuestionCursorInput {
+    id: String!
+    createdAt: String
+    searchScore: Float
     upvoteCount: Int
   }
 
@@ -211,8 +230,8 @@ const questionTypeDefs = gql`
     searchQuestions(
       searchKeyword: String!
       tags: [String]!
-      sortOption: String!
-      cursor: String
+      sortOption: SearchQuestionSortOption!
+      cursor: SearchQuestionCursorInput
       limitCount: Int
     ): SearchQuestionConnection!
 
