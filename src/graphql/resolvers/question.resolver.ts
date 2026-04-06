@@ -727,7 +727,7 @@ const questionResolver = {
       return result;
     },
 
-    getSearchSuggestions: async (
+    searchSuggestions: async (
       _: any,
       {
         searchKeyword,
@@ -735,8 +735,16 @@ const questionResolver = {
       }: { searchKeyword: string; limitCount: number },
       { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
     ) => {
+      const normalizedKeyword = String(searchKeyword || "").trim();
+      if (!normalizedKeyword) return [];
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Math.min(Number(limitCount), 20)
+          : 10;
+
       const cachedSuggestions = await getRedisCacheClient().get(
-        `searchSuggestions:${searchKeyword}`,
+        `searchSuggestions:${normalizedKeyword}:${normalizedLimitCount}`,
       );
 
       if (cachedSuggestions) return JSON.parse(cachedSuggestions);
@@ -746,12 +754,13 @@ const questionResolver = {
           $search: {
             index: "questions_autocomplete",
             autocomplete: {
-              query: searchKeyword,
+              query: normalizedKeyword,
               path: "title",
               fuzzy: { maxEdits: 1 },
             },
           },
         },
+
         {
           $match: {
             topicStatus: "VALID",
@@ -759,6 +768,7 @@ const questionResolver = {
             isActive: true,
           },
         },
+        
         {
           $group: {
             _id: "$title",
@@ -766,7 +776,7 @@ const questionResolver = {
           },
         },
 
-        { $limit: limitCount },
+        { $limit: normalizedLimitCount },
 
         { $project: { id: "$_id", _id: 0, title: 1 } },
       ]);
@@ -774,7 +784,7 @@ const questionResolver = {
       const suggestions = results.map((r) => r.title);
 
       await getRedisCacheClient().set(
-        `searchSuggestions:${searchKeyword}`,
+        `searchSuggestions:${normalizedKeyword}:${normalizedLimitCount}`,
         JSON.stringify(suggestions),
         "EX",
         60 * 60,
