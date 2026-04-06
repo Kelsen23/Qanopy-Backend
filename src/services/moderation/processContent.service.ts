@@ -7,6 +7,8 @@ import queueNotification from "../../utils/queueNotification.util.js";
 import computeRiskScore from "../../utils/computeRiskScore.util.js";
 import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
 
+import { clearStrikesCache } from "../../utils/clearCache.util.js";
+
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
@@ -17,13 +19,13 @@ import prisma from "../../config/prisma.config.js";
 
 import { ContentType } from "../../generated/prisma/index.js";
 
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
-
-import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import crypto from "crypto";
 
@@ -152,6 +154,7 @@ const processContent = async (
 
       return createdStrike;
     });
+    await clearStrikesCache();
 
     const meta = {
       strikeId: newStrike.id,
