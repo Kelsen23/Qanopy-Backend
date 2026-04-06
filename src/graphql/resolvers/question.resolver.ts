@@ -40,6 +40,13 @@ type LoadMoreRepliesCursor = {
   upvoteCount: number;
 };
 
+type SearchQuestionsCursor = {
+  id: string;
+  createdAt?: string;
+  searchScore?: number;
+  upvoteCount?: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -805,39 +812,51 @@ const questionResolver = {
         searchKeyword: string;
         limitCount: number;
         tags: string[];
-        sortOption: string;
-        cursor?: string;
+        sortOption: "LATEST" | "RELEVANT";
+        cursor?: SearchQuestionsCursor;
       },
       {
         getRedisCacheClient,
         loaders,
       }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
-      if (!["LATEST", "TOP"].includes(sortOption))
+      if (!["LATEST", "RELEVANT"].includes(sortOption))
         throw new HttpError(
-          `Invalid sort option. Allowed values: ${["LATEST", "TOP"].join(", ")}`,
+          `Invalid sort option. Allowed values: ${["LATEST", "RELEVANT"].join(", ")}`,
           400,
         );
+
+      const normalizedSearchKeyword = String(searchKeyword || "").trim();
+      if (!normalizedSearchKeyword) {
+        return { questions: [], nextCursor: null, hasMore: false };
+      }
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
 
       const invalidTags = tags.filter((tag) => !isInterest(tag));
 
       if (invalidTags.length > 0)
         throw new HttpError(`Invalid tags: ${invalidTags.join(", ")}`, 400);
 
+      const sortedTags = [...tags].sort().join(", ");
+
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.createdAt ?? "",
+            cursor.searchScore ?? "",
+            cursor.upvoteCount ?? "",
+          ].join(":")
+        : "initial";
+
       const cachedQuestions = await getRedisCacheClient().get(
-        `searchQuestions:${searchKeyword}:${tags.sort().join(", ")}:${sortOption}:${cursor || "initial"}`,
+        `searchQuestions:${normalizedSearchKeyword}:${sortedTags}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
 
       if (cachedQuestions) return JSON.parse(cachedQuestions);
-
-      const sortMapping: Record<string, any> = {
-        LATEST: { createdAt: -1, _id: -1 },
-        TOP: {
-          answerCount: -1,
-          upvoteCount: -1,
-          _id: -1,
-        },
-      };
 
       const searchStage: SearchQuestionStage = {
         $search: {
@@ -846,7 +865,7 @@ const questionResolver = {
             must: [
               {
                 text: {
-                  query: searchKeyword,
+                  query: normalizedSearchKeyword,
                   path: ["title", "body"],
                   fuzzy: { maxEdits: 1, prefixLength: 2 },
                 },
@@ -872,20 +891,80 @@ const questionResolver = {
         isDeleted: false,
         isActive: true,
         topicStatus: "VALID",
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       };
 
-      if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+      const pipeline: any[] = [searchStage];
+
+      if (sortOption === "RELEVANT") {
+        pipeline.push({
+          $addFields: {
+            searchScore: { $ifNull: [{ $meta: "searchScore" }, 0] },
+          },
+        });
       }
 
-      const questions = await Question.aggregate([
-        searchStage,
+      pipeline.push({ $match: matchStage });
 
-        { $match: matchStage },
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
 
-        { $sort: sortMapping[sortOption] },
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
 
-        { $limit: limitCount },
+        if (sortOption === "LATEST") {
+          const cursorCreatedAt = cursor.createdAt
+            ? new Date(cursor.createdAt)
+            : null;
+
+          if (!cursorCreatedAt || Number.isNaN(cursorCreatedAt.getTime()))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { createdAt: { $lt: cursorCreatedAt } },
+                { createdAt: cursorCreatedAt, _id: { $lt: cursorObjectId } },
+              ],
+            },
+          });
+        } else {
+          if (
+            !Number.isFinite(cursor.searchScore) ||
+            !Number.isFinite(cursor.upvoteCount)
+          )
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { searchScore: { $lt: cursor.searchScore } },
+
+                {
+                  searchScore: cursor.searchScore,
+                  upvoteCount: { $lt: cursor.upvoteCount },
+                },
+                
+                {
+                  searchScore: cursor.searchScore,
+                  upvoteCount: cursor.upvoteCount,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+      }
+
+      pipeline.push(
+        {
+          $sort:
+            sortOption === "LATEST"
+              ? { createdAt: -1, _id: -1 }
+              : { searchScore: -1, upvoteCount: -1, _id: -1 },
+        },
+
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -899,14 +978,13 @@ const questionResolver = {
             downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
-            topicStatus: 1,
-            moderationStatus: 1,
-            isDeleted: 1,
-            isActive: 1,
             createdAt: 1,
+            searchScore: { $ifNull: ["$searchScore", null] },
           },
         },
-      ]);
+      );
+
+      const questions = await Question.aggregate(pipeline);
 
       const uniqueUserIds = [...new Set(questions.map((q) => q.userId))];
 
@@ -922,14 +1000,28 @@ const questionResolver = {
       const result = {
         questions: questionsWithUsers,
         nextCursor:
-          questionsWithUsers.length === limitCount
-            ? questionsWithUsers[questionsWithUsers.length - 1].id
+          questionsWithUsers.length === normalizedLimitCount
+            ? sortOption === "LATEST"
+              ? {
+                  id: questionsWithUsers[questionsWithUsers.length - 1].id,
+                  createdAt:
+                    questionsWithUsers[questionsWithUsers.length - 1].createdAt,
+                }
+              : {
+                  id: questionsWithUsers[questionsWithUsers.length - 1].id,
+                  searchScore:
+                    questionsWithUsers[questionsWithUsers.length - 1]
+                      .searchScore,
+                  upvoteCount:
+                    questionsWithUsers[questionsWithUsers.length - 1]
+                      .upvoteCount,
+                }
             : null,
-        hasMore: questionsWithUsers.length === limitCount,
+        hasMore: questionsWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
-        `searchQuestions:${searchKeyword}:${tags.sort().join(", ")}:${sortOption}:${cursor || "initial"}`,
+        `searchQuestions:${normalizedSearchKeyword}:${sortedTags}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 15,
