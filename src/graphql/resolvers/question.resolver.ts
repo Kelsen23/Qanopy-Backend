@@ -47,6 +47,10 @@ type SearchQuestionsCursor = {
   upvoteCount?: number;
 };
 
+type VersionHistoryCursor = {
+  id: string;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -1030,20 +1034,29 @@ const questionResolver = {
       return result;
     },
 
-    getVersionHistory: async (
+    versionHistory: async (
       _: any,
       {
         questionId,
         cursor,
         limitCount = 10,
-      }: { questionId: string; cursor?: string; limitCount: number },
+      }: { questionId: string; cursor?: VersionHistoryCursor; limitCount: number },
       {
         getRedisCacheClient,
         loaders,
       }: { getRedisCacheClient: () => Redis; loaders: any },
     ) => {
+      if (!mongoose.isValidObjectId(questionId))
+        throw new HttpError("Invalid questionId", 400);
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+      const cursorCacheKey = cursor ? cursor.id : "initial";
+
       const cachedVersionHistory = await getRedisCacheClient().get(
-        `v:question:${questionId}:${cursor || "initial"}`,
+        `v:question:${questionId}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
 
       if (cachedVersionHistory) return JSON.parse(cachedVersionHistory);
@@ -1053,7 +1066,10 @@ const questionResolver = {
       };
 
       if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor.id) };
       }
 
       const foundVersionHistory = await QuestionVersion.aggregate([
@@ -1061,7 +1077,7 @@ const questionResolver = {
 
         { $sort: { _id: -1 } },
 
-        { $limit: limitCount },
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -1101,14 +1117,14 @@ const questionResolver = {
       const result = {
         questionVersions: versionHistoryWithUser,
         nextCursor:
-          versionHistoryWithUser.length === limitCount
-            ? versionHistoryWithUser[versionHistoryWithUser.length - 1].id
+          versionHistoryWithUser.length === normalizedLimitCount
+            ? { id: versionHistoryWithUser[versionHistoryWithUser.length - 1].id }
             : null,
-        hasMore: versionHistoryWithUser.length === limitCount,
+        hasMore: versionHistoryWithUser.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
-        `v:question:${questionId}:${cursor || "initial"}`,
+        `v:question:${questionId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 60,
