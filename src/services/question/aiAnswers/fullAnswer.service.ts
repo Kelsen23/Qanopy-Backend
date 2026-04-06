@@ -44,17 +44,17 @@ const fullAnswer = async (
     3. After the delimiter, output the following **JSON exactly as described**:
 
     {
-    "confidence": {
-        "overall": number from 0 to 100 indicating confidence in the entire answer,
-        "note": "short explanation of confidence",
-        "sections": [
-        {
-            "sectionName": "string describing the topic of this section",
-            "confidence": number from 0 to 100,
-            "note": "short explanation of confidence for this section"
-        }
-        ]
-    }
+      "confidence": {
+          "overall": number from 0 to 100 indicating confidence in the entire answer,
+          "note": "short explanation of confidence",
+          "sections": [
+            {
+                "sectionName": "string describing the topic of this section",
+                "confidence": number from 0 to 100,
+                "note": "short explanation of confidence for this section"
+            }
+          ]
+      }
     }
 
     4. The JSON must be valid and must NOT be wrapped in Markdown code blocks.

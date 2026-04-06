@@ -49,17 +49,17 @@ const generateContextualAnswerService = async (
     7. Confidence JSON format:
 
     {
-    "confidence": {
-        "overall": number from 0 to 100,
-        "note": "short explanation of confidence",
-        "sections": [
-        {
-            "sectionName": "string describing the topic of this section",
-            "confidence": number from 0 to 100,
-            "note": "short explanation of confidence for this section"
-        }
-        ]
-    }
+      "confidence": {
+          "overall": number from 0 to 100,
+          "note": "short explanation of confidence",
+          "sections": [
+            {
+                "sectionName": "string describing the topic of this section",
+                "confidence": number from 0 to 100,
+                "note": "short explanation of confidence for this section"
+            }
+          ]
+      }
     }
 
     Do not include any additional commentary before or after this structure.
