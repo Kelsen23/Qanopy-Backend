@@ -7,33 +7,19 @@ import Report from "../../models/report.model.js";
 import { User } from "../../generated/prisma/index.js";
 import HttpError from "../../utils/httpError.util.js";
 
-const getDeletedUserFallback = (id: string) => ({
-  id,
-  username: "Deleted User",
-  email: "deleted@user.com",
-  profilePictureKey: null,
-  profilePictureUrl: null,
-  bio: null,
-  reputationPoints: 0,
-  role: "USER",
-  questionsAsked: 0,
-  answersGiven: 0,
-  bestAnswers: 0,
-  achievements: [],
-  status: "TERMINATED",
-  isVerified: false,
-  createdAt: new Date(0).toISOString(),
-});
+type ReportCursor = {
+  id: string;
+};
 
 const moderationResolver = {
   Query: {
-    getReports: async (
+    reports: async (
       _: any,
       {
         cursor,
         limitCount = 10,
         showReviewed = false,
-      }: { cursor?: string; limitCount: number; showReviewed: boolean },
+      }: { cursor?: ReportCursor; limitCount: number; showReviewed: boolean },
       {
         user,
         loaders,
@@ -43,7 +29,12 @@ const moderationResolver = {
       if (user.role !== "ADMIN")
         throw new HttpError("Forbidden to access this route", 403);
 
-      const cacheKey = `reports:${cursor || "initial"}:${limitCount}`;
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+      const cursorCacheKey = cursor ? cursor.id : "initial";
+      const cacheKey = `reports:${showReviewed ? "reviewed" : "pending"}:${cursorCacheKey}:${normalizedLimitCount}`;
 
       const cachedReports = await getRedisCacheClient().get(cacheKey);
 
@@ -58,7 +49,10 @@ const moderationResolver = {
       }
 
       if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor.id) };
       }
 
       const foundReports = await Report.aggregate([
@@ -66,7 +60,7 @@ const moderationResolver = {
 
         { $sort: { _id: -1 } },
 
-        { $limit: limitCount },
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -109,20 +103,18 @@ const moderationResolver = {
         createdAt: new Date(report.createdAt).toISOString(),
         updatedAt: new Date(report.updatedAt).toISOString(),
         reporter:
-          userMap.get(report.reportedBy) ||
-          getDeletedUserFallback(report.reportedBy),
+          userMap.get(report.reportedBy) || null,
         targetUser:
-          userMap.get(report.targetUserId) ||
-          getDeletedUserFallback(report.targetUserId),
+          userMap.get(report.targetUserId) || null,
       }));
 
       const result = {
         reports: reportsWithUsers,
         nextCursor:
-          foundReports.length === limitCount
-            ? foundReports[foundReports.length - 1].id
+          foundReports.length === normalizedLimitCount
+            ? { id: foundReports[foundReports.length - 1].id }
             : null,
-        hasMore: foundReports.length === limitCount,
+        hasMore: foundReports.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
@@ -206,9 +198,9 @@ const moderationResolver = {
         expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
         createdAt: new Date(s.createdAt).toISOString(),
         updatedAt: new Date(s.updatedAt).toISOString(),
-        targetUser: userMap.get(s.userId) || getDeletedUserFallback(s.userId),
+        targetUser: userMap.get(s.userId) || null,
         admin: s.adminId
-          ? userMap.get(s.adminId) || getDeletedUserFallback(s.adminId)
+          ? userMap.get(s.adminId) || null
           : null,
       }));
 
