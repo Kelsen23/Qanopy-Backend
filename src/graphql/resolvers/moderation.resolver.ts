@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 
 import { Redis } from "ioredis";
 
+import HttpError from "../../utils/httpError.util.js";
+
 import Report from "../../models/report.model.js";
 
 import { User } from "../../generated/prisma/index.js";
-import HttpError from "../../utils/httpError.util.js";
 
 type ReportCursor = {
   id: string;
@@ -112,10 +113,8 @@ const moderationResolver = {
           : null,
         createdAt: new Date(report.createdAt).toISOString(),
         updatedAt: new Date(report.updatedAt).toISOString(),
-        reporter:
-          userMap.get(report.reportedBy) || null,
-        targetUser:
-          userMap.get(report.targetUserId) || null,
+        reporter: userMap.get(report.reportedBy) || null,
+        targetUser: userMap.get(report.targetUserId) || null,
       }));
 
       const result = {
@@ -234,9 +233,7 @@ const moderationResolver = {
         createdAt: new Date(s.createdAt).toISOString(),
         updatedAt: new Date(s.updatedAt).toISOString(),
         targetUser: userMap.get(s.userId) || null,
-        admin: s.adminId
-          ? userMap.get(s.adminId) || null
-          : null,
+        admin: s.adminId ? userMap.get(s.adminId) || null : null,
       }));
 
       const result = {
