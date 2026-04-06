@@ -39,7 +39,8 @@ const initSocket = (server: http.Server) => {
 
       const res = await redeemCreditsService(userId);
 
-      await publishSocketEvent(userId, "creditsUpdated", res);
+      if (res.credited > 0)
+        await publishSocketEvent(userId, "creditsUpdated", res);
 
       console.log(`Registering user ${userId} with socket ${socket.id}`);
     });
