@@ -108,6 +108,7 @@ const generateContextualAnswerService = async (
 
   let fullBody = "";
   let streamedBodyLength = 0;
+  let wasCancelled = false;
 
   for await (const event of stream) {
     if (
@@ -127,6 +128,7 @@ const generateContextualAnswerService = async (
           data: { message: "AI answer generation cancelled" },
         });
 
+        wasCancelled = true;
         break;
       }
 
@@ -174,6 +176,8 @@ const generateContextualAnswerService = async (
       }
     }
   }
+
+  if (wasCancelled) return;
 
   try {
     const raw = fullBody.trim();
@@ -238,7 +242,7 @@ const generateContextualAnswerService = async (
           questionId,
           questionVersion,
           generatedAt: new Date().toISOString(),
-          source: "Claude-Sonnet-4-6-Contextual",
+          source: "Claude-Haiku-4-5-Contextual",
         },
       });
     }

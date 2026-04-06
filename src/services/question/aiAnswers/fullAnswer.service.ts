@@ -106,6 +106,7 @@ const fullAnswer = async (
 
   let fullBody = "";
   let streamedBodyLength = 0;
+  let wasCancelled = false;
 
   for await (const event of stream) {
     if (
@@ -125,6 +126,7 @@ const fullAnswer = async (
           data: { message: "AI answer generation cancelled" },
         });
 
+        wasCancelled = true;
         break;
       }
 
@@ -172,6 +174,8 @@ const fullAnswer = async (
       }
     }
   }
+
+  if (wasCancelled) return;
 
   try {
     const raw = fullBody.trim();
