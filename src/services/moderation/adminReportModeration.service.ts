@@ -1,6 +1,8 @@
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
 
+import { clearReportsCache } from "../../utils/clearCache.util.js";
+
 import Report from "../../models/report.model.js";
 
 import prisma from "../../config/prisma.config.js";
@@ -404,6 +406,8 @@ const adminModerateReport = async ({
         break;
       }
     }
+
+    await clearReportsCache();
   } catch (error) {
     await Report.findOneAndUpdate(
       {
