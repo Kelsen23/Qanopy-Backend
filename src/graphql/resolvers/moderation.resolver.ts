@@ -11,6 +11,16 @@ type ReportCursor = {
   id: string;
 };
 
+type StrikeCursor = {
+  id: string;
+  createdAt: string;
+};
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+
 const moderationResolver = {
   Query: {
     reports: async (
@@ -64,7 +74,7 @@ const moderationResolver = {
 
         {
           $project: {
-            id: "$_id",
+            id: { $toString: "$_id" },
             _id: 0,
             reportedBy: 1,
             targetUserId: 1,
@@ -127,7 +137,7 @@ const moderationResolver = {
       return result;
     },
 
-    getStrikes: async (
+    strikes: async (
       _: any,
       {
         filter = "ALL",
@@ -136,7 +146,7 @@ const moderationResolver = {
         showExpired = false,
       }: {
         filter?: "AI" | "ADMIN" | "ALL";
-        cursor?: string;
+        cursor?: StrikeCursor;
         limitCount: number;
         showExpired: boolean;
       },
@@ -155,27 +165,52 @@ const moderationResolver = {
       if (user.role !== "ADMIN")
         throw new HttpError("Forbidden to access this route", 403);
 
-      const cacheKey = `strikes:${filter}:${cursor || "initial"}:${limitCount}`;
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+      const cursorCacheKey = cursor
+        ? `${cursor.createdAt}:${cursor.id}`
+        : "initial";
+      const cacheKey = `strikes:${filter}:${showExpired ? "expired" : "active"}:${cursorCacheKey}:${normalizedLimitCount}`;
       const cachedStrikes = await getRedisCacheClient().get(cacheKey);
 
       if (cachedStrikes) return JSON.parse(cachedStrikes);
 
       const where: any = {};
+      const andConditions: any[] = [];
 
       if (filter === "AI") where.strikedBy = "AI_MODERATION";
       else if (filter === "ADMIN") where.strikedBy = "ADMIN_MODERATION";
 
       const now = new Date();
       if (!showExpired)
-        where.OR = [{ expiresAt: null }, { expiresAt: { gt: now } }];
-      else where.expiresAt = { lt: now };
+        andConditions.push({
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        });
+      else andConditions.push({ expiresAt: { lt: now } });
+
+      if (cursor) {
+        if (!isUuid(cursor.id)) throw new HttpError("Invalid cursor", 400);
+
+        const cursorDate = new Date(cursor.createdAt);
+        if (Number.isNaN(cursorDate.getTime()))
+          throw new HttpError("Invalid cursor", 400);
+
+        andConditions.push({
+          OR: [
+            { createdAt: { lt: cursorDate } },
+            { createdAt: cursorDate, id: { lt: cursor.id } },
+          ],
+        });
+      }
+
+      if (andConditions.length) where.AND = andConditions;
 
       const foundStrikes = await prisma.moderationStrike.findMany({
-        take: limitCount,
-        skip: cursor ? 1 : 0,
-        cursor: cursor ? { id: cursor } : undefined,
+        take: normalizedLimitCount,
         where,
-        orderBy: { id: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       });
 
       if (!foundStrikes.length)
@@ -207,10 +242,14 @@ const moderationResolver = {
       const result = {
         strikes: strikesWithUsers,
         nextCursor:
-          strikesWithUsers.length === limitCount
-            ? strikesWithUsers[strikesWithUsers.length - 1].id
+          strikesWithUsers.length === normalizedLimitCount
+            ? {
+                id: strikesWithUsers[strikesWithUsers.length - 1].id,
+                createdAt:
+                  strikesWithUsers[strikesWithUsers.length - 1].createdAt,
+              }
             : null,
-        hasMore: strikesWithUsers.length === limitCount,
+        hasMore: strikesWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
