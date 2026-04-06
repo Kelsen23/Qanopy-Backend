@@ -6,16 +6,20 @@ import {
 
 import HttpError from "../utils/httpError.util.js";
 
+import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+
 import mongoose from "mongoose";
 
 import Question from "../models/question.model.js";
+import QuestionVersion from "../models/questionVersion.model.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
+import prisma from "../config/prisma.config.js";
+
 import fullAnswerService from "../services/question/aiAnswers/fullAnswer.service.js";
 import contextualAnswerService from "../services/question/aiAnswers/contextualAnswer.service.js";
-
-import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+import { getAiAnswerCancelKey } from "../services/redis/aiAnswerSession.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -25,42 +29,69 @@ async function startWorker() {
     "aiAnswerQueue",
     async (job) => {
       const { userId, questionId, version } = job.data;
+      const refundKey = `aiAnswer:refund:${job.id}`;
+      const cancelKey = getAiAnswerCancelKey(questionId, version);
 
       try {
-        const cachedQuestion = await getRedisCacheClient().get(
-          `question:${questionId}`,
+        const foundQuestion = await Question.findById(questionId).select(
+          "_id isActive isDeleted currentVersion",
         );
-        const foundQuestion = cachedQuestion
-          ? JSON.parse(cachedQuestion)
-          : await Question.findById(questionId).select(
-              "_id isActive title body currentVersion embedding",
-            );
+        if (!foundQuestion) throw new HttpError("Question not found", 404);
 
-        if (!foundQuestion.isActive)
+        if (!foundQuestion.isActive || foundQuestion.isDeleted)
           throw new HttpError("Question not active", 400);
 
-        if (
-          !Array.isArray(foundQuestion.embedding) ||
-          foundQuestion.embedding.length === 0
-        )
-          throw new HttpError("Question does not have embedding", 400);
+        const foundQuestionVersion = await QuestionVersion.findOne({
+          questionId,
+          version,
+        })
+          .select("_id title body embedding moderationStatus topicStatus")
+          .lean();
 
-        const questionObjectId = new mongoose.Types.ObjectId(
-          foundQuestion._id || foundQuestion.id,
-        );
+        if (!foundQuestionVersion)
+          throw new HttpError("Question version not found", 404);
+
+        if (
+          !["APPROVED", "FLAGGED"].includes(
+            String(foundQuestionVersion.moderationStatus),
+          ) ||
+          foundQuestionVersion.topicStatus !== "VALID"
+        ) {
+          throw new HttpError(
+            "Question version is not eligible for AI answer",
+            400,
+          );
+        }
+
+        if (
+          !Array.isArray(foundQuestionVersion.embedding) ||
+          foundQuestionVersion.embedding.length === 0
+        )
+          throw new HttpError("Question version does not have embedding", 400);
+
+        const questionObjectId = new mongoose.Types.ObjectId(questionId);
+        await getRedisCacheClient().del(cancelKey);
 
         const similarQuestions = await Question.aggregate([
           {
             $vectorSearch: {
               index: "semantic_search_vector_index",
               path: "embedding",
-              queryVector: foundQuestion.embedding,
+              queryVector: foundQuestionVersion.embedding,
               numCandidates: 80,
               limit: 6,
             },
           },
 
-          { $match: { _id: { $ne: questionObjectId } } },
+          {
+            $match: {
+              _id: { $ne: questionObjectId },
+              isActive: true,
+              isDeleted: false,
+              topicStatus: "VALID",
+              moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+            },
+          },
 
           { $limit: 5 },
 
@@ -74,9 +105,9 @@ async function startWorker() {
           await fullAnswerService(
             userId,
             questionId,
-            foundQuestion.title,
-            foundQuestion.body,
-            foundQuestion.currentVersion,
+            String(foundQuestionVersion.title ?? ""),
+            String(foundQuestionVersion.body ?? ""),
+            version,
           );
         } else {
           const similarQuestionIds = similarQuestions.map((s) => String(s._id));
@@ -85,13 +116,33 @@ async function startWorker() {
             similarQuestionIds,
             userId,
             questionId,
-            foundQuestion.title,
-            foundQuestion.body,
-            foundQuestion.currentVersion,
+            String(foundQuestionVersion.title ?? ""),
+            String(foundQuestionVersion.body ?? ""),
+            version,
           );
         }
       } catch (error) {
         const err = error as Error & { statusCode?: number };
+
+        const shouldRefund = await getRedisCacheClient().set(
+          refundKey,
+          "1",
+          "EX",
+          60 * 60 * 24,
+          "NX",
+        );
+
+        if (shouldRefund) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { credits: { increment: 5 } },
+          });
+          
+          await getRedisCacheClient().del(
+            `credits:${userId}`,
+            `user:${userId}`,
+          );
+        }
 
         await publishSocketEvent(userId, "aiAnswerFailed", {
           message: err.message,
@@ -109,6 +160,7 @@ async function startWorker() {
       } finally {
         await getRedisCacheClient().del(
           `aiAnswer:pending:${userId}:${questionId}:${version}`,
+          getAiAnswerCancelKey(questionId, version),
         );
       }
     },
