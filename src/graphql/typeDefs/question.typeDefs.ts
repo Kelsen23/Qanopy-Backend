@@ -122,7 +122,7 @@ const questionTypeDefs = gql`
 
   type ReplyConnection {
     replies: [Reply!]!
-    nextCursor: String
+    nextCursor: ReplyCursor
     hasMore: Boolean!
   }
 
@@ -153,12 +153,22 @@ const questionTypeDefs = gql`
     RECENT
   }
 
+  type ReplyCursor {
+    id: String!
+    upvoteCount: Int!
+  }
+
   type AnswerCursor {
     id: String!
     ownerPriority: Int
     bestPriority: Int
     acceptedPriority: Int
     upvoteCount: Int
+  }
+
+  input RepliesCursorInput {
+    id: String!
+    upvoteCount: Int!
   }
 
   input AnswerCursorInput {
@@ -192,7 +202,7 @@ const questionTypeDefs = gql`
 
     loadMoreReplies(
       answerId: ID!
-      cursor: String
+      cursor: RepliesCursorInput
       limitCount: Int
     ): ReplyConnection!
 
