@@ -27,6 +27,7 @@ const QuestionVersionSchema: Schema = new Schema(
     },
     moderationUpdatedAt: {
       type: Date,
+      default: null,
     },
     topicStatus: {
       type: String,

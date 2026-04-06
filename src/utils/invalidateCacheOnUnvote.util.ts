@@ -6,15 +6,15 @@ import Reply from "../models/reply.model.js";
 import { clearAnswerCache, clearReplyCache } from "./clearCache.util.js";
 
 async function invalidateCacheOnUnvote(
-  targetType: "Question" | "Answer" | "Reply",
+  targetType: "QUESTION" | "ANSWER" | "REPLY",
   targetId: string,
 ) {
   switch (targetType) {
-    case "Question":
+    case "QUESTION":
       await getRedisCacheClient().del(`question:${targetId}`);
       break;
 
-    case "Answer": {
+    case "ANSWER": {
       const foundAnswer = await Answer.findById(targetId).select("questionId");
       if (!foundAnswer) return;
 
@@ -26,7 +26,7 @@ async function invalidateCacheOnUnvote(
       break;
     }
 
-    case "Reply": {
+    case "REPLY": {
       const foundReply = await Reply.findById(targetId).select("answerId");
       if (!foundReply) return;
 

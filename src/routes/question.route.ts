@@ -14,6 +14,12 @@ import {
   rollbackVersion,
   deleteContent,
   generateSuggestion,
+  generateAiAnswer,
+  publishAiAnswer,
+  unpublishAiAnswer,
+  createFeedbackOnAiAnswer,
+  editFeedbackOnAiAnswer,
+  deleteFeedbackOnAiAnswer,
 } from "../controllers/question.controller.js";
 
 import {
@@ -22,6 +28,12 @@ import {
   createReplyOnAnswerSchema,
   voteSchema,
   generateSuggestionSchema,
+  generateAiAnswerSchema,
+  publishAiAnswerSchema,
+  unpublishAiAnswerSchema,
+  createFeedbackOnAiAnswerSchema,
+  editAiFeedbackSchema,
+  deleteAiFeedbackSchema,
 } from "../validations/question.schema.js";
 
 import {
@@ -33,6 +45,12 @@ import {
   markAnswerAsBestLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
   generateSuggestionLimiterMiddleware,
+  generateAiAnswerLimiterMiddleware,
+  publishAiAnswerLimiterMiddleware,
+  unpublishAiAnswerLimiterMiddleware,
+  createFeedbackOnAiAnswerLimiterMiddleware,
+  editAiFeedbackLimiterMiddleware,
+  deleteAiFeedbackLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import isAuthenticated, {
@@ -126,7 +144,7 @@ router
   );
 
 router
-  .route("/:questionId/suggestion")
+  .route("/:questionId/ai/suggestion")
   .post(
     generateSuggestionLimiterMiddleware,
     isAuthenticated,
@@ -134,6 +152,72 @@ router
     requireActiveUser,
     validate(generateSuggestionSchema),
     generateSuggestion,
+  );
+
+router
+  .route("/:questionId/ai/answer")
+  .post(
+    generateAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(generateAiAnswerSchema),
+    generateAiAnswer,
+  );
+
+router
+  .route("/:questionId/ai/answer/publish")
+  .patch(
+    publishAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(publishAiAnswerSchema),
+    publishAiAnswer,
+  );
+
+router
+  .route("/:questionId/ai/answer/unpublish")
+  .patch(
+    unpublishAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(unpublishAiAnswerSchema),
+    unpublishAiAnswer,
+  );
+
+router
+  .route("/ai/answer/feedback/create")
+  .post(
+    createFeedbackOnAiAnswerLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(createFeedbackOnAiAnswerSchema),
+    createFeedbackOnAiAnswer,
+  );
+
+router
+  .route("/ai/answer/feedback/edit")
+  .patch(
+    editAiFeedbackLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(editAiFeedbackSchema),
+    editFeedbackOnAiAnswer,
+  );
+
+router
+  .route("/ai/answer/feedback/delete")
+  .delete(
+    deleteAiFeedbackLimiterMiddleware,
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(deleteAiFeedbackSchema),
+    deleteFeedbackOnAiAnswer,
   );
 
 router

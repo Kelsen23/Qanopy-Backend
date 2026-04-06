@@ -14,7 +14,8 @@ const NotificationSchema: Schema = new Schema(
         "ANSWER",
         "MENTION",
         "REPLY",
-        "AI_SUGGESTION"
+        "AI_SUGGESTION",
+        "AI_ANSWER",
       ],
       required: true,
     },

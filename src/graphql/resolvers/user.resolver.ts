@@ -5,7 +5,7 @@ import sanitizeUser from "../../utils/sanitizeUser.util.js";
 
 const userResolver = {
   Query: {
-    getUserById: async (
+    user: async (
       _: any,
       { id }: { id: string },
       {

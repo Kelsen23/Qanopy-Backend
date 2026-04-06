@@ -5,7 +5,7 @@ import prisma from "../config/prisma.config.js";
 
 import HttpError from "../utils/httpError.util.js";
 
-new Worker(
+const worker = new Worker(
   "moderationMetricsQueue",
   async (job) => {
     const { userId } = job.data;
@@ -97,3 +97,15 @@ new Worker(
     },
   },
 );
+
+worker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed`);
+});
+
+worker.on("failed", (job, err) => {
+  console.error(`Job ${job?.id} failed:`, err);
+});
+
+worker.on("error", (err) => {
+  console.error("Worker crashed:", err);
+});

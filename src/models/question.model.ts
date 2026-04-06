@@ -19,7 +19,7 @@ const QuestionSchema: Schema = new Schema(
       enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
       default: "PENDING",
     },
-    moderationUpdatedAt: { type: Date },
+    moderationUpdatedAt: { type: Date, default: null },
     topicStatus: {
       type: String,
       enum: ["PENDING", "VALID", "OFF_TOPIC"],
@@ -38,12 +38,7 @@ const QuestionSchema: Schema = new Schema(
       versionKey: false,
       transform: (_, ret: any) => {
         ret.id = ret._id;
-        ret.upvotes = ret.upvoteCount;
-        ret.downvotes = ret.downvoteCount;
-
         delete ret._id;
-        delete ret.upvoteCount;
-        delete ret.downvoteCount;
 
         return ret;
       },

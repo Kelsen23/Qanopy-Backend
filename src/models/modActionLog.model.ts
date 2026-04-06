@@ -6,7 +6,7 @@ const ModActionLogSchema: Schema = new Schema(
 
     targetType: {
       type: String,
-      enum: ["Content", "User", "Report", "Strike"],
+      enum: ["CONTENT", "USER", "REPORT", "STRIKE"],
       required: true,
     },
     targetId: {

@@ -6,6 +6,8 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import { clearReportsCache } from "../utils/clearCache.util.js";
+
 import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
 import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
 import addAdminModPoints from "../services/moderation/modPoints.service.js";
@@ -13,6 +15,7 @@ import addAdminModPoints from "../services/moderation/modPoints.service.js";
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 import Reply from "../models/reply.model.js";
+import AiAnswerFeedback from "../models/aiAnswerFeedback.model.js";
 
 import Report from "../models/report.model.js";
 
@@ -29,22 +32,29 @@ const createReport = asyncHandler(
     let foundContent;
 
     switch (targetType) {
-      case "Question":
+      case "QUESTION":
         foundContent = await Question.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
         break;
 
-      case "Answer":
+      case "ANSWER":
         foundContent = await Answer.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
         break;
 
-      case "Reply":
+      case "REPLY":
         foundContent = await Reply.findOne(
+          { _id: targetId, isActive: true },
+          { userId: 1 },
+        );
+        break;
+
+      case "AI_ANSWER_FEEDBACK":
+        foundContent = await AiAnswerFeedback.findOne(
           { _id: targetId, isActive: true },
           { userId: 1 },
         );
@@ -67,6 +77,7 @@ const createReport = asyncHandler(
       reportReason,
       reportComment,
     });
+    await clearReportsCache();
 
     return res
       .status(201)
@@ -78,8 +89,9 @@ const moderate = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { type, actionTaken } = req.body;
+    const normalizedType = String(type).toUpperCase();
 
-    if (type === "Report") {
+    if (normalizedType === "REPORT") {
       await adminModerateReportService({ ...req.body, reviewedBy: userId });
     } else {
       await adminModerateStrikeService({ ...req.body, reviewedBy: userId });
@@ -88,7 +100,7 @@ const moderate = asyncHandler(
     await addAdminModPoints(userId, actionTaken);
 
     return res.status(200).json({
-      message: `Successfully moderated ${type.toString().toLowerCase()}`,
+      message: `Successfully moderated ${normalizedType.toLowerCase()}`,
     });
   },
 );

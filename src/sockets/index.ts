@@ -9,6 +9,7 @@ import {
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import initEditSessionListener from "./listeners/editSession.listener.js";
+import initAiAnswerSessionListener from "./listeners/aiAnswerSession.listener.js";
 
 import initSocketEmitSubscriber from "./subscribers/socketEmit.subscriber.js";
 import initSocketDisconnectSubscriber from "./subscribers/socketDisconnect.subscriber.js";
@@ -38,12 +39,14 @@ const initSocket = (server: http.Server) => {
 
       const res = await redeemCreditsService(userId);
 
-      await publishSocketEvent(userId, "creditsUpdated", res);
+      if (res.credited > 0)
+        await publishSocketEvent(userId, "creditsUpdated", res);
 
       console.log(`Registering user ${userId} with socket ${socket.id}`);
     });
 
     initEditSessionListener(socket);
+    initAiAnswerSessionListener(socket);
 
     socket.on("disconnect", async () => {
       await removeUserSocket(socket.id);

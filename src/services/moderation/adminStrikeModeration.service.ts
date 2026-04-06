@@ -3,11 +3,14 @@ import crypto from "crypto";
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
 
+import { clearStrikesCache } from "../../utils/clearCache.util.js";
+
 import prisma from "../../config/prisma.config.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
@@ -19,19 +22,13 @@ import applyAiModerationDecisionService from "./applyAiModerationDecision.servic
 
 type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
-type TargetType = "QUESTION" | "ANSWER" | "REPLY";
-type ReadableTargetType = "Question" | "Answer" | "Reply";
-
-const targetTypeMap: Record<TargetType, ReadableTargetType> = {
-  QUESTION: "Question",
-  ANSWER: "Answer",
-  REPLY: "Reply",
-};
+type TargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 
 const contentModelMap = {
   QUESTION: Question,
   ANSWER: Answer,
   REPLY: Reply,
+  AI_ANSWER_FEEDBACK: AiAnswerFeedback,
 } as const;
 
 const actionToModerationStatus: Record<
@@ -49,7 +46,7 @@ const getTargetContentState = async (
   targetContentId: string,
   targetUserId: string,
 ) => {
-  const Model = contentModelMap[targetType];
+  const Model = contentModelMap[targetType] as any;
   const foundContent = await Model.findById(targetContentId)
     .select("userId isActive isDeleted")
     .lean();
@@ -134,8 +131,6 @@ const adminModerateStrike = async ({
   }
 
   const targetType = foundStrike.targetType as TargetType;
-  const readableTargetType = targetTypeMap[targetType];
-
   const targetUser = await prisma.user.findUnique({
     where: { id: foundStrike.userId },
     select: { status: true },
@@ -318,13 +313,13 @@ const adminModerateStrike = async ({
   if (targetContentState.exists && targetContentState.isActive) {
     const mappedStatus = actionToModerationStatus[actionTaken];
     const questionVersion =
-      readableTargetType === "Question"
-        ? foundStrike.targetContentVersion
+      targetType === "QUESTION"
+        ? (foundStrike.targetContentVersion ?? undefined)
         : undefined;
 
     await applyAiModerationDecisionService(
       foundStrike.targetContentId,
-      readableTargetType,
+      targetType,
       mappedStatus,
       questionVersion,
     );
@@ -335,7 +330,7 @@ const adminModerateStrike = async ({
   if (shouldRemoveContent && targetContentState.canRemove) {
     await deleteContentQueue.add("removeModeratedContent", {
       userId: foundStrike.userId,
-      targetType: readableTargetType,
+      targetType,
       targetId: foundStrike.targetContentId,
     });
     contentRemovalQueued = true;
@@ -354,7 +349,7 @@ const adminModerateStrike = async ({
   if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
     await moderationAuditQueue.add("banUserFromStrike", {
       decisionId,
-      targetType: "User",
+      targetType: "USER",
       targetId: foundStrike.userId,
       targetUserId: foundStrike.userId,
       actorType: "ADMIN_MODERATION",
@@ -369,7 +364,7 @@ const adminModerateStrike = async ({
 
   await moderationAuditQueue.add("updateStrikeStatus", {
     decisionId,
-    targetType: "Strike",
+    targetType: "STRIKE",
     targetId: moderatedStrike.id,
     targetUserId: foundStrike.userId,
     actorType: "ADMIN_MODERATION",
@@ -381,7 +376,7 @@ const adminModerateStrike = async ({
   if (contentRemovalQueued) {
     await moderationAuditQueue.add("removeContent", {
       decisionId,
-      targetType: "Content",
+      targetType: "CONTENT",
       targetId: foundStrike.targetContentId,
       targetUserId: foundStrike.userId,
       actorType: "ADMIN_MODERATION",
@@ -390,7 +385,7 @@ const adminModerateStrike = async ({
       meta: {
         actionTaken,
         strikeId: foundStrike.id,
-        targetType: readableTargetType,
+        targetType,
       },
     });
   }
@@ -429,7 +424,7 @@ const adminModerateStrike = async ({
       referenceId: foundStrike.targetContentId,
       meta: {
         strikeId: moderatedStrike.id,
-        targetType: readableTargetType,
+        targetType,
         actionTaken,
       },
     });
@@ -444,6 +439,8 @@ const adminModerateStrike = async ({
       JSON.stringify(foundStrike.userId),
     );
   }
+
+  await clearStrikesCache();
 };
 
 export default adminModerateStrike;

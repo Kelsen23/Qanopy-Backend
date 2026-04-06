@@ -1,10 +1,15 @@
+import mongoose from "mongoose";
+
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
-import mongoose from "mongoose";
+import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+
+import { getRedisCacheClient } from "../../config/redis.config.js";
 
 const MODERATION_STATUS_ORDER = {
   PENDING: 0,
@@ -34,7 +39,7 @@ const shouldAdvanceModerationStatus = (
 
 const applyAiModerationDecisionService = async (
   contentId: string,
-  contentType: "Question" | "Answer" | "Reply",
+  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   moderationStatus: "APPROVED" | "FLAGGED" | "REJECTED",
   version?: number,
 ) => {
@@ -43,7 +48,7 @@ const applyAiModerationDecisionService = async (
 
   try {
     await session.withTransaction(async () => {
-      if (contentType === "Question") {
+      if (contentType === "QUESTION") {
         if (version === undefined)
           throw new HttpError("Version required for Question moderation", 400);
 
@@ -82,9 +87,15 @@ const applyAiModerationDecisionService = async (
         return;
       }
 
-      const model = contentType === "Answer" ? Answer : Reply;
+      const model =
+        contentType === "ANSWER"
+          ? Answer
+          : contentType === "REPLY"
+            ? Reply
+            : AiAnswerFeedback;
+      const ContentModel = model as any;
 
-      const foundContent = await model
+      const foundContent = await ContentModel
         .findById(contentId)
         .select("moderationStatus isActive")
         .session(session);
@@ -98,7 +109,7 @@ const applyAiModerationDecisionService = async (
           moderationStatus,
         )
       ) {
-        await model.findByIdAndUpdate(
+        await ContentModel.findByIdAndUpdate(
           contentId,
           {
             moderationStatus,
@@ -108,6 +119,14 @@ const applyAiModerationDecisionService = async (
         );
       }
     });
+
+    if (contentType === "QUESTION" && version !== undefined) {
+      await getRedisCacheClient().del(
+        `question:${contentId}`,
+        `v:${version}:question:${contentId}`,
+      );
+      await clearVersionHistoryCache(contentId);
+    }
   } finally {
     session.endSession();
   }

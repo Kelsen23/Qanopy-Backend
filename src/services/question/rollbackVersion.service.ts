@@ -5,6 +5,8 @@ import mongoose from "mongoose";
 import Question from "../../models/question.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
+import questionEmbeddingQueue from "../../queues/questionEmbedding.queue.js";
+import contentModerationQueue from "../../queues/contentModeration.queue.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
@@ -48,6 +50,10 @@ const rollbackVersion = async (
   if (foundVersion.moderationStatus === "REJECTED")
     throw new HttpError("Cannot rollback to a rejected version", 400);
 
+  const inheritedEmbedding = Array.isArray(foundVersion.embedding)
+    ? foundVersion.embedding
+    : [];
+
   const session = await mongoose.startSession();
 
   const { nextVersion, newVersion } = await session.withTransaction(
@@ -85,6 +91,10 @@ const rollbackVersion = async (
             tags: foundVersion.tags,
             basedOnVersion: foundVersion.version,
             isActive: true,
+            moderationStatus: foundVersion.moderationStatus,
+            moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
+            topicStatus: foundVersion.topicStatus,
+            embedding: inheritedEmbedding,
           },
         ],
         { session },
@@ -97,6 +107,10 @@ const rollbackVersion = async (
           body: foundVersion.body,
           tags: foundVersion.tags,
           currentVersion: nextVersion,
+          moderationStatus: foundVersion.moderationStatus,
+          moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
+          topicStatus: foundVersion.topicStatus,
+          embedding: inheritedEmbedding,
         },
         { session },
       );
@@ -115,15 +129,39 @@ const rollbackVersion = async (
 
   await clearVersionHistoryCache(questionId);
 
-  await topicDeterminationQueue.add(
-    "question",
-    {
-      questionId,
-      version: nextVersion,
-      isRollback: true,
-    },
-    { removeOnComplete: true, removeOnFail: false },
-  );
+  if (newVersion.moderationStatus === "PENDING") {
+    await contentModerationQueue.add(
+      "QUESTION",
+      {
+        contentId: questionId,
+        version: nextVersion,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+  } else if (newVersion.topicStatus === "PENDING") {
+    await topicDeterminationQueue.add(
+      "question",
+      {
+        questionId,
+        version: nextVersion,
+        isRollback: true,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+  } else if (
+    newVersion.topicStatus === "VALID" &&
+    inheritedEmbedding.length === 0
+  ) {
+    await questionEmbeddingQueue.add(
+      "question",
+      {
+        questionId,
+        version: nextVersion,
+        isRollback: true,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+  }
 
   return {
     message: "Successfully rolled back",

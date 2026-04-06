@@ -2,38 +2,35 @@ import mongoose from "mongoose";
 
 import { Redis } from "ioredis";
 
+import HttpError from "../../utils/httpError.util.js";
+
 import Report from "../../models/report.model.js";
 
 import { User } from "../../generated/prisma/index.js";
-import HttpError from "../../utils/httpError.util.js";
 
-const getDeletedUserFallback = (id: string) => ({
-  id,
-  username: "Deleted User",
-  email: "deleted@user.com",
-  profilePictureKey: null,
-  profilePictureUrl: null,
-  bio: null,
-  reputationPoints: 0,
-  role: "USER",
-  questionsAsked: 0,
-  answersGiven: 0,
-  bestAnswers: 0,
-  achievements: [],
-  status: "TERMINATED",
-  isVerified: false,
-  createdAt: new Date(0).toISOString(),
-});
+type ReportCursor = {
+  id: string;
+};
+
+type StrikeCursor = {
+  id: string;
+  createdAt: string;
+};
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 
 const moderationResolver = {
   Query: {
-    getReports: async (
+    reports: async (
       _: any,
       {
         cursor,
         limitCount = 10,
         showReviewed = false,
-      }: { cursor?: string; limitCount: number; showReviewed: boolean },
+      }: { cursor?: ReportCursor; limitCount: number; showReviewed: boolean },
       {
         user,
         loaders,
@@ -43,7 +40,12 @@ const moderationResolver = {
       if (user.role !== "ADMIN")
         throw new HttpError("Forbidden to access this route", 403);
 
-      const cacheKey = `reports:${cursor || "initial"}:${limitCount}`;
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+      const cursorCacheKey = cursor ? cursor.id : "initial";
+      const cacheKey = `reports:${showReviewed ? "reviewed" : "pending"}:${cursorCacheKey}:${normalizedLimitCount}`;
 
       const cachedReports = await getRedisCacheClient().get(cacheKey);
 
@@ -58,7 +60,10 @@ const moderationResolver = {
       }
 
       if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor.id) };
       }
 
       const foundReports = await Report.aggregate([
@@ -66,11 +71,11 @@ const moderationResolver = {
 
         { $sort: { _id: -1 } },
 
-        { $limit: limitCount },
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
-            id: "$_id",
+            id: { $toString: "$_id" },
             _id: 0,
             reportedBy: 1,
             targetUserId: 1,
@@ -100,26 +105,25 @@ const moderationResolver = {
 
       const reportsWithUsers = foundReports.map((report) => ({
         ...report,
+        targetType: String(report.targetType)
+          .replace(/([a-z])([A-Z])/g, "$1_$2")
+          .toUpperCase(),
         reviewedAt: report.reviewedAt
           ? new Date(report.reviewedAt).toISOString()
           : null,
         createdAt: new Date(report.createdAt).toISOString(),
         updatedAt: new Date(report.updatedAt).toISOString(),
-        reporter:
-          userMap.get(report.reportedBy) ||
-          getDeletedUserFallback(report.reportedBy),
-        targetUser:
-          userMap.get(report.targetUserId) ||
-          getDeletedUserFallback(report.targetUserId),
+        reporter: userMap.get(report.reportedBy) || null,
+        targetUser: userMap.get(report.targetUserId) || null,
       }));
 
       const result = {
         reports: reportsWithUsers,
         nextCursor:
-          foundReports.length === limitCount
-            ? foundReports[foundReports.length - 1].id
+          foundReports.length === normalizedLimitCount
+            ? { id: foundReports[foundReports.length - 1].id }
             : null,
-        hasMore: foundReports.length === limitCount,
+        hasMore: foundReports.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
@@ -132,7 +136,7 @@ const moderationResolver = {
       return result;
     },
 
-    getStrikes: async (
+    strikes: async (
       _: any,
       {
         filter = "ALL",
@@ -141,7 +145,7 @@ const moderationResolver = {
         showExpired = false,
       }: {
         filter?: "AI" | "ADMIN" | "ALL";
-        cursor?: string;
+        cursor?: StrikeCursor;
         limitCount: number;
         showExpired: boolean;
       },
@@ -160,27 +164,52 @@ const moderationResolver = {
       if (user.role !== "ADMIN")
         throw new HttpError("Forbidden to access this route", 403);
 
-      const cacheKey = `strikes:${filter}:${cursor || "initial"}:${limitCount}`;
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+      const cursorCacheKey = cursor
+        ? `${cursor.createdAt}:${cursor.id}`
+        : "initial";
+      const cacheKey = `strikes:${filter}:${showExpired ? "expired" : "active"}:${cursorCacheKey}:${normalizedLimitCount}`;
       const cachedStrikes = await getRedisCacheClient().get(cacheKey);
 
       if (cachedStrikes) return JSON.parse(cachedStrikes);
 
       const where: any = {};
+      const andConditions: any[] = [];
 
       if (filter === "AI") where.strikedBy = "AI_MODERATION";
       else if (filter === "ADMIN") where.strikedBy = "ADMIN_MODERATION";
 
       const now = new Date();
       if (!showExpired)
-        where.OR = [{ expiresAt: null }, { expiresAt: { gt: now } }];
-      else where.expiresAt = { lt: now };
+        andConditions.push({
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        });
+      else andConditions.push({ expiresAt: { lt: now } });
+
+      if (cursor) {
+        if (!isUuid(cursor.id)) throw new HttpError("Invalid cursor", 400);
+
+        const cursorDate = new Date(cursor.createdAt);
+        if (Number.isNaN(cursorDate.getTime()))
+          throw new HttpError("Invalid cursor", 400);
+
+        andConditions.push({
+          OR: [
+            { createdAt: { lt: cursorDate } },
+            { createdAt: cursorDate, id: { lt: cursor.id } },
+          ],
+        });
+      }
+
+      if (andConditions.length) where.AND = andConditions;
 
       const foundStrikes = await prisma.moderationStrike.findMany({
-        take: limitCount,
-        skip: cursor ? 1 : 0,
-        cursor: cursor ? { id: cursor } : undefined,
+        take: normalizedLimitCount,
         where,
-        orderBy: { id: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       });
 
       if (!foundStrikes.length)
@@ -203,19 +232,21 @@ const moderationResolver = {
         expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
         createdAt: new Date(s.createdAt).toISOString(),
         updatedAt: new Date(s.updatedAt).toISOString(),
-        targetUser: userMap.get(s.userId) || getDeletedUserFallback(s.userId),
-        admin: s.adminId
-          ? userMap.get(s.adminId) || getDeletedUserFallback(s.adminId)
-          : null,
+        targetUser: userMap.get(s.userId) || null,
+        admin: s.adminId ? userMap.get(s.adminId) || null : null,
       }));
 
       const result = {
         strikes: strikesWithUsers,
         nextCursor:
-          strikesWithUsers.length === limitCount
-            ? strikesWithUsers[strikesWithUsers.length - 1].id
+          strikesWithUsers.length === normalizedLimitCount
+            ? {
+                id: strikesWithUsers[strikesWithUsers.length - 1].id,
+                createdAt:
+                  strikesWithUsers[strikesWithUsers.length - 1].createdAt,
+              }
             : null,
-        hasMore: strikesWithUsers.length === limitCount,
+        hasMore: strikesWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(

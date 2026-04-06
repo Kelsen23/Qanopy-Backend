@@ -1,50 +1,20 @@
 import { gql } from "graphql-tag";
 
 const questionTypeDefs = gql`
+  scalar JSON
+
   type Question {
     id: ID!
+    searchScore: Float!
     userId: String!
     title: String!
-    body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
-    topicStatus: String!
-    isDeleted: Boolean!
-    isActive: Boolean!
     createdAt: String!
-    user: User!
-  }
-
-  type Reply {
-    id: ID!
-    userId: String!
-    body: String!
-    upvotes: Int!
-    downvotes: Int!
-    isActive: Boolean!
-    isDeleted: Boolean!
-    createdAt: String!
-    user: User!
-  }
-
-  type Answer {
-    id: ID!
-    userId: String!
-    body: String!
-    upvotes: Int!
-    downvotes: Int!
-    replyCount: Int!
-    replies: [Reply!]!
-    isAccepted: Boolean!
-    isBestAnswerByAsker: Boolean!
-    questionVersion: Int!
-    isActive: Boolean!
-    isDeleted: Boolean!
-    createdAt: String!
-    user: User!
+    user: User
   }
 
   type QuestionDetails {
@@ -53,22 +23,57 @@ const questionTypeDefs = gql`
     title: String!
     body: String!
     tags: [String]!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     answerCount: Int!
-    topAnswer: Answer
     currentVersion: Int!
-    topicStatus: String!
-    isActive: Boolean!
-    isDeleted: Boolean!
+    canGenerateAiAnswer: Boolean!
     createdAt: String!
-    user: User!
+    user: User
+    aiAnswer: QuestionAiAnswer
   }
 
-  type QuestionConnection {
-    questions: [Question!]!
-    nextCursor: String
-    hasMore: Boolean!
+  type QuestionAiAnswerConfidenceSection {
+    sectionName: String!
+    confidence: Float
+    note: String
+  }
+
+  type QuestionAiAnswerConfidence {
+    overall: Float!
+    note: String
+    sections: [QuestionAiAnswerConfidenceSection!]!
+  }
+
+  type QuestionAiAnswer {
+    questionVersion: Int!
+    body: String!
+    confidence: QuestionAiAnswerConfidence!
+    meta: JSON!
+  }
+
+  type Reply {
+    id: ID!
+    userId: String!
+    body: String!
+    upvoteCount: Int!
+    downvoteCount: Int!
+    createdAt: String!
+    user: User
+  }
+
+  type Answer {
+    id: ID!
+    userId: String!
+    body: String!
+    upvoteCount: Int!
+    downvoteCount: Int!
+    replyCount: Int!
+    isAccepted: Boolean!
+    isBestAnswerByAsker: Boolean!
+    questionVersion: Int!
+    createdAt: String!
+    user: User
   }
 
   type SearchQuestion {
@@ -76,32 +81,42 @@ const questionTypeDefs = gql`
     userId: String!
     title: String!
     body: String!
-    upvotes: Int!
-    downvotes: Int!
+    upvoteCount: Int!
+    downvoteCount: Int!
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
-    isDeleted: Boolean!
-    isActive: Boolean!
     createdAt: String!
-    user: User!
+    user: User
+  }
+
+  type RecommendedQuestionsCursor {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
+  }
+
+  type QuestionConnection {
+    questions: [Question!]!
+    nextCursor: RecommendedQuestionsCursor
+    hasMore: Boolean!
   }
 
   type SearchQuestionConnection {
     questions: [SearchQuestion!]!
-    nextCursor: String
+    nextCursor: SearchQuestionCursor
     hasMore: Boolean!
   }
 
   type AnswerConnection {
     answers: [Answer!]!
-    nextCursor: String
+    nextCursor: AnswerCursor
     hasMore: Boolean!
   }
 
   type ReplyConnection {
     replies: [Reply!]!
-    nextCursor: String
+    nextCursor: ReplyCursor
     hasMore: Boolean!
   }
 
@@ -113,56 +128,121 @@ const questionTypeDefs = gql`
     body: String!
     tags: [String]!
     topicStatus: String!
+    moderationStatus: String!
     supersededByRollback: Boolean!
     version: Int!
     basedOnVersion: Int!
     isActive: Boolean!
-    user: User!
+    user: User
   }
 
   type QuestionVersionConnection {
     questionVersions: [QuestionVersion!]!
-    nextCursor: String
+    nextCursor: VersionHistoryCursor
     hasMore: Boolean!
   }
 
-  type Query {
-    getRecommendedQuestions(
-      cursor: String
+  enum AnswerSortOption {
+    DEFAULT
+    RECENT
+  }
+
+  enum SearchQuestionSortOption {
+    LATEST
+    RELEVANT
+  }
+
+  type SearchQuestionCursor {
+    id: String!
+    createdAt: String
+    searchScore: Float
+    upvoteCount: Int
+  }
+
+  type ReplyCursor {
+    id: String!
+    upvoteCount: Int!
+  }
+
+  type AnswerCursor {
+    id: String!
+    ownerPriority: Int
+    bestPriority: Int
+    acceptedPriority: Int
+    upvoteCount: Int
+  }
+
+  input RepliesCursorInput {
+    id: String!
+    upvoteCount: Int!
+  }
+
+  input AnswerCursorInput {
+    id: String!
+    ownerPriority: Int
+    bestPriority: Int
+    acceptedPriority: Int
+    upvoteCount: Int
+  }
+
+  input SearchQuestionCursorInput {
+    id: String!
+    createdAt: String
+    searchScore: Float
+    upvoteCount: Int
+  }
+
+  type VersionHistoryCursor {
+    id: String!
+  }
+
+  input VersionHistoryCursorInput {
+    id: String!
+  }
+
+  input RecommendedQuestionsCursorInput {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
+  }
+
+  extend type Query {
+    recommendedQuestions(
+      cursor: RecommendedQuestionsCursorInput
       limitCount: Int
     ): QuestionConnection!
 
-    getQuestionById(id: ID!): QuestionDetails!
+    question(id: ID!): QuestionDetails
 
     loadMoreAnswers(
       questionId: ID!
-      topAnswerId: ID
-      cursor: String
+      sortOption: AnswerSortOption!
+      cursor: AnswerCursorInput
       limitCount: Int
     ): AnswerConnection!
 
     loadMoreReplies(
       answerId: ID!
-      cursor: String
+      cursor: RepliesCursorInput
       limitCount: Int
     ): ReplyConnection!
 
-    getSearchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
+    searchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
 
     searchQuestions(
       searchKeyword: String!
       tags: [String]!
-      sortOption: String!
-      cursor: String
+      sortOption: SearchQuestionSortOption!
+      cursor: SearchQuestionCursorInput
       limitCount: Int
     ): SearchQuestionConnection!
 
-    getVersionHistory(
+    versionHistory(
       questionId: String!
-      cursor: ID
+      cursor: VersionHistoryCursorInput
       limitCount: Int
     ): QuestionVersionConnection!
-    getQuestionVersion(questionId: String!, version: Int!): QuestionVersion!
+    questionVersion(questionId: String!, version: Int!): QuestionVersion!
   }
 `;
 

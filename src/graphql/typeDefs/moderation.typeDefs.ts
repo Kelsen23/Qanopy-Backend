@@ -2,15 +2,17 @@ import { gql } from "graphql-tag";
 
 const moderationTypeDefs = gql`
   enum ReportTargetType {
-    Question
-    Answer
-    Reply
+    QUESTION
+    ANSWER
+    REPLY
+    AI_ANSWER_FEEDBACK
   }
 
   enum StrikeTargetType {
     QUESTION
     ANSWER
     REPLY
+    AI_ANSWER_FEEDBACK
   }
 
   enum ReportReason {
@@ -24,7 +26,6 @@ const moderationTypeDefs = gql`
 
   enum ReportStatus {
     PENDING
-    REVIEWING
     RESOLVED
     DISMISSED
   }
@@ -75,8 +76,8 @@ const moderationTypeDefs = gql`
 
     status: ReportStatus!
 
-    reporter: User!
-    targetUser: User!
+    reporter: User
+    targetUser: User
 
     createdAt: String!
     updatedAt: String!
@@ -84,8 +85,16 @@ const moderationTypeDefs = gql`
 
   type ReportConnection {
     reports: [Report!]!
-    nextCursor: String
+    nextCursor: ReportCursor
     hasMore: Boolean!
+  }
+
+  type ReportCursor {
+    id: String!
+  }
+
+  input ReportCursorInput {
+    id: String!
   }
 
   type ModerationStrike {
@@ -100,7 +109,7 @@ const moderationTypeDefs = gql`
 
     targetContentId: String!
     targetType: StrikeTargetType!
-    targetContentVersion: Int!
+    targetContentVersion: Int
 
     strikedBy: Mods!
     adminId: ID
@@ -108,7 +117,7 @@ const moderationTypeDefs = gql`
 
     expiresAt: String
 
-    targetUser: User!
+    targetUser: User
     admin: User
 
     createdAt: String!
@@ -117,19 +126,29 @@ const moderationTypeDefs = gql`
 
   type ModerationStrikeConnection {
     strikes: [ModerationStrike!]!
-    nextCursor: String
+    nextCursor: StrikeCursor
     hasMore: Boolean!
   }
 
-  type Query {
-    getReports(
-      cursor: String
+  type StrikeCursor {
+    id: String!
+    createdAt: String!
+  }
+
+  input StrikeCursorInput {
+    id: String!
+    createdAt: String!
+  }
+
+  extend type Query {
+    reports(
+      cursor: ReportCursorInput
       limitCount: Int
       showReviewed: Boolean
     ): ReportConnection!
-    getStrikes(
+    strikes(
       filter: StrikeFilter
-      cursor: String
+      cursor: StrikeCursorInput
       limitCount: Int
       showExpired: Boolean
     ): ModerationStrikeConnection!

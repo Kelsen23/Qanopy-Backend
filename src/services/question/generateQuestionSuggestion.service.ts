@@ -5,17 +5,17 @@ import prisma from "../../config/prisma.config.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
+import { getEditSessionSockets } from "../redis/editSession.service.js";
+
 import HttpError from "../../utils/httpError.util.js";
 import convertQuestionToText from "../../utils/convertQuestionToText.util.js";
 import normalizeText from "../../utils/normalizeText.util.js";
 
-import generateSuggestion from "./generateSuggestion.service.js";
-
-import { getEditSessionSockets } from "../redis/editSession.service.js";
-
 import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 
 import queueNotification from "../../utils/queueNotification.util.js";
+
+import generateSuggestion from "./generateSuggestion.service.js";
 
 const generateQuestionSuggestion = async ({
   userId,

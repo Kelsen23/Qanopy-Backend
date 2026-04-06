@@ -26,7 +26,7 @@ async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting topic determination worker...");
 
-  new Worker(
+  const worker = new Worker(
     "topicDeterminationQueue",
     async (job) => {
       const { questionId, version, isRollback } = job.data;
@@ -36,47 +36,82 @@ async function startWorker() {
 
       try {
         if (isRollback) {
+          const rolledBackVersion = await QuestionVersion.findOne({
+            questionId,
+            version,
+            topicStatus: { $in: ["PENDING", "VALID"] },
+          })
+            .select("_id basedOnVersion topicStatus")
+            .lean();
+
+          if (!rolledBackVersion)
+            throw new HttpError("Question version not found", 404);
+
+          const baseVersion = await QuestionVersion.findOne({
+            questionId,
+            version: rolledBackVersion.basedOnVersion,
+          })
+            .select("_id title body topicStatus")
+            .lean();
+
+          if (!baseVersion) throw new HttpError("Base version not found", 404);
+
+          let resolvedTopicStatus = rolledBackVersion.topicStatus as
+            | "PENDING"
+            | "VALID"
+            | "OFF_TOPIC";
+
+          if (resolvedTopicStatus === "PENDING") {
+            const inheritedBaseTopicStatus = baseVersion.topicStatus as
+              | "PENDING"
+              | "VALID"
+              | "OFF_TOPIC";
+
+            resolvedTopicStatus = inheritedBaseTopicStatus;
+
+            if (resolvedTopicStatus === "PENDING") {
+              const questionText = convertQuestionToText(
+                normalizeText(baseVersion.title as string),
+                normalizeText(baseVersion.body as string),
+                [],
+                false,
+              );
+
+              const determinedTopicStatus =
+                await determineTopicStatusService(questionText);
+              resolvedTopicStatus =
+                determinedTopicStatus === "VALID" ? "VALID" : "OFF_TOPIC";
+            }
+          }
+
           await session.withTransaction(async () => {
-            const rolledBackVersion = await QuestionVersion.findOne({
-              questionId,
-              version,
-              topicStatus: "PENDING",
-            })
-              .select("_id basedOnVersion isActive")
-              .session(session)
-              .lean();
-
-            if (!rolledBackVersion)
-              throw new HttpError("Question version not found", 404);
-
-            const baseVersion = await QuestionVersion.findOne({
-              questionId,
-              version: rolledBackVersion.basedOnVersion,
-            })
-              .select("topicStatus")
-              .session(session)
-              .lean();
-
-            if (!baseVersion)
-              throw new HttpError("Base version not found", 404);
-
             const updatedQuestionVersion =
               await QuestionVersion.findByIdAndUpdate(
                 rolledBackVersion._id as string,
-                { topicStatus: baseVersion.topicStatus },
+                { topicStatus: resolvedTopicStatus },
                 { new: true, session },
               ).select("isActive");
 
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              { topicStatus: baseVersion.topicStatus },
-              { session },
-            );
+            if (baseVersion.topicStatus === "PENDING") {
+              await QuestionVersion.findByIdAndUpdate(
+                baseVersion._id as string,
+                { topicStatus: resolvedTopicStatus },
+                { session },
+              );
+            }
 
-            shouldQueueEmbedding = baseVersion.topicStatus === "VALID";
+            if (updatedQuestionVersion.isActive) {
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                { topicStatus: resolvedTopicStatus },
+                { session },
+              );
+            }
+
+            shouldQueueEmbedding = resolvedTopicStatus === "VALID";
             shouldInvalidateCache = true;
           });
         } else {
@@ -115,11 +150,13 @@ async function startWorker() {
             if (!updatedQuestionVersion)
               throw new HttpError("Question not found", 404);
 
-            await Question.findByIdAndUpdate(
-              questionId as string,
-              { topicStatus },
-              { session },
-            );
+            if (updatedQuestionVersion.isActive) {
+              await Question.findByIdAndUpdate(
+                questionId as string,
+                { topicStatus },
+                { session },
+              );
+            }
           });
 
           shouldQueueEmbedding = topicStatus === "VALID";
@@ -149,6 +186,18 @@ async function startWorker() {
       limiter: { max: 10, duration: 1000 },
     },
   );
+
+  worker.on("completed", (job) => {
+    console.log(`Job ${job.id} completed`);
+  });
+
+  worker.on("failed", (job, err) => {
+    console.error(`Job ${job?.id} failed:`, err);
+  });
+
+  worker.on("error", (err) => {
+    console.error("Worker crashed:", err);
+  });
 }
 
 startWorker().catch((error) => {
