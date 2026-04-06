@@ -26,7 +26,6 @@ const moderationTypeDefs = gql`
 
   enum ReportStatus {
     PENDING
-    REVIEWING
     RESOLVED
     DISMISSED
   }
@@ -127,8 +126,18 @@ const moderationTypeDefs = gql`
 
   type ModerationStrikeConnection {
     strikes: [ModerationStrike!]!
-    nextCursor: String
+    nextCursor: StrikeCursor
     hasMore: Boolean!
+  }
+
+  type StrikeCursor {
+    id: String!
+    createdAt: String!
+  }
+
+  input StrikeCursorInput {
+    id: String!
+    createdAt: String!
   }
 
   extend type Query {
@@ -137,9 +146,9 @@ const moderationTypeDefs = gql`
       limitCount: Int
       showReviewed: Boolean
     ): ReportConnection!
-    getStrikes(
+    strikes(
       filter: StrikeFilter
-      cursor: String
+      cursor: StrikeCursorInput
       limitCount: Int
       showExpired: Boolean
     ): ModerationStrikeConnection!
