@@ -3,6 +3,8 @@ import crypto from "crypto";
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
 
+import { clearStrikesCache } from "../../utils/clearCache.util.js";
+
 import prisma from "../../config/prisma.config.js";
 
 import Question from "../../models/question.model.js";
@@ -437,6 +439,8 @@ const adminModerateStrike = async ({
       JSON.stringify(foundStrike.userId),
     );
   }
+
+  await clearStrikesCache();
 };
 
 export default adminModerateStrike;
