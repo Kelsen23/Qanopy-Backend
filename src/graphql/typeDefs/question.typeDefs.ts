@@ -58,8 +58,6 @@ const questionTypeDefs = gql`
     body: String!
     upvoteCount: Int!
     downvoteCount: Int!
-    isActive: Boolean!
-    isDeleted: Boolean!
     createdAt: String!
     user: User
   }
@@ -88,10 +86,6 @@ const questionTypeDefs = gql`
     tags: [String]!
     answerCount: Int!
     currentVersion: Int!
-    topicStatus: String!
-    moderationStatus: String!
-    isDeleted: Boolean!
-    isActive: Boolean!
     createdAt: String!
     user: User
   }
