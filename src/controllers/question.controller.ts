@@ -18,8 +18,8 @@ import rollbackVersionService from "../services/question/rollbackVersion.service
 import publishAiAnswerService from "../services/question/publishAiAnswer.service.js";
 import unpublishAiAnswerService from "../services/question/unpublishAiAnswer.service.js";
 import createFeedbackOnAiAnswerService from "../services/question/createFeedbackOnAiAnswer.service.js";
-import editFeedbackOnAiAnswerService from "../services/question/editAiFeedback.service.js";
-import deleteFeedbackOnAiAnswerService from "../services/question/deleteAiFeedback.service.js";
+import editFeedbackOnAiAnswerService from "../services/question/editFeedbackOnAiAnswer.service.js";
+import deleteFeedbackOnAiAnswerService from "../services/question/deleteFeedbackOnAiAnswer.service.js";
 
 import prisma from "../config/prisma.config.js";
 
