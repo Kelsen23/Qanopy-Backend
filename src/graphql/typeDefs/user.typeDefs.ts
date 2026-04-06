@@ -34,7 +34,7 @@ const userTypeDefs = gql`
   }
 
   extend type Query {
-    getUserById(id: ID!): User
+    user(id: ID!): User
   }
 `;
 
