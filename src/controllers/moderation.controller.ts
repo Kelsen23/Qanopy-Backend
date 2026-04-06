@@ -6,6 +6,8 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import { clearReportsCache } from "../utils/clearCache.util.js";
+
 import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
 import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
 import addAdminModPoints from "../services/moderation/modPoints.service.js";
@@ -75,6 +77,7 @@ const createReport = asyncHandler(
       reportReason,
       reportComment,
     });
+    await clearReportsCache();
 
     return res
       .status(201)
