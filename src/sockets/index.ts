@@ -1,20 +1,18 @@
 import http from "http";
 
 import { Server as SocketServer, Socket } from "socket.io";
-import {
-  addUserSocket,
-  removeUserSocket,
-} from "../services/redis/presence.service.js";
-
-import publishSocketEvent from "../utils/publishSocketEvent.util.js";
-
-import initEditSessionListener from "./listeners/editSession.listener.js";
-import initAiAnswerSessionListener from "./listeners/aiAnswerSession.listener.js";
 
 import initSocketEmitSubscriber from "./subscribers/socketEmit.subscriber.js";
 import initSocketDisconnectSubscriber from "./subscribers/socketDisconnect.subscriber.js";
 
-import redeemCreditsService from "../services/user/redeemCredits.service.js";
+import decodeSocketToken from "../services/socket/decodeSocketToken.service.js";
+import { removeUserSocket } from "../services/redis/presence.service.js";
+
+import validateSocketUser from "../services/socket/validateSocketUser.service.js";
+import initializeSocketUserSession from "../services/socket/initializeSocketUserSession.service.js";
+
+import initEditSessionListener from "./listeners/editSession.listener.js";
+import initAiAnswerSessionListener from "./listeners/aiAnswerSession.listener.js";
 
 export let io: SocketServer;
 
@@ -31,28 +29,48 @@ const initSocket = (server: http.Server) => {
   initSocketEmitSubscriber();
   initSocketDisconnectSubscriber();
 
-  io.on("connection", (socket: Socket) => {
-    console.log("Socket connected:", socket.id);
+  io.use(async (socket: Socket, next) => {
+    try {
+      const token = socket.handshake.auth.token;
 
-    socket.on("registerUser", async (userId: string) => {
-      await addUserSocket(userId, socket.id);
+      if (!token) return next(new Error("Not authenticated: no token"));
+      
+      const userId = decodeSocketToken(token);
+      await validateSocketUser(userId);
 
-      const res = await redeemCreditsService(userId);
+      socket.data.userId = userId;
 
-      if (res.credited > 0)
-        await publishSocketEvent(userId, "creditsUpdated", res);
+      return next();
+    } catch (error) {
+      return next(new Error("Authentication failed"));
+    }
+  });
+
+  io.on("connection", async (socket: Socket) => {
+    try {
+      console.log("Socket connected:", socket.id);
+
+      const userId = socket.data.userId;
+      if (!userId) {
+        socket.disconnect(true);
+        return;
+      }
+
+      await initializeSocketUserSession(userId, socket.id);
 
       console.log(`Registering user ${userId} with socket ${socket.id}`);
-    });
 
-    initEditSessionListener(socket);
-    initAiAnswerSessionListener(socket);
+      initEditSessionListener(socket);
+      initAiAnswerSessionListener(socket);
 
-    socket.on("disconnect", async () => {
-      await removeUserSocket(socket.id);
+      socket.on("disconnect", async () => {
+        await removeUserSocket(socket.id);
 
-      console.log("Socket disconnected:", socket.id);
-    });
+        console.log("Socket disconnected:", socket.id);
+      });
+    } catch (error) {
+      socket.disconnect(true);
+    }
   });
 };
 
