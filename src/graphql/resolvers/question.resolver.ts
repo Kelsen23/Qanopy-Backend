@@ -35,6 +35,11 @@ type LoadMoreAnswersCursor = {
   upvoteCount?: number;
 };
 
+type LoadMoreRepliesCursor = {
+  id: string;
+  upvoteCount: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -598,14 +603,32 @@ const questionResolver = {
         answerId,
         cursor,
         limitCount = 10,
-      }: { answerId: string; cursor?: string; limitCount: number },
+      }: {
+        answerId: string;
+        cursor?: LoadMoreRepliesCursor;
+        limitCount: number;
+      },
       {
+        user,
         loaders,
         getRedisCacheClient,
-      }: { loaders: any; getRedisCacheClient: () => Redis },
+      }: { user: User; loaders: any; getRedisCacheClient: () => Redis },
     ) => {
+      if (!mongoose.isValidObjectId(answerId))
+        throw new HttpError("Invalid answerId", 400);
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const requesterUserId = String(user.id);
+      const cursorCacheKey = cursor
+        ? `${cursor.id}:${cursor.upvoteCount}`
+        : "initial";
+
       const cachedReplies = await getRedisCacheClient().get(
-        `replies:${answerId}:${cursor || "initial"}`,
+        `replies:${answerId}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
 
       if (cachedReplies) return JSON.parse(cachedReplies);
@@ -614,29 +637,46 @@ const questionResolver = {
         answerId: new mongoose.Types.ObjectId(answerId),
         isDeleted: false,
         isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
       };
 
+      const pipeline: any[] = [{ $match: matchStage }];
+
       if (cursor) {
-        matchStage._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        if (
+          !mongoose.isValidObjectId(cursor.id) ||
+          !Number.isFinite(cursor.upvoteCount)
+        )
+          throw new HttpError("Invalid cursor", 400);
+
+        pipeline.push({
+          $match: {
+            $or: [
+              {
+                upvoteCount: { $lt: cursor.upvoteCount },
+              },
+
+              {
+                upvoteCount: cursor.upvoteCount,
+                _id: { $lt: new mongoose.Types.ObjectId(cursor.id) },
+              },
+            ],
+          },
+        });
       }
 
-      const replies = await Reply.aggregate([
-        { $match: matchStage },
-
-        {
-          $addFields: {
-            score: { $subtract: ["$upvoteCount", "$downvoteCount"] },
-          },
+      pipeline.push({
+        $sort: {
+          upvoteCount: -1,
+          _id: -1,
         },
+      });
 
-        {
-          $sort: {
-            score: -1,
-            _id: -1,
-          },
-        },
-
-        { $limit: limitCount },
+      pipeline.push(
+        { $limit: normalizedLimitCount },
 
         {
           $project: {
@@ -646,12 +686,12 @@ const questionResolver = {
             body: 1,
             upvoteCount: 1,
             downvoteCount: 1,
-            isActive: 1,
-            isDeleted: 1,
             createdAt: 1,
           },
         },
-      ]);
+      );
+
+      const replies = await Reply.aggregate(pipeline);
 
       const uniqueUserIds = [...new Set(replies.map((a) => a.userId))];
 
@@ -667,14 +707,18 @@ const questionResolver = {
       const result = {
         replies: repliesWithUsers,
         nextCursor:
-          repliesWithUsers.length === limitCount
-            ? repliesWithUsers[repliesWithUsers.length - 1].id
+          repliesWithUsers.length === normalizedLimitCount
+            ? {
+                id: repliesWithUsers[repliesWithUsers.length - 1].id,
+                upvoteCount:
+                  repliesWithUsers[repliesWithUsers.length - 1].upvoteCount,
+              }
             : null,
-        hasMore: repliesWithUsers.length === limitCount,
+        hasMore: repliesWithUsers.length === normalizedLimitCount,
       };
 
       await getRedisCacheClient().set(
-        `replies:${answerId}:${cursor || "initial"}`,
+        `replies:${answerId}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         5 * 60,
