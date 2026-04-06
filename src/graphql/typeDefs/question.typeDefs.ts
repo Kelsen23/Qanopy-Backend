@@ -206,7 +206,7 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): ReplyConnection!
 
-    getSearchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
+    searchSuggestions(searchKeyword: String!, limitCount: Int): [String!]!
 
     searchQuestions(
       searchKeyword: String!
