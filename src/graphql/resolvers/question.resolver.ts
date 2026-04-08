@@ -53,6 +53,13 @@ type VersionHistoryCursor = {
   id: string;
 };
 
+type UserQuestionsCursor = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  upvoteCount?: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -579,6 +586,7 @@ const questionResolver = {
         downvoteCount: a.downvoteCount,
         questionVersion: a.questionVersion,
         createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
         user: userMap.get(a.userId) || null,
       }));
 
@@ -1187,6 +1195,195 @@ const questionResolver = {
         JSON.stringify(result),
         "EX",
         60 * 60,
+      );
+
+      return result;
+    },
+
+    userQuestions: async (
+      _: any,
+      {
+        userId,
+        sortOption = "LAST_UPDATED",
+        cursor,
+        limitCount = 10,
+      }: {
+        userId: string;
+        sortOption: "LAST_UPDATED" | "OLDEST" | "NEWEST" | "MOST_UPVOTED";
+        cursor?: UserQuestionsCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        getRedisCacheClient,
+        loaders,
+      }: { user: User; getRedisCacheClient: () => Redis; loaders: any },
+    ) => {
+      if (
+        !["LAST_UPDATED", "OLDEST", "NEWEST", "MOST_UPVOTED"].includes(
+          sortOption,
+        )
+      )
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["LAST_UPDATED", "OLDEST", "NEWEST", "MOST_UPVOTED"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const sortToCachePart = {
+        LAST_UPDATED: cursor?.updatedAt,
+        OLDEST: cursor?.createdAt,
+        NEWEST: cursor?.createdAt,
+        MOST_UPVOTED: cursor?.upvoteCount,
+      };
+
+      const cursorCacheKey = cursor
+        ? [cursor.id, sortToCachePart[sortOption]].join(":")
+        : "initial";
+
+      const cachedQuestions = await getRedisCacheClient().get(
+        `questions:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+      if (cachedQuestions) return JSON.parse(cachedQuestions);
+
+      const requesterUserId = String(user.id);
+
+      const matchStage: Record<string, any> = {
+        userId,
+        isDeleted: false,
+        isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      const cursorObjectId = new mongoose.Types.ObjectId(cursor?.id);
+
+      if (sortOption === "LAST_UPDATED") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { updatedAt: { $lt: cursor.updatedAt } },
+                {
+                  updatedAt: cursor.updatedAt,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+
+          pipeline.push({ $sort: { updatedAt: -1, _id: -1 } });
+        }
+      } else if (sortOption === "NEWEST") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { createdAt: { $lt: cursor.createdAt } },
+                {
+                  createdAt: cursor.createdAt,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { createdAt: -1, _id: -1 } });
+      } else if (sortOption === "OLDEST") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { createdAt: { $gt: cursor.createdAt } },
+                {
+                  createdAt: cursor.createdAt,
+                  _id: { $gt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { createdAt: 1, _id: 1 } });
+      } else if (sortOption === "MOST_UPVOTED") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { upvoteCount: { $lt: cursor.upvoteCount } },
+                {
+                  upvoteCount: cursor.upvoteCount,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { upvoteCount: -1, _id: -1 } });
+      }
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      const questions = await Question.aggregate(pipeline);
+
+      const hasMore = questions.length > normalizedLimitCount;
+
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
+
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+      const nextCursor = hasMore
+        ? sortOption === "LAST_UPDATED"
+          ? {
+              id: String(lastQuestion._id),
+              updatedAt: lastQuestion.updatedAt,
+            }
+          : sortOption === "NEWEST" || sortOption === "OLDEST"
+            ? {
+                id: String(lastQuestion._id),
+                createdAt: lastQuestion.createdAt,
+              }
+            : {
+                id: String(lastQuestion._id),
+                upvoteCount: lastQuestion.upvoteCount,
+              }
+        : null;
+
+      const result = {
+        questions: slicedQuestions,
+        nextCursor,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        `questions:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60,
       );
 
       return result;
