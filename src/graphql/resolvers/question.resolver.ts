@@ -69,6 +69,10 @@ type UserAnswersCursor = {
   upvoteCount?: number;
 };
 
+type RecentQuestionsNeedingHelpCursor = {
+  id: string;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -1593,6 +1597,73 @@ const questionResolver = {
 
       return result;
     },
+  },
+
+  recentQuestionsNeedingHelp: async (
+    _: any,
+    {
+      userId,
+      cursor,
+      limitCount = 5,
+    }: {
+      userId: string;
+      cursor?: RecentQuestionsNeedingHelpCursor;
+      limitCount?: number;
+    },
+    { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+  ) => {
+    const normalizedLimitCount =
+      Number.isInteger(limitCount) && limitCount > 0 ? limitCount : 5;
+
+    const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+    const cached = await getRedisCacheClient().get(
+      `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+    );
+    if (cached) return JSON.parse(cached);
+
+    const matchStage: any = {
+      isActive: true,
+      isDeleted: false,
+      moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+      acceptedAnswers: { $eq: 0 }, 
+    };
+
+    const pipeline: any[] = [{ $match: matchStage }];
+
+    if (cursor) {
+      if (!mongoose.isValidObjectId(cursor.id))
+        throw new HttpError("Invalid cursor", 400);
+
+      pipeline.push({
+        $match: { _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+      });
+    }
+
+    pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
+
+    const questions = await Question.aggregate(pipeline);
+
+    const hasMore = questions.length > normalizedLimitCount;
+    const slicedQuestions = hasMore
+      ? questions.slice(0, normalizedLimitCount)
+      : questions;
+
+    const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+    const result = {
+      questions: slicedQuestions,
+      nextCursor: hasMore ? { id: lastQuestion._id } : null,
+      hasMore,
+    };
+
+    await getRedisCacheClient().set(
+      `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      JSON.stringify(result),
+      "EX",
+      60,
+    );
+
+    return result;
   },
 };
 
