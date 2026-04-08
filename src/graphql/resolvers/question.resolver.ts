@@ -1010,7 +1010,6 @@ const questionResolver = {
             currentVersion: 1,
             createdAt: 1,
             updatedAt: 1,
-            searchScore: { $ifNull: ["$searchScore", null] },
           },
         },
       );
@@ -1632,176 +1631,182 @@ const questionResolver = {
 
       return result;
     },
-  },
 
-  recentQuestionsNeedingHelp: async (
-    _: any,
-    {
-      userId,
-      cursor,
-      limitCount = 5,
-    }: {
-      userId: string;
-      cursor?: RecentQuestionsNeedingHelpCursor;
-      limitCount?: number;
-    },
-    { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
-  ) => {
-    const normalizedLimitCount =
-      Number.isInteger(limitCount) && limitCount > 0 ? limitCount : 5;
+    recentQuestionsNeedingHelp: async (
+      _: any,
+      {
+        userId,
+        cursor,
+        limitCount = 5,
+      }: {
+        userId: string;
+        cursor?: RecentQuestionsNeedingHelpCursor;
+        limitCount?: number;
+      },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+    ) => {
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && limitCount > 0 ? limitCount : 5;
 
-    const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
-    const cached = await getRedisCacheClient().get(
-      `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
-    );
-    if (cached) return JSON.parse(cached);
+      const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+      const cached = await getRedisCacheClient().get(
+        `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+      if (cached) return JSON.parse(cached);
 
-    const matchStage: any = {
-      userId,
-      isActive: true,
-      isDeleted: false,
-      moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-      acceptedAnswers: { $eq: 0 },
-    };
+      const matchStage: any = {
+        userId,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        acceptedAnswers: { $eq: 0 },
+      };
 
-    const pipeline: any[] = [{ $match: matchStage }];
+      const pipeline: any[] = [{ $match: matchStage }];
 
-    if (cursor) {
-      if (!mongoose.isValidObjectId(cursor.id))
-        throw new HttpError("Invalid cursor", 400);
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        pipeline.push({
+          $match: { _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+        });
+      }
+
+      pipeline.push(
+        { $sort: { _id: -1 } },
+        { $limit: normalizedLimitCount + 1 },
+      );
 
       pipeline.push({
-        $match: { _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
       });
-    }
 
-    pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
+      const questions = await Question.aggregate(pipeline);
 
-    pipeline.push({
-      $project: {
-        id: "$_id",
-        _id: 0,
-        title: 1,
-        tags: 1,
-        userId: 1,
-        upvoteCount: 1,
-        downvoteCount: 1,
-        answerCount: 1,
-        acceptedAnswerCount: 1,
-        currentVersion: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    });
+      const hasMore = questions.length > normalizedLimitCount;
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
 
-    const questions = await Question.aggregate(pipeline);
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
 
-    const hasMore = questions.length > normalizedLimitCount;
-    const slicedQuestions = hasMore
-      ? questions.slice(0, normalizedLimitCount)
-      : questions;
+      const result = {
+        questions: slicedQuestions,
+        nextCursor: hasMore ? { id: lastQuestion._id } : null,
+        hasMore,
+      };
 
-    const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+      await getRedisCacheClient().set(
+        `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60,
+      );
 
-    const result = {
-      questions: slicedQuestions,
-      nextCursor: hasMore ? { id: lastQuestion._id } : null,
-      hasMore,
-    };
-
-    await getRedisCacheClient().set(
-      `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
-      JSON.stringify(result),
-      "EX",
-      60,
-    );
-
-    return result;
-  },
-
-  unansweredQuestionsByUser: async (
-    _: any,
-    {
-      userId,
-      cursor,
-      limitCount = 5,
-    }: {
-      userId: string;
-      cursor?: UnansweredQuestionsByUserCursor;
-      limitCount?: number;
+      return result;
     },
-    { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
-  ) => {
-    const normalizedLimitCount =
-      Number.isInteger(limitCount) && Number(limitCount) > 0
-        ? Number(limitCount)
-        : 5;
 
-    const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
-    const cachedQuestions = await getRedisCacheClient().get(
-      `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
-    );
-    if (cachedQuestions) return JSON.parse(cachedQuestions);
-
-    const matchStage = {
-      userId,
-      isActive: true,
-      isDeleted: false,
-      moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-      answerCount: 0,
-    };
-
-    const pipeline: any[] = [{ $match: matchStage }];
-
-    if (cursor) {
-      if (!mongoose.isValidObjectId(cursor.id))
-        throw new HttpError("Invalid cursor", 400);
-
-      const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
-      pipeline.push({ $match: { _id: { $lt: cursorObjectId } } });
-    }
-
-    pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
-
-    pipeline.push({
-      $project: {
-        id: "$_id",
-        _id: 0,
-        title: 1,
-        tags: 1,
-        userId: 1,
-        upvoteCount: 1,
-        downvoteCount: 1,
-        answerCount: 1,
-        acceptedAnswerCount: 1,
-        currentVersion: 1,
-        createdAt: 1,
-        updatedAt: 1,
+    unansweredQuestionsByUser: async (
+      _: any,
+      {
+        userId,
+        cursor,
+        limitCount = 5,
+      }: {
+        userId: string;
+        cursor?: UnansweredQuestionsByUserCursor;
+        limitCount?: number;
       },
-    });
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+    ) => {
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 5;
 
-    const questions = await Question.aggregate(pipeline);
+      const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+      const cachedQuestions = await getRedisCacheClient().get(
+        `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+      if (cachedQuestions) return JSON.parse(cachedQuestions);
 
-    const hasMore = questions.length > normalizedLimitCount;
-    const slicedQuestions = hasMore
-      ? questions.slice(0, normalizedLimitCount)
-      : questions;
-    const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+      const matchStage = {
+        userId,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        answerCount: 0,
+      };
 
-    const result = {
-      questions: slicedQuestions,
-      nextCursor: hasMore ? { id: lastQuestion._id } : null,
-      hasMore,
-    };
+      const pipeline: any[] = [{ $match: matchStage }];
 
-    await getRedisCacheClient().set(
-      `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
-      JSON.stringify(result),
-      "EX",
-      60,
-    );
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
 
-    return result;
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+        pipeline.push({ $match: { _id: { $lt: cursorObjectId } } });
+      }
+
+      pipeline.push(
+        { $sort: { _id: -1 } },
+        { $limit: normalizedLimitCount + 1 },
+      );
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const questions = await Question.aggregate(pipeline);
+
+      const hasMore = questions.length > normalizedLimitCount;
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+      const result = {
+        questions: slicedQuestions,
+        nextCursor: hasMore ? { id: lastQuestion._id } : null,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60,
+      );
+
+      return result;
+    },
   },
 };
 
