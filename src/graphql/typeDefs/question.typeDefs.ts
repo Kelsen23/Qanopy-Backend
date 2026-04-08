@@ -149,6 +149,12 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type UnansweredQuestionsByUserConnection {
+    questions: [Question!]!
+    nextCursor: UnansweredQuestionsByUserCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -227,6 +233,10 @@ const questionTypeDefs = gql`
     id: String!
   }
 
+  type UnansweredQuestionsByUserCursor {
+    id: String!
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -276,6 +286,10 @@ const questionTypeDefs = gql`
   }
 
   input RecentQuestionsNeedingHelpCursorInput {
+    id: String!
+  }
+
+  input UnansweredQuestionsByUserCursorInput {
     id: String!
   }
 
@@ -336,6 +350,12 @@ const questionTypeDefs = gql`
       cursor: RecentQuestionsNeedingHelpCursorInput
       limitCount: Int
     ): RecentQuestionsNeedingHelpConnection!
+
+    unansweredQuestionsByUser(
+      userId: String!
+      cursor: UnansweredQuestionsByUserCursorInput
+      limitCount: Int
+    ): UnansweredQuestionsByUserConnection
   }
 `;
 
