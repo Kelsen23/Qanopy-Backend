@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+
 import { Redis } from "ioredis";
+
 import { GraphQLScalarType, Kind } from "graphql";
 
 import Question from "../../models/question.model.js";
@@ -235,8 +237,10 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             answerCount: 1,
+            acceptedAnswerCount: 1,
             currentVersion: 1,
             createdAt: 1,
+            updatedAt: 1,
           },
         },
       );
@@ -312,11 +316,7 @@ const questionResolver = {
           _id: new mongoose.Types.ObjectId(id),
           isActive: true,
           isDeleted: false,
-        })
-          .select(
-            "_id userId title body tags upvoteCount downvoteCount answerCount currentVersion topicStatus moderationStatus isActive isDeleted embedding createdAt",
-          )
-          .lean(),
+        }).lean(),
         AiAnswer.findOne({
           questionId: new mongoose.Types.ObjectId(id),
           isPublished: true,
@@ -345,6 +345,7 @@ const questionResolver = {
           question.topicStatus === "VALID" &&
           ["APPROVED", "REJECTED"].includes(String(question.moderationStatus)),
         createdAt: question.createdAt,
+        updatedAt: question.updatedAt,
         user: user && !(user as any)?.error ? user : null,
         aiAnswer: aiAnswer
           ? {
@@ -551,6 +552,7 @@ const questionResolver = {
             downvoteCount: 1,
             questionVersion: 1,
             createdAt: 1,
+            updatedAt: 1,
             ownerPriority: { $ifNull: ["$ownerPriority", null] },
             bestPriority: { $ifNull: ["$bestPriority", null] },
             acceptedPriority: { $ifNull: ["$acceptedPriority", null] },
@@ -698,6 +700,7 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             createdAt: 1,
+            updatedAt: 1,
           },
         },
       );
@@ -780,7 +783,7 @@ const questionResolver = {
             moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
           },
         },
-        
+
         {
           $group: {
             _id: "$title",
@@ -949,7 +952,7 @@ const questionResolver = {
                   searchScore: cursor.searchScore,
                   upvoteCount: { $lt: cursor.upvoteCount },
                 },
-                
+
                 {
                   searchScore: cursor.searchScore,
                   upvoteCount: cursor.upvoteCount,
@@ -984,6 +987,7 @@ const questionResolver = {
             answerCount: 1,
             currentVersion: 1,
             createdAt: 1,
+            updatedAt: 1,
             searchScore: { $ifNull: ["$searchScore", null] },
           },
         },
@@ -1041,7 +1045,11 @@ const questionResolver = {
         questionId,
         cursor,
         limitCount = 10,
-      }: { questionId: string; cursor?: VersionHistoryCursor; limitCount: number },
+      }: {
+        questionId: string;
+        cursor?: VersionHistoryCursor;
+        limitCount: number;
+      },
       {
         getRedisCacheClient,
         loaders,
@@ -1119,7 +1127,10 @@ const questionResolver = {
         questionVersions: versionHistoryWithUser,
         nextCursor:
           versionHistoryWithUser.length === normalizedLimitCount
-            ? { id: versionHistoryWithUser[versionHistoryWithUser.length - 1].id }
+            ? {
+                id: versionHistoryWithUser[versionHistoryWithUser.length - 1]
+                  .id,
+              }
             : null,
         hasMore: versionHistoryWithUser.length === normalizedLimitCount,
       };
