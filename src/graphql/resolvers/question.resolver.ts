@@ -73,6 +73,10 @@ type RecentQuestionsNeedingHelpCursor = {
   id: string;
 };
 
+type UnansweredQuestionsByUserCursor = {
+  id: string;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -1625,7 +1629,7 @@ const questionResolver = {
       isActive: true,
       isDeleted: false,
       moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-      acceptedAnswers: { $eq: 0 }, 
+      acceptedAnswers: { $eq: 0 },
     };
 
     const pipeline: any[] = [{ $match: matchStage }];
@@ -1658,6 +1662,74 @@ const questionResolver = {
 
     await getRedisCacheClient().set(
       `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      JSON.stringify(result),
+      "EX",
+      60,
+    );
+
+    return result;
+  },
+
+  unansweredQuestionsByUser: async (
+    _: any,
+    {
+      userId,
+      cursor,
+      limitCount = 5,
+    }: {
+      userId: string;
+      cursor?: UnansweredQuestionsByUserCursor;
+      limitCount?: number;
+    },
+    { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+  ) => {
+    const normalizedLimitCount =
+      Number.isInteger(limitCount) && Number(limitCount) > 0
+        ? Number(limitCount)
+        : 5;
+
+    const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+    const cachedQuestions = await getRedisCacheClient().get(
+      `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+    );
+    if (cachedQuestions) return JSON.parse(cachedQuestions);
+
+    const matchStage = {
+      isActive: true,
+      isDeleted: false,
+      moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+      answerCount: 0, 
+      userId, 
+    };
+
+    const pipeline: any[] = [{ $match: matchStage }];
+
+    if (cursor) {
+      if (!mongoose.isValidObjectId(cursor.id))
+        throw new HttpError("Invalid cursor", 400);
+
+      const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+      pipeline.push({ $match: { _id: { $lt: cursorObjectId } } });
+    }
+
+    pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
+
+    const questions = await Question.aggregate(pipeline);
+
+    const hasMore = questions.length > normalizedLimitCount;
+    const slicedQuestions = hasMore
+      ? questions.slice(0, normalizedLimitCount)
+      : questions;
+    const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+    const result = {
+      questions: slicedQuestions,
+      nextCursor: hasMore ? { id: lastQuestion._id } : null,
+      hasMore,
+    };
+
+    await getRedisCacheClient().set(
+      `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
       JSON.stringify(result),
       "EX",
       60,
