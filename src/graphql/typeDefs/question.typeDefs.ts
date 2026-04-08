@@ -75,6 +75,7 @@ const questionTypeDefs = gql`
     downvoteCount: Int!
 
     createdAt: String!
+    updatedAt: String
 
     user: User
   }
