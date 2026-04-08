@@ -210,6 +210,7 @@ const questionTypeDefs = gql`
 
   type UserAnswersCursor {
     id: String!
+    createdAt: String
     updatedAt: String
     bestPriority: Int
     acceptedPriority: Int
@@ -258,6 +259,7 @@ const questionTypeDefs = gql`
   input UserAnswersCursorInput {
     id: String!
     createdAt: String
+    updatedAt: String
     bestPriority: Int
     acceptedPriority: Int
     upvoteCount: Int
