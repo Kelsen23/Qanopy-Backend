@@ -1659,7 +1659,7 @@ const questionResolver = {
         isActive: true,
         isDeleted: false,
         moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-        acceptedAnswers: { $eq: 0 },
+        acceptedAnswerCount: { $eq: 0 },
       };
 
       const pipeline: any[] = [{ $match: matchStage }];
