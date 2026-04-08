@@ -100,6 +100,21 @@ const questionTypeDefs = gql`
     isPublished: Boolean
   }
 
+  type AiAnswerFeedback {
+    id: String!
+    aiAnswerId: String!
+    userId: String!
+
+    type: AiAnswerFeedbackType!
+
+    body: String
+
+    questionVersionAtFeedback: Int!
+
+    createdAt: String!
+    updatedAt: String
+  }
+
   # Connections
 
   type RecommendedQuestionConnection {
@@ -162,6 +177,12 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type FeedbacksOnAiAnswerConnection {
+    feedbacks: [AiAnswerFeedback!]!
+    nextCursor: FeedbacksOnAiAnswerCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -191,6 +212,16 @@ const questionTypeDefs = gql`
   enum AiAnswersSortOption {
     NEWEST
     OLDEST
+  }
+
+  enum FeedbacksOnAiAnswerSortOption {
+    NEWEST
+    OLDEST
+  }
+
+  enum AiAnswerFeedbackType {
+    HELPFUL
+    NOT_HELPFUL
   }
 
   # Cursor Outputs
@@ -255,6 +286,12 @@ const questionTypeDefs = gql`
     publishedPriority: Int!
   }
 
+  type FeedbacksOnAiAnswerCursor {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -312,6 +349,12 @@ const questionTypeDefs = gql`
   }
 
   input AiAnswersCursorInput {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
+  input FeedbacksOnAiAnswerCursorInput {
     id: String!
     createdAt: String!
     publishedPriority: Int!
@@ -387,6 +430,13 @@ const questionTypeDefs = gql`
       cursor: AiAnswersCursorInput
       limitCount: Int
     ): AiAnswersConnection
+
+    feedbacksOnAiAnswer(
+      aiAnswerId: String!
+      sortOption: FeedbacksOnAiAnswerSortOption!
+      cursor: FeedbacksOnAiAnswerCursorInput
+      limitCount: Int
+    ): FeedbacksOnAiAnswerConnection
   }
 `;
 
