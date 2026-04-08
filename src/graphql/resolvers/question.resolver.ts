@@ -1429,6 +1429,7 @@ const questionResolver = {
       const cursorCacheKey = cursor
         ? [
             cursor.id,
+            cursor.createdAt ?? "",
             cursor.updatedAt ?? "",
             cursor.bestPriority ?? "",
             cursor.acceptedPriority ?? "",
@@ -1458,9 +1459,6 @@ const questionResolver = {
       if (sortOption === "RELEVANT") {
         pipeline.push({
           $addFields: {
-            ownerPriority: {
-              $cond: [{ $eq: ["$userId", requesterUserId] }, 0, 1],
-            },
             bestPriority: { $cond: ["$isBestAnswerByAsker", 0, 1] },
             acceptedPriority: { $cond: ["$isAccepted", 0, 1] },
           },
@@ -1511,7 +1509,6 @@ const questionResolver = {
 
         pipeline.push({
           $sort: {
-            ownerPriority: 1,
             bestPriority: 1,
             acceptedPriority: 1,
             upvoteCount: -1,
