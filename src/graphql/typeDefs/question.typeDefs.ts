@@ -97,6 +97,7 @@ const questionTypeDefs = gql`
     body: String!
     confidence: QuestionAiAnswerConfidence!
     meta: JSON!
+    isPublished: Boolean
   }
 
   # Connections
@@ -155,6 +156,12 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type AiAnswersConnection {
+    aiAnswers: [QuestionAiAnswer!]!
+    nextCursor: AiAnswersCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -179,6 +186,11 @@ const questionTypeDefs = gql`
     NEWEST
     OLDEST
     RELEVANT
+  }
+
+  enum AiAnswersSortOption {
+    NEWEST
+    OLDEST
   }
 
   # Cursor Outputs
@@ -237,6 +249,12 @@ const questionTypeDefs = gql`
     id: String!
   }
 
+  type AiAnswersCursor {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -291,6 +309,12 @@ const questionTypeDefs = gql`
 
   input UnansweredQuestionsByUserCursorInput {
     id: String!
+  }
+
+  input AiAnswersCursorInput {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
   }
 
   extend type Query {
@@ -356,6 +380,13 @@ const questionTypeDefs = gql`
       cursor: UnansweredQuestionsByUserCursorInput
       limitCount: Int
     ): UnansweredQuestionsByUserConnection
+
+    aiAnswers(
+      questionId: String!
+      sortOption: AiAnswersSortOption!
+      cursor: AiAnswersCursorInput
+      limitCount: Int
+    ): AiAnswersConnection
   }
 `;
 
