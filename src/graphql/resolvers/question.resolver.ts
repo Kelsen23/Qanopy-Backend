@@ -1262,7 +1262,7 @@ const questionResolver = {
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `questions:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `u:${userId}:questions:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -1396,7 +1396,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `questions:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `u:${userId}:questions:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60,
@@ -1446,7 +1446,7 @@ const questionResolver = {
         : "initial";
 
       const cachedAnswers = await getRedisCacheClient().get(
-        `answers:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `u:${userId}:answers:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedAnswers) return JSON.parse(cachedAnswers);
 
@@ -1593,7 +1593,7 @@ const questionResolver = {
       const result = { answers: slicedAnswers, nextCursor, hasMore };
 
       await getRedisCacheClient().set(
-        `answers:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `u:${userId}:answers:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60,
@@ -1621,11 +1621,12 @@ const questionResolver = {
 
     const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
     const cached = await getRedisCacheClient().get(
-      `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
     );
     if (cached) return JSON.parse(cached);
 
     const matchStage: any = {
+      userId,
       isActive: true,
       isDeleted: false,
       moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
@@ -1695,11 +1696,11 @@ const questionResolver = {
     if (cachedQuestions) return JSON.parse(cachedQuestions);
 
     const matchStage = {
+      userId,
       isActive: true,
       isDeleted: false,
       moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-      answerCount: 0, 
-      userId, 
+      answerCount: 0,
     };
 
     const pipeline: any[] = [{ $match: matchStage }];
@@ -1729,7 +1730,7 @@ const questionResolver = {
     };
 
     await getRedisCacheClient().set(
-      `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
       JSON.stringify(result),
       "EX",
       60,
