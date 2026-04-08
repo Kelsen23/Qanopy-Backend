@@ -166,7 +166,7 @@ const actionMap: Record<string, StatsUpdate> = {
     mongo: {
       model: "Question",
       idKey: "questionId",
-      update: { $inc: { acceptedAnswers: 1 } },
+      update: { $inc: { acceptedAnswerCount: 1 } },
     },
   },
   UNACCEPT_BEST_ANSWER: {
@@ -181,7 +181,7 @@ const actionMap: Record<string, StatsUpdate> = {
     mongo: {
       model: "Question",
       idKey: "questionId",
-      update: { $inc: { acceptedAnswers: -1 } },
+      update: { $inc: { acceptedAnswerCount: -1 } },
     },
   },
   UNACCEPT_ANSWER: {
@@ -195,7 +195,7 @@ const actionMap: Record<string, StatsUpdate> = {
     mongo: {
       model: "Question",
       idKey: "questionId",
-      update: { $inc: { acceptedAnswers: -1 } },
+      update: { $inc: { acceptedAnswerCount: -1 } },
     },
   },
   MARK_ANSWER_AS_BEST: {
