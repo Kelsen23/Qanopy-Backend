@@ -77,6 +77,12 @@ type UnansweredQuestionsByUserCursor = {
   id: string;
 };
 
+type AiAnswersCursor = {
+  id: string;
+  createdAt: string;
+  publishedPriority: number;
+};
+
 interface SearchQuestionStage {
   $search: {
     index: string;
@@ -1806,6 +1812,132 @@ const questionResolver = {
       );
 
       return result;
+    },
+
+    aiAnswers: async (
+      _: any,
+      {
+        questionId,
+        sortOption = "NEWEST",
+        cursor,
+        limitCount = 10,
+      }: {
+        questionId: string;
+        sortOption: "NEWEST" | "OLDEST";
+        cursor?: AiAnswersCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        getRedisCacheClient,
+      }: { user: User; getRedisCacheClient: () => Redis },
+    ) => {
+      const cachedQuestion = await getRedisCacheClient().get(
+        `question:${questionId}`,
+      );
+      const foundQuestion = cachedQuestion
+        ? JSON.parse(cachedQuestion)
+        : await Question.findById(questionId).select("userId");
+
+      const requesterUserId = String(user.id);
+
+      if (foundQuestion.userId !== requesterUserId)
+        throw new HttpError("Forbidden to access this route", 403);
+
+      if (!["NEWEST", "OLDEST"].includes(sortOption))
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["NEWEST", "OLDEST"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? limitCount
+          : 10;
+
+      const pipeline: any[] = [
+        { $match: { questionId } },
+
+        {
+          $addFields: {
+            publishedPriority: {
+              $cond: [{ $eq: ["$isPublished", true] }, 0, 1],
+            },
+          },
+        },
+      ];
+
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+
+        pipeline.push({
+          $match: {
+            $or: [
+              { publishedPriority: { $gt: cursor.publishedPriority ?? 0 } },
+
+              {
+                publishedPriority: cursor.publishedPriority ?? 0,
+                createdAt:
+                  sortOption === "NEWEST"
+                    ? { $lt: cursor.createdAt }
+                    : { $gt: cursor.createdAt },
+              },
+              
+              {
+                publishedPriority: cursor.publishedPriority ?? 0,
+                createdAt: cursor.createdAt,
+                _id: { $lt: cursorObjectId },
+              },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({
+        $sort: {
+          publishedPriority: 1,
+          createdAt: sortOption === "NEWEST" ? -1 : 1,
+          _id: -1,
+        },
+      });
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          body: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          isPublished: 1,
+        },
+      });
+
+      const aiAnswers = await AiAnswer.aggregate(pipeline);
+
+      const hasMore = aiAnswers.length > normalizedLimitCount;
+      const slicedAnswers = hasMore
+        ? aiAnswers.slice(0, normalizedLimitCount)
+        : aiAnswers;
+      const lastAnswer = slicedAnswers[slicedAnswers.length - 1];
+
+      const nextCursor = hasMore
+        ? {
+            id: lastAnswer.id,
+            createdAt: lastAnswer.createdAt,
+            publishedPriority: lastAnswer.isPublished ? 0 : 1, 
+          }
+        : null;
+
+      return {
+        aiAnswers: slicedAnswers,
+        nextCursor,
+        hasMore,
+      };
     },
   },
 };
