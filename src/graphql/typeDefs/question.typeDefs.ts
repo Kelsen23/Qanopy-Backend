@@ -5,32 +5,78 @@ const questionTypeDefs = gql`
 
   type Question {
     id: ID!
-    searchScore: Float!
     userId: String!
     title: String!
+    body: String
+    tags: [String]!
+
     upvoteCount: Int!
     downvoteCount: Int!
-    tags: [String]!
+
     answerCount: Int!
+    acceptedAnswerCount: Int
+
     currentVersion: Int!
+
     createdAt: String!
+    updatedAt: String
+
     user: User
+
+    searchScore: Float
+    canGenerateAiAnswer: Boolean
+    aiAnswer: QuestionAiAnswer
   }
 
-  type QuestionDetails {
+  type QuestionVersion {
     id: ID!
-    userId: String!
+    questionId: ID!
+    userId: ID!
     title: String!
     body: String!
     tags: [String]!
+
+    topicStatus: String!
+    moderationStatus: String!
+    supersededByRollback: Boolean!
+    version: Int!
+    basedOnVersion: Int!
+    isActive: Boolean!
+
+    user: User
+  }
+
+  type Answer {
+    id: ID!
+    userId: String!
+    body: String!
+
     upvoteCount: Int!
     downvoteCount: Int!
-    answerCount: Int!
-    currentVersion: Int!
-    canGenerateAiAnswer: Boolean!
+    replyCount: Int!
+
+    isAccepted: Boolean!
+    isBestAnswerByAsker: Boolean!
+
+    questionVersion: Int!
+
     createdAt: String!
+    updatedAt: String
+
     user: User
-    aiAnswer: QuestionAiAnswer
+  }
+
+  type Reply {
+    id: ID!
+    userId: String!
+    body: String!
+
+    upvoteCount: Int!
+    downvoteCount: Int!
+
+    createdAt: String!
+
+    user: User
   }
 
   type QuestionAiAnswerConfidenceSection {
@@ -52,59 +98,11 @@ const questionTypeDefs = gql`
     meta: JSON!
   }
 
-  type Reply {
-    id: ID!
-    userId: String!
-    body: String!
-    upvoteCount: Int!
-    downvoteCount: Int!
-    createdAt: String!
-    user: User
-  }
+  # Connections
 
-  type Answer {
-    id: ID!
-    userId: String!
-    body: String!
-    upvoteCount: Int!
-    downvoteCount: Int!
-    replyCount: Int!
-    isAccepted: Boolean!
-    isBestAnswerByAsker: Boolean!
-    questionVersion: Int!
-    createdAt: String!
-    user: User
-  }
-
-  type SearchQuestion {
-    id: ID!
-    userId: String!
-    title: String!
-    body: String!
-    upvoteCount: Int!
-    downvoteCount: Int!
-    tags: [String]!
-    answerCount: Int!
-    currentVersion: Int!
-    createdAt: String!
-    user: User
-  }
-
-  type RecommendedQuestionsCursor {
-    id: String!
-    upvoteCount: Int!
-    searchScore: Float!
-  }
-
-  type QuestionConnection {
+  type RecommendedQuestionConnection {
     questions: [Question!]!
     nextCursor: RecommendedQuestionsCursor
-    hasMore: Boolean!
-  }
-
-  type SearchQuestionConnection {
-    questions: [SearchQuestion!]!
-    nextCursor: SearchQuestionCursor
     hasMore: Boolean!
   }
 
@@ -120,20 +118,10 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
-  type QuestionVersion {
-    id: ID!
-    questionId: ID!
-    userId: ID!
-    title: String!
-    body: String!
-    tags: [String]!
-    topicStatus: String!
-    moderationStatus: String!
-    supersededByRollback: Boolean!
-    version: Int!
-    basedOnVersion: Int!
-    isActive: Boolean!
-    user: User
+  type SearchQuestionConnection {
+    questions: [Question!]!
+    nextCursor: SearchQuestionCursor
+    hasMore: Boolean!
   }
 
   type QuestionVersionConnection {
@@ -141,6 +129,14 @@ const questionTypeDefs = gql`
     nextCursor: VersionHistoryCursor
     hasMore: Boolean!
   }
+
+  type UserQuestionsConnection {
+    questions: [Question!]!
+    nextCursor: UserQuestionsCursor
+    hasMore: Boolean!
+  }
+
+  # Enums
 
   enum AnswerSortOption {
     DEFAULT
@@ -152,16 +148,18 @@ const questionTypeDefs = gql`
     RELEVANT
   }
 
-  type SearchQuestionCursor {
-    id: String!
-    createdAt: String
-    searchScore: Float
-    upvoteCount: Int
+  enum UserQuestionsSortOption {
+    LAST_UPDATED
+    OLDEST
+    NEWEST
   }
 
-  type ReplyCursor {
+  # Cursor Outputs
+
+  type RecommendedQuestionsCursor {
     id: String!
     upvoteCount: Int!
+    searchScore: Float!
   }
 
   type AnswerCursor {
@@ -172,9 +170,35 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
-  input RepliesCursorInput {
+  type ReplyCursor {
     id: String!
     upvoteCount: Int!
+  }
+
+  type VersionHistoryCursor {
+    id: String!
+  }
+
+  type SearchQuestionCursor {
+    id: String!
+    createdAt: String
+    searchScore: Float
+    upvoteCount: Int
+  }
+
+  type UserQuestionsCursor {
+    id: String!
+    createdAt: String
+    updatedAt: String
+    upvoteCount: Int
+  }
+
+  # Cursor Inputs
+
+  input RecommendedQuestionsCursorInput {
+    id: String!
+    upvoteCount: Int!
+    searchScore: Float!
   }
 
   input AnswerCursorInput {
@@ -185,6 +209,11 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
+  input ReplyCursorInput {
+    id: String!
+    upvoteCount: Int!
+  }
+
   input SearchQuestionCursorInput {
     id: String!
     createdAt: String
@@ -192,27 +221,24 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
-  type VersionHistoryCursor {
-    id: String!
-  }
-
   input VersionHistoryCursorInput {
     id: String!
   }
 
-  input RecommendedQuestionsCursorInput {
+  input UserQuestionsCursorInput {
     id: String!
-    upvoteCount: Int!
-    searchScore: Float!
+    createdAt: String
+    updatedAt: String
+    upvoteCount: Int
   }
 
   extend type Query {
     recommendedQuestions(
       cursor: RecommendedQuestionsCursorInput
       limitCount: Int
-    ): QuestionConnection!
+    ): RecommendedQuestionConnection!
 
-    question(id: ID!): QuestionDetails
+    question(id: ID!): Question
 
     loadMoreAnswers(
       questionId: ID!
@@ -223,7 +249,7 @@ const questionTypeDefs = gql`
 
     loadMoreReplies(
       answerId: ID!
-      cursor: RepliesCursorInput
+      cursor: ReplyCursorInput
       limitCount: Int
     ): ReplyConnection!
 
@@ -243,6 +269,13 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): QuestionVersionConnection!
     questionVersion(questionId: String!, version: Int!): QuestionVersion!
+
+    userQuestions(
+      userId: String!
+      sortOption: UserQuestionsSortOption!
+      cursor: UserQuestionsCursorInput
+      limitCount: Int
+    ): UserQuestionsConnection!
   }
 `;
 
