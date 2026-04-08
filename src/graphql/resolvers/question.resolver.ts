@@ -1258,7 +1258,7 @@ const questionResolver = {
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `u:${userId}:questions:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -1409,7 +1409,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `u:${userId}:questions:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 15,
@@ -1459,7 +1459,7 @@ const questionResolver = {
         : "initial";
 
       const cachedAnswers = await getRedisCacheClient().get(
-        `u:${userId}:answers:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `answers:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedAnswers) return JSON.parse(cachedAnswers);
 
@@ -1623,7 +1623,7 @@ const questionResolver = {
       const result = { answers: slicedAnswers, nextCursor, hasMore };
 
       await getRedisCacheClient().set(
-        `u:${userId}:answers:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `answers:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 15,
@@ -1650,7 +1650,7 @@ const questionResolver = {
 
       const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
       const cached = await getRedisCacheClient().get(
-        `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:recent:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cached) return JSON.parse(cached);
 
@@ -1711,7 +1711,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:recent:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 15,
@@ -1740,7 +1740,7 @@ const questionResolver = {
 
       const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
       const cachedQuestions = await getRedisCacheClient().get(
-        `questions:unanswered:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -1799,7 +1799,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
+        `questions:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 15,
