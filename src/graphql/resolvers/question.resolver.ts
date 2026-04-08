@@ -304,7 +304,7 @@ const questionResolver = {
         `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 5,
+        60 * 10,
       );
 
       return result;
@@ -757,7 +757,7 @@ const questionResolver = {
         `replies:${answerId}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        5 * 60,
+        60 * 10,
       );
 
       return result;
@@ -1160,7 +1160,7 @@ const questionResolver = {
         `v:question:${questionId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 60,
+        60 * 15,
       );
 
       return result;
@@ -1412,7 +1412,7 @@ const questionResolver = {
         `u:${userId}:questions:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60,
+        60 * 15,
       );
 
       return result;
@@ -1626,7 +1626,7 @@ const questionResolver = {
         `u:${userId}:answers:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60,
+        60 * 15,
       );
 
       return result;
@@ -1714,7 +1714,7 @@ const questionResolver = {
         `questions:recent:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60,
+        60 * 15,
       );
 
       return result;
@@ -1802,7 +1802,7 @@ const questionResolver = {
         `u:${userId}:questions:recent:unanswered:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60,
+        60 * 15,
       );
 
       return result;
