@@ -218,7 +218,11 @@ const acceptAnswer = asyncHandler(
       { new: true },
     );
 
-    await statsQueue.add("acceptAnswer", { userId, action: "ACCEPT_ANSWER" });
+    await statsQueue.add("acceptAnswer", {
+      userId,
+      action: "ACCEPT_ANSWER",
+      mongoTargetId: foundQuestion._id || foundQuestion.id,
+    });
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
@@ -276,11 +280,13 @@ const unacceptAnswer = asyncHandler(
       await statsQueue.add("unacceptBestAnswer", {
         userId,
         action: "UNACCEPT_BEST_ANSWER",
+        mongoTargetId: foundQuestion._id || foundQuestion.id,
       });
     } else {
       await statsQueue.add("unacceptAnswer", {
         userId,
         action: "UNACCEPT_ANSWER",
+        mongoTargetId: foundQuestion._id || foundQuestion.id,
       });
     }
 
