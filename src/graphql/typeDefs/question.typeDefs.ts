@@ -137,6 +137,12 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type UserAnswersConnection {
+    answers: [Answer!]!
+    nextCursor: UserAnswersCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -154,6 +160,13 @@ const questionTypeDefs = gql`
     OLDEST
     NEWEST
     MOST_UPVOTED
+  }
+
+  enum UserAnswersSortOption {
+    LAST_ACTIVE
+    NEWEST
+    OLDEST
+    RELEVANT
   }
 
   # Cursor Outputs
@@ -195,6 +208,14 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
+  type UserAnswersCursor {
+    id: String!
+    updatedAt: String
+    bestPriority: Int
+    acceptedPriority: Int
+    upvoteCount: Int
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -231,6 +252,14 @@ const questionTypeDefs = gql`
     id: String!
     createdAt: String
     updatedAt: String
+    upvoteCount: Int
+  }
+
+  input UserAnswersCursorInput {
+    id: String!
+    createdAt: String
+    bestPriority: Int
+    acceptedPriority: Int
     upvoteCount: Int
   }
 
@@ -278,6 +307,13 @@ const questionTypeDefs = gql`
       cursor: UserQuestionsCursorInput
       limitCount: Int
     ): UserQuestionsConnection!
+
+    userAnswers(
+      userId: String!
+      sortOption: UserAnswersSortOption!
+      cursor: UserAnswersCursorInput
+      limitCount: Int
+    ): UserAnswersConnection!
   }
 `;
 
