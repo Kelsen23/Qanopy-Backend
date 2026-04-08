@@ -577,9 +577,6 @@ const questionResolver = {
             questionVersion: 1,
             createdAt: 1,
             updatedAt: 1,
-            ownerPriority: { $ifNull: ["$ownerPriority", null] },
-            bestPriority: { $ifNull: ["$bestPriority", null] },
-            acceptedPriority: { $ifNull: ["$acceptedPriority", null] },
           },
         },
       );
@@ -1362,6 +1359,23 @@ const questionResolver = {
 
       pipeline.push({ $limit: normalizedLimitCount + 1 });
 
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
       const questions = await Question.aggregate(pipeline);
 
       const hasMore = questions.length > normalizedLimitCount;
@@ -1375,16 +1389,16 @@ const questionResolver = {
       const nextCursor = hasMore
         ? sortOption === "LAST_UPDATED"
           ? {
-              id: String(lastQuestion._id),
+              id: String(lastQuestion.id),
               updatedAt: lastQuestion.updatedAt,
             }
           : sortOption === "NEWEST" || sortOption === "OLDEST"
             ? {
-                id: String(lastQuestion._id),
+                id: String(lastQuestion.id),
                 createdAt: lastQuestion.createdAt,
               }
             : {
-                id: String(lastQuestion._id),
+                id: String(lastQuestion.id),
                 upvoteCount: lastQuestion.upvoteCount,
               }
         : null;
@@ -1566,6 +1580,23 @@ const questionResolver = {
 
       pipeline.push({ $limit: normalizedLimitCount + 1 });
 
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          userId: 1,
+          body: 1,
+          replyCount: 1,
+          isAccepted: 1,
+          isBestAnswerByAsker: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          questionVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
       const answers = await Answer.aggregate(pipeline);
 
       const hasMore = answers.length > normalizedLimitCount;
@@ -1577,17 +1608,17 @@ const questionResolver = {
       const nextCursor = hasMore
         ? sortOption === "RELEVANT"
           ? {
-              id: String(lastAnswer._id),
+              id: String(lastAnswer.id),
               bestPriority: lastAnswer.bestPriority,
               acceptedPriority: lastAnswer.acceptedPriority,
               upvoteCount: lastAnswer.upvoteCount,
             }
           : sortOption === "LAST_ACTIVE"
             ? {
-                id: String(lastAnswer._id),
+                id: String(lastAnswer.id),
                 updatedAt: lastAnswer.updatedAt,
               }
-            : { id: String(lastAnswer._id), createdAt: lastAnswer.createdAt }
+            : { id: String(lastAnswer.id), createdAt: lastAnswer.createdAt }
         : null;
 
       const result = { answers: slicedAnswers, nextCursor, hasMore };
@@ -1645,6 +1676,23 @@ const questionResolver = {
     }
 
     pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
+
+    pipeline.push({
+      $project: {
+        id: "$_id",
+        _id: 0,
+        title: 1,
+        tags: 1,
+        userId: 1,
+        upvoteCount: 1,
+        downvoteCount: 1,
+        answerCount: 1,
+        acceptedAnswerCount: 1,
+        currentVersion: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
 
     const questions = await Question.aggregate(pipeline);
 
@@ -1714,6 +1762,23 @@ const questionResolver = {
     }
 
     pipeline.push({ $sort: { _id: -1 } }, { $limit: normalizedLimitCount + 1 });
+
+    pipeline.push({
+      $project: {
+        id: "$_id",
+        _id: 0,
+        title: 1,
+        tags: 1,
+        userId: 1,
+        upvoteCount: 1,
+        downvoteCount: 1,
+        answerCount: 1,
+        acceptedAnswerCount: 1,
+        currentVersion: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
 
     const questions = await Question.aggregate(pipeline);
 
