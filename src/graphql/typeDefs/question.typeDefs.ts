@@ -143,6 +143,12 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type RecentQuestionsNeedingHelpConnection {
+    questions: [Question!]!
+    nextCursor: RecentQuestionsNeedingHelpCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -217,6 +223,10 @@ const questionTypeDefs = gql`
     upvoteCount: Int
   }
 
+  type RecentQuestionsNeedingHelpCursor {
+    id: String!
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -263,6 +273,10 @@ const questionTypeDefs = gql`
     bestPriority: Int
     acceptedPriority: Int
     upvoteCount: Int
+  }
+
+  input RecentQuestionsNeedingHelpCursorInput {
+    id: String!
   }
 
   extend type Query {
@@ -316,6 +330,12 @@ const questionTypeDefs = gql`
       cursor: UserAnswersCursorInput
       limitCount: Int
     ): UserAnswersConnection!
+
+    recentQuestionsNeedingHelp(
+      userId: String!
+      cursor: RecentQuestionsNeedingHelpCursorInput
+      limitCount: Int
+    ): RecentQuestionsNeedingHelpConnection!
   }
 `;
 
