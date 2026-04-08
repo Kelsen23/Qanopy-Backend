@@ -153,6 +153,7 @@ const questionTypeDefs = gql`
     LAST_UPDATED
     OLDEST
     NEWEST
+    MOST_UPVOTED
   }
 
   # Cursor Outputs
