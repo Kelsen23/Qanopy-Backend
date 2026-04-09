@@ -337,6 +337,7 @@ const questionResolver = {
       const cachedQuestion = await getRedisCacheClient().get(`question:${id}`);
       if (cachedQuestion) {
         const parsedCachedQuestion = JSON.parse(cachedQuestion);
+
         const {
           isActive: _isActive,
           isDeleted: _isDeleted,
@@ -345,6 +346,7 @@ const questionResolver = {
           moderationStatus: _moderationStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
+        
         return publicQuestion;
       }
 
@@ -437,12 +439,14 @@ const questionResolver = {
       const cachedAnswer = await getRedisCacheClient().get(`answer:${id}`);
       if (cachedAnswer) {
         const parsedCacheAnswer = JSON.parse(cachedAnswer);
+
         const {
           isActive: _isActive,
           isDeleted: _isDeleted,
           moderationStatus: _moderationStatus,
           ...publicAnswer
         } = parsedCacheAnswer;
+
         return publicAnswer;
       }
 
@@ -558,6 +562,73 @@ const questionResolver = {
         60 * 15,
       );
 
+      return result;
+    },
+
+    aiAnswerFeedback: async (
+      _: any,
+      { id }: { id: string },
+      {
+        getRedisCacheClient,
+      }: { getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid aiAnswerFeedbackId", 400);
+    
+      const cacheKey = `aiAnswerFeedback:${id}`;
+    
+      const cachedFeedback = await getRedisCacheClient().get(cacheKey);
+    
+      if (cachedFeedback) {
+        const parsedCacheFeedback = JSON.parse(cachedFeedback);
+    
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          moderationStatus: _moderationStatus,
+          ...publicFeedback
+        } = parsedCacheFeedback;
+    
+        return publicFeedback;
+      }
+    
+      const feedback = await AiAnswerFeedback.findOne({
+        _id: id,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+    
+      if (!feedback) return null;
+    
+      const result = {
+        id: feedback._id.toString(),
+        aiAnswerId: feedback.aiAnswerId.toString(),
+        userId: feedback.userId,
+    
+        type: feedback.type,
+    
+        body: feedback.body,
+    
+        questionVersionAtFeedback: feedback.questionVersionAtFeedback,
+    
+        createdAt: feedback.createdAt,
+        updatedAt: feedback.updatedAt,
+      };
+    
+      const cachePayload = {
+        ...result,
+        isActive: feedback.isActive,
+        isDeleted: feedback.isDeleted,
+        moderationStatus: feedback.moderationStatus,
+      };
+    
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+    
       return result;
     },
 
