@@ -373,6 +373,8 @@ const questionTypeDefs = gql`
 
     reply(id: String!): Reply
 
+    aiAnswerFeedback(id: String!): AiAnswerFeedback
+
     loadMoreAnswers(
       questionId: String!
       sortOption: AnswerSortOption!
