@@ -4,7 +4,7 @@ const questionTypeDefs = gql`
   scalar JSON
 
   type Question {
-    id: ID!
+    id: String!
     userId: String!
     title: String!
     body: String
@@ -24,20 +24,21 @@ const questionTypeDefs = gql`
     user: User
 
     searchScore: Float
+    
+    canGenerateAiSuggestion: Boolean
     canGenerateAiAnswer: Boolean
+
     aiAnswer: QuestionAiAnswer
   }
 
   type QuestionVersion {
-    id: ID!
-    questionId: ID!
-    userId: ID!
+    id: String!
+    questionId: String!
+    userId: String!
     title: String!
     body: String!
     tags: [String]!
 
-    topicStatus: String!
-    moderationStatus: String!
     supersededByRollback: Boolean!
     version: Int!
     basedOnVersion: Int!
@@ -47,7 +48,7 @@ const questionTypeDefs = gql`
   }
 
   type Answer {
-    id: ID!
+    id: String!
     userId: String!
     body: String!
 
@@ -67,7 +68,7 @@ const questionTypeDefs = gql`
   }
 
   type Reply {
-    id: ID!
+    id: String!
     userId: String!
     body: String!
 
@@ -366,17 +367,21 @@ const questionTypeDefs = gql`
       limitCount: Int
     ): RecommendedQuestionConnection!
 
-    question(id: ID!): Question
+    question(id: String!): Question
+
+    answer(
+      id: String!
+    ): Answer!
 
     loadMoreAnswers(
-      questionId: ID!
+      questionId: String!
       sortOption: AnswerSortOption!
       cursor: AnswerCursorInput
       limitCount: Int
     ): AnswerConnection!
 
     loadMoreReplies(
-      answerId: ID!
+      answerId: String!
       cursor: ReplyCursorInput
       limitCount: Int
     ): ReplyConnection!
