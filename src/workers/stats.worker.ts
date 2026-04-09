@@ -163,6 +163,11 @@ const actionMap: Record<string, StatsUpdate> = {
         reputationPoints: { increment: 10 },
       },
     },
+    mongo: {
+      model: "Question",
+      idKey: "questionId",
+      update: { $inc: { acceptedAnswerCount: 1 } },
+    },
   },
   UNACCEPT_BEST_ANSWER: {
     prisma: {
@@ -173,6 +178,11 @@ const actionMap: Record<string, StatsUpdate> = {
         reputationPoints: { decrement: 25 },
       },
     },
+    mongo: {
+      model: "Question",
+      idKey: "questionId",
+      update: { $inc: { acceptedAnswerCount: -1 } },
+    },
   },
   UNACCEPT_ANSWER: {
     prisma: {
@@ -181,6 +191,11 @@ const actionMap: Record<string, StatsUpdate> = {
         acceptedAnswers: { decrement: 1 },
         reputationPoints: { decrement: 10 },
       },
+    },
+    mongo: {
+      model: "Question",
+      idKey: "questionId",
+      update: { $inc: { acceptedAnswerCount: -1 } },
     },
   },
   MARK_ANSWER_AS_BEST: {

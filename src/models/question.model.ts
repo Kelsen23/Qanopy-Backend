@@ -11,6 +11,7 @@ const QuestionSchema: Schema = new Schema(
     upvoteCount: { type: Number, default: 0, min: 0 },
     downvoteCount: { type: Number, default: 0, min: 0 },
     answerCount: { type: Number, default: 0, min: 0 },
+    acceptedAnswerCount: { type: Number, default: 0, min: 0 },
 
     currentVersion: { type: Number, default: 1, min: 1 },
 

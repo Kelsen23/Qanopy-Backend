@@ -57,10 +57,10 @@ const moderationTypeDefs = gql`
   }
 
   type Report {
-    id: ID!
+    id: String!
 
-    reportedBy: ID!
-    targetUserId: ID!
+    reportedBy: String!
+    targetUserId: String!
 
     targetId: String!
     targetType: ReportTargetType!
@@ -68,7 +68,7 @@ const moderationTypeDefs = gql`
     reportReason: ReportReason!
     reportComment: String
 
-    reviewedBy: ID
+    reviewedBy: String
     reviewComment: String
     actionTaken: ReportActionTaken!
     isRemovingContent: Boolean!
@@ -98,7 +98,7 @@ const moderationTypeDefs = gql`
   }
 
   type ModerationStrike {
-    id: ID!
+    id: String!
     userId: String!
 
     aiDecision: AiDecision
@@ -112,7 +112,7 @@ const moderationTypeDefs = gql`
     targetContentVersion: Int
 
     strikedBy: Mods!
-    adminId: ID
+    adminId: String
     strikeReasons: String
 
     expiresAt: String
@@ -146,6 +146,7 @@ const moderationTypeDefs = gql`
       limitCount: Int
       showReviewed: Boolean
     ): ReportConnection!
+    
     strikes(
       filter: StrikeFilter
       cursor: StrikeCursorInput

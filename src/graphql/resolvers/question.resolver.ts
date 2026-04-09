@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+
 import { Redis } from "ioredis";
+
 import { GraphQLScalarType, Kind } from "graphql";
 
 import Question from "../../models/question.model.js";
@@ -7,11 +9,13 @@ import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
+import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
+import { cache } from "sharp";
 
 type RecommendedQuestionsCursor = {
   id: string;
@@ -49,6 +53,42 @@ type SearchQuestionsCursor = {
 
 type VersionHistoryCursor = {
   id: string;
+};
+
+type UserQuestionsCursor = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  upvoteCount?: number;
+};
+
+type UserAnswersCursor = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  bestPriority?: number;
+  acceptedPriority?: number;
+  upvoteCount?: number;
+};
+
+type RecentQuestionsNeedingHelpCursor = {
+  id: string;
+};
+
+type UnansweredQuestionsByUserCursor = {
+  id: string;
+};
+
+type AiAnswersCursor = {
+  id: string;
+  createdAt: string;
+  publishedPriority: number;
+};
+
+type FeedbacksOnAiAnswerCursor = {
+  id: string;
+  createdAt: number;
+  publishedPriority: number;
 };
 
 interface SearchQuestionStage {
@@ -235,8 +275,10 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             answerCount: 1,
+            acceptedAnswerCount: 1,
             currentVersion: 1,
             createdAt: 1,
+            updatedAt: 1,
           },
         },
       );
@@ -276,7 +318,7 @@ const questionResolver = {
         `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 5,
+        60 * 10,
       );
 
       return result;
@@ -296,6 +338,7 @@ const questionResolver = {
       const cachedQuestion = await getRedisCacheClient().get(`question:${id}`);
       if (cachedQuestion) {
         const parsedCachedQuestion = JSON.parse(cachedQuestion);
+
         const {
           isActive: _isActive,
           isDeleted: _isDeleted,
@@ -304,6 +347,7 @@ const questionResolver = {
           moderationStatus: _moderationStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
+
         return publicQuestion;
       }
 
@@ -312,11 +356,7 @@ const questionResolver = {
           _id: new mongoose.Types.ObjectId(id),
           isActive: true,
           isDeleted: false,
-        })
-          .select(
-            "_id userId title body tags upvoteCount downvoteCount answerCount currentVersion topicStatus moderationStatus isActive isDeleted embedding createdAt",
-          )
-          .lean(),
+        }).lean(),
         AiAnswer.findOne({
           questionId: new mongoose.Types.ObjectId(id),
           isPublished: true,
@@ -341,13 +381,19 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
+        canGenerateAiSuggestion:
+          question.topicStatus === "VALID" &&
+          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)),
         canGenerateAiAnswer:
           question.topicStatus === "VALID" &&
-          ["APPROVED", "REJECTED"].includes(String(question.moderationStatus)),
+          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
+          (question.embedding as Array<number>).length > 0,
         createdAt: question.createdAt,
+        updatedAt: question.updatedAt,
         user: user && !(user as any)?.error ? user : null,
         aiAnswer: aiAnswer
           ? {
+              id: aiAnswer._id,
               questionVersion: aiAnswer.questionVersion,
               body: aiAnswer.body,
               confidence: {
@@ -358,6 +404,8 @@ const questionResolver = {
                   : [],
               },
               meta: aiAnswer.meta ?? {},
+              createdAt: aiAnswer.createdAt,
+              updatedAt: aiAnswer.updatedAt,
             }
           : null,
       };
@@ -373,6 +421,211 @@ const questionResolver = {
 
       await getRedisCacheClient().set(
         `question:${id}`,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    answer: async (
+      _: any,
+      { id }: { id: string },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid answerId", 400);
+
+      const cachedAnswer = await getRedisCacheClient().get(`answer:${id}`);
+      if (cachedAnswer) {
+        const parsedCacheAnswer = JSON.parse(cachedAnswer);
+
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          moderationStatus: _moderationStatus,
+          ...publicAnswer
+        } = parsedCacheAnswer;
+
+        return publicAnswer;
+      }
+
+      const answer = await Answer.findOne({
+        _id: new mongoose.Types.ObjectId(id),
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+
+      if (!answer) return null;
+
+      const user = answer.userId
+        ? await loaders.userLoader.load(answer.userId.toString())
+        : null;
+
+      const result = {
+        id: answer._id,
+        userId: answer.userId,
+        body: answer.body,
+        upvoteCount: answer.upvoteCount,
+        downvoteCount: answer.downvoteCount,
+        replyCount: answer.replyCount,
+        isAccepted: answer.isAccepted,
+        isBestAnswerByAsker: answer.isBestAnswerByAsker,
+        questionVersion: answer.questionVersion,
+        createdAt: answer.createdAt,
+        updatedAt: answer.updatedAt,
+        user: user && !(user as any)?.error ? user : null,
+      };
+
+      const cachePayload = {
+        ...result,
+        isActive: answer.isActive,
+        isDeleted: answer.isDeleted,
+        moderationStatus: answer.moderationStatus,
+      };
+
+      await getRedisCacheClient().set(
+        `answer:${id}`,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    reply: async (
+      _: any,
+      { id }: { id: string },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid replyId", 400);
+
+      const cacheKey = `reply:${id}`;
+
+      const cachedReply = await getRedisCacheClient().get(cacheKey);
+
+      if (cachedReply) {
+        const parsedCacheReply = JSON.parse(cachedReply);
+
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          moderationStatus: _moderationStatus,
+          ...publicReply
+        } = parsedCacheReply;
+
+        return publicReply;
+      }
+
+      const reply = await Reply.findOne({
+        _id: id,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+
+      if (!reply) return null;
+
+      const user = reply.userId
+        ? await loaders.userLoader.load(reply.userId)
+        : null;
+
+      const result = {
+        id: reply._id,
+        userId: reply.userId,
+        body: reply.body,
+
+        upvoteCount: reply.upvoteCount,
+        downvoteCount: reply.downvoteCount,
+
+        createdAt: reply.createdAt,
+        updatedAt: reply.updatedAt,
+
+        user: user && !(user as any)?.error ? user : null,
+      };
+
+      const cachePayload = {
+        ...result,
+        isActive: reply.isActive,
+        isDeleted: reply.isDeleted,
+        moderationStatus: reply.moderationStatus,
+      };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    aiAnswerFeedback: async (
+      _: any,
+      { id }: { id: string },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid aiAnswerFeedbackId", 400);
+
+      const cacheKey = `aiAnswerFeedback:${id}`;
+
+      const cachedFeedback = await getRedisCacheClient().get(cacheKey);
+
+      if (cachedFeedback) {
+        const parsedCacheFeedback = JSON.parse(cachedFeedback);
+
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          moderationStatus: _moderationStatus,
+          ...publicFeedback
+        } = parsedCacheFeedback;
+
+        return publicFeedback;
+      }
+
+      const feedback = await AiAnswerFeedback.findOne({
+        _id: id,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+
+      if (!feedback) return null;
+
+      const result = {
+        id: feedback._id.toString(),
+        aiAnswerId: feedback.aiAnswerId.toString(),
+        userId: feedback.userId,
+
+        type: feedback.type,
+
+        body: feedback.body,
+
+        questionVersionAtFeedback: feedback.questionVersionAtFeedback,
+
+        createdAt: feedback.createdAt,
+        updatedAt: feedback.updatedAt,
+      };
+
+      const cachePayload = {
+        ...result,
+        isActive: feedback.isActive,
+        isDeleted: feedback.isDeleted,
+        moderationStatus: feedback.moderationStatus,
+      };
+
+      await getRedisCacheClient().set(
+        cacheKey,
         JSON.stringify(cachePayload),
         "EX",
         60 * 15,
@@ -551,9 +804,7 @@ const questionResolver = {
             downvoteCount: 1,
             questionVersion: 1,
             createdAt: 1,
-            ownerPriority: { $ifNull: ["$ownerPriority", null] },
-            bestPriority: { $ifNull: ["$bestPriority", null] },
-            acceptedPriority: { $ifNull: ["$acceptedPriority", null] },
+            updatedAt: 1,
           },
         },
       );
@@ -577,6 +828,7 @@ const questionResolver = {
         downvoteCount: a.downvoteCount,
         questionVersion: a.questionVersion,
         createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
         user: userMap.get(a.userId) || null,
       }));
 
@@ -602,7 +854,7 @@ const questionResolver = {
         `answers:${questionId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 5,
+        60 * 10,
       );
 
       return result;
@@ -698,6 +950,7 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             createdAt: 1,
+            updatedAt: 1,
           },
         },
       );
@@ -732,7 +985,7 @@ const questionResolver = {
         `replies:${answerId}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        5 * 60,
+        60 * 10,
       );
 
       return result;
@@ -780,7 +1033,7 @@ const questionResolver = {
             moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
           },
         },
-        
+
         {
           $group: {
             _id: "$title",
@@ -949,7 +1202,7 @@ const questionResolver = {
                   searchScore: cursor.searchScore,
                   upvoteCount: { $lt: cursor.upvoteCount },
                 },
-                
+
                 {
                   searchScore: cursor.searchScore,
                   upvoteCount: cursor.upvoteCount,
@@ -984,7 +1237,7 @@ const questionResolver = {
             answerCount: 1,
             currentVersion: 1,
             createdAt: 1,
-            searchScore: { $ifNull: ["$searchScore", null] },
+            updatedAt: 1,
           },
         },
       );
@@ -1041,7 +1294,11 @@ const questionResolver = {
         questionId,
         cursor,
         limitCount = 10,
-      }: { questionId: string; cursor?: VersionHistoryCursor; limitCount: number },
+      }: {
+        questionId: string;
+        cursor?: VersionHistoryCursor;
+        limitCount: number;
+      },
       {
         getRedisCacheClient,
         loaders,
@@ -1119,7 +1376,10 @@ const questionResolver = {
         questionVersions: versionHistoryWithUser,
         nextCursor:
           versionHistoryWithUser.length === normalizedLimitCount
-            ? { id: versionHistoryWithUser[versionHistoryWithUser.length - 1].id }
+            ? {
+                id: versionHistoryWithUser[versionHistoryWithUser.length - 1]
+                  .id,
+              }
             : null,
         hasMore: versionHistoryWithUser.length === normalizedLimitCount,
       };
@@ -1128,7 +1388,7 @@ const questionResolver = {
         `v:question:${questionId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 60,
+        60 * 15,
       );
 
       return result;
@@ -1154,7 +1414,11 @@ const questionResolver = {
       const foundVersion = await QuestionVersion.findOne({
         questionId: new mongoose.Types.ObjectId(questionId),
         version,
-      }).lean();
+      })
+        .select(
+          "_id questionId userId title body tags supersededByRollback version basedOnVersion isActive",
+        )
+        .lean();
 
       if (!foundVersion) throw new HttpError("Version not found", 404);
 
@@ -1176,6 +1440,938 @@ const questionResolver = {
         JSON.stringify(result),
         "EX",
         60 * 60,
+      );
+
+      return result;
+    },
+
+    userQuestions: async (
+      _: any,
+      {
+        userId,
+        sortOption = "LAST_UPDATED",
+        cursor,
+        limitCount = 10,
+      }: {
+        userId: string;
+        sortOption: "LAST_UPDATED" | "OLDEST" | "NEWEST" | "MOST_UPVOTED";
+        cursor?: UserQuestionsCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        getRedisCacheClient,
+      }: { user: User; getRedisCacheClient: () => Redis },
+    ) => {
+      if (
+        !["LAST_UPDATED", "OLDEST", "NEWEST", "MOST_UPVOTED"].includes(
+          sortOption,
+        )
+      )
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["LAST_UPDATED", "OLDEST", "NEWEST", "MOST_UPVOTED"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const sortToCachePart = {
+        LAST_UPDATED: cursor?.updatedAt,
+        OLDEST: cursor?.createdAt,
+        NEWEST: cursor?.createdAt,
+        MOST_UPVOTED: cursor?.upvoteCount,
+      };
+
+      const cursorCacheKey = cursor
+        ? [cursor.id, sortToCachePart[sortOption]].join(":")
+        : "initial";
+
+      const requesterUserId = String(user.id);
+      const viewerScope = requesterUserId === userId ? "owner" : "public";
+
+      const cacheKey = `questions:u:${userId}:${viewerScope}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cachedQuestions = await getRedisCacheClient().get(cacheKey);
+      if (cachedQuestions) return JSON.parse(cachedQuestions);
+
+      const matchStage: Record<string, any> = {
+        userId,
+        isDeleted: false,
+        isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      const cursorObjectId = new mongoose.Types.ObjectId(cursor?.id);
+
+      if (sortOption === "LAST_UPDATED") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { updatedAt: { $lt: cursor.updatedAt } },
+                {
+                  updatedAt: cursor.updatedAt,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+
+          pipeline.push({ $sort: { updatedAt: -1, _id: -1 } });
+        }
+      } else if (sortOption === "NEWEST") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { createdAt: { $lt: cursor.createdAt } },
+                {
+                  createdAt: cursor.createdAt,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { createdAt: -1, _id: -1 } });
+      } else if (sortOption === "OLDEST") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { createdAt: { $gt: cursor.createdAt } },
+                {
+                  createdAt: cursor.createdAt,
+                  _id: { $gt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { createdAt: 1, _id: 1 } });
+      } else if (sortOption === "MOST_UPVOTED") {
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                { upvoteCount: { $lt: cursor.upvoteCount } },
+                {
+                  upvoteCount: cursor.upvoteCount,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { upvoteCount: -1, _id: -1 } });
+      }
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const questions = await Question.aggregate(pipeline);
+
+      const hasMore = questions.length > normalizedLimitCount;
+
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
+
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+      const nextCursor = hasMore
+        ? sortOption === "LAST_UPDATED"
+          ? {
+              id: String(lastQuestion.id),
+              updatedAt: lastQuestion.updatedAt,
+            }
+          : sortOption === "NEWEST" || sortOption === "OLDEST"
+            ? {
+                id: String(lastQuestion.id),
+                createdAt: lastQuestion.createdAt,
+              }
+            : {
+                id: String(lastQuestion.id),
+                upvoteCount: lastQuestion.upvoteCount,
+              }
+        : null;
+
+      const result = {
+        questions: slicedQuestions,
+        nextCursor,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    userAnswers: async (
+      _: any,
+      {
+        userId,
+        sortOption = "LAST_ACTIVE",
+        cursor,
+        limitCount = 10,
+      }: {
+        userId: string;
+        sortOption: "LAST_ACTIVE" | "NEWEST" | "OLDEST" | "RELEVANT";
+        cursor?: UserAnswersCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        getRedisCacheClient,
+      }: { user: User; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!["LAST_ACTIVE", "NEWEST", "OLDEST", "RELEVANT"].includes(sortOption))
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["LAST_ACTIVE", "NEWEST", "OLDEST", "RELEVANT"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.createdAt ?? "",
+            cursor.updatedAt ?? "",
+            cursor.bestPriority ?? "",
+            cursor.acceptedPriority ?? "",
+            cursor.upvoteCount ?? "",
+          ].join(":")
+        : "initial";
+
+      const requesterUserId = String(user.id);
+      const viewerScope = requesterUserId === userId ? "owner" : "public";
+
+      const cacheKey = `answers:u:${userId}:${viewerScope}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cachedAnswers = await getRedisCacheClient().get(cacheKey);
+      if (cachedAnswers) return JSON.parse(cachedAnswers);
+
+      const matchStage: any = {
+        userId,
+        isDeleted: false,
+        isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      if (sortOption === "RELEVANT") {
+        pipeline.push({
+          $addFields: {
+            bestPriority: { $cond: ["$isBestAnswerByAsker", 0, 1] },
+            acceptedPriority: { $cond: ["$isAccepted", 0, 1] },
+          },
+        });
+
+        if (cursor) {
+          if (
+            !mongoose.isValidObjectId(cursor.id) ||
+            !Number.isFinite(cursor.bestPriority) ||
+            !Number.isFinite(cursor.acceptedPriority) ||
+            !Number.isFinite(cursor.upvoteCount)
+          )
+            throw new HttpError("Invalid cursor", 400);
+
+          const parsedCursor = {
+            id: cursor.id,
+            bestPriority: Number(cursor.bestPriority),
+            acceptedPriority: Number(cursor.acceptedPriority),
+            upvoteCount: Number(cursor.upvoteCount),
+          };
+          const cursorObjectId = new mongoose.Types.ObjectId(parsedCursor.id);
+
+          pipeline.push({
+            $match: {
+              $or: [
+                {
+                  bestPriority: { $gt: parsedCursor.bestPriority },
+                },
+                {
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: { $gt: parsedCursor.acceptedPriority },
+                },
+                {
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: parsedCursor.acceptedPriority,
+                  upvoteCount: { $lt: parsedCursor.upvoteCount },
+                },
+                {
+                  bestPriority: parsedCursor.bestPriority,
+                  acceptedPriority: parsedCursor.acceptedPriority,
+                  upvoteCount: parsedCursor.upvoteCount,
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({
+          $sort: {
+            bestPriority: 1,
+            acceptedPriority: 1,
+            upvoteCount: -1,
+            _id: -1,
+          },
+        });
+      } else {
+        let sortField: keyof Pick<UserAnswersCursor, "updatedAt" | "createdAt">;
+        let sortOrder: 1 | -1;
+
+        if (sortOption === "LAST_ACTIVE") {
+          sortField = "updatedAt";
+          sortOrder = -1;
+        } else if (sortOption === "NEWEST") {
+          sortField = "createdAt";
+          sortOrder = -1;
+        } else {
+          sortField = "createdAt";
+          sortOrder = 1;
+        }
+
+        if (cursor) {
+          if (!mongoose.isValidObjectId(cursor.id))
+            throw new HttpError("Invalid cursor", 400);
+
+          const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+          pipeline.push({
+            $match: {
+              $or: [
+                {
+                  [sortField]:
+                    sortOrder === -1
+                      ? { $lt: cursor[sortField] }
+                      : { $gt: cursor[sortField] },
+                },
+                {
+                  [sortField]: cursor[sortField],
+                  _id: { $lt: cursorObjectId },
+                },
+              ],
+            },
+          });
+        }
+
+        pipeline.push({ $sort: { [sortField]: sortOrder, _id: -1 } });
+      }
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          userId: 1,
+          body: 1,
+          replyCount: 1,
+          isAccepted: 1,
+          isBestAnswerByAsker: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          questionVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const answers = await Answer.aggregate(pipeline);
+
+      const hasMore = answers.length > normalizedLimitCount;
+      const slicedAnswers = hasMore
+        ? answers.slice(0, normalizedLimitCount)
+        : answers;
+      const lastAnswer = slicedAnswers[slicedAnswers.length - 1];
+
+      const nextCursor = hasMore
+        ? sortOption === "RELEVANT"
+          ? {
+              id: String(lastAnswer.id),
+              bestPriority: lastAnswer.bestPriority,
+              acceptedPriority: lastAnswer.acceptedPriority,
+              upvoteCount: lastAnswer.upvoteCount,
+            }
+          : sortOption === "LAST_ACTIVE"
+            ? {
+                id: String(lastAnswer.id),
+                updatedAt: lastAnswer.updatedAt,
+              }
+            : { id: String(lastAnswer.id), createdAt: lastAnswer.createdAt }
+        : null;
+
+      const result = { answers: slicedAnswers, nextCursor, hasMore };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    recentQuestionsNeedingHelp: async (
+      _: any,
+      {
+        userId,
+        cursor,
+        limitCount = 5,
+      }: {
+        userId: string;
+        cursor?: RecentQuestionsNeedingHelpCursor;
+        limitCount?: number;
+      },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+    ) => {
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && limitCount > 0 ? limitCount : 5;
+
+      const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+      const cached = await getRedisCacheClient().get(
+        `questions:recent:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+      if (cached) return JSON.parse(cached);
+
+      const matchStage: any = {
+        userId,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        acceptedAnswerCount: { $eq: 0 },
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        pipeline.push({
+          $match: { _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } },
+        });
+      }
+
+      pipeline.push(
+        { $sort: { _id: -1 } },
+        { $limit: normalizedLimitCount + 1 },
+      );
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const questions = await Question.aggregate(pipeline);
+
+      const hasMore = questions.length > normalizedLimitCount;
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
+
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+      const result = {
+        questions: slicedQuestions,
+        nextCursor: hasMore ? { id: lastQuestion._id } : null,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        `questions:recent:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    unansweredQuestionsByUser: async (
+      _: any,
+      {
+        userId,
+        cursor,
+        limitCount = 5,
+      }: {
+        userId: string;
+        cursor?: UnansweredQuestionsByUserCursor;
+        limitCount?: number;
+      },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
+    ) => {
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 5;
+
+      const cursorCacheKey = cursor ? `${cursor.id}` : "initial";
+      const cachedQuestions = await getRedisCacheClient().get(
+        `questions:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+      if (cachedQuestions) return JSON.parse(cachedQuestions);
+
+      const matchStage = {
+        userId,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        answerCount: 0,
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+        pipeline.push({ $match: { _id: { $lt: cursorObjectId } } });
+      }
+
+      pipeline.push(
+        { $sort: { _id: -1 } },
+        { $limit: normalizedLimitCount + 1 },
+      );
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          tags: 1,
+          userId: 1,
+          upvoteCount: 1,
+          downvoteCount: 1,
+          answerCount: 1,
+          acceptedAnswerCount: 1,
+          currentVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const questions = await Question.aggregate(pipeline);
+
+      const hasMore = questions.length > normalizedLimitCount;
+      const slicedQuestions = hasMore
+        ? questions.slice(0, normalizedLimitCount)
+        : questions;
+      const lastQuestion = slicedQuestions[slicedQuestions.length - 1];
+
+      const result = {
+        questions: slicedQuestions,
+        nextCursor: hasMore ? { id: lastQuestion._id } : null,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        `questions:unanswered:u:${userId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    aiAnswers: async (
+      _: any,
+      {
+        questionId,
+        sortOption = "NEWEST",
+        cursor,
+        limitCount = 10,
+      }: {
+        questionId: string;
+        sortOption: "NEWEST" | "OLDEST";
+        cursor?: AiAnswersCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        getRedisCacheClient,
+      }: { user: User; getRedisCacheClient: () => Redis },
+    ) => {
+      const cachedQuestion = await getRedisCacheClient().get(
+        `question:${questionId}`,
+      );
+      const foundQuestion = cachedQuestion
+        ? JSON.parse(cachedQuestion)
+        : await Question.findById(questionId).select("userId");
+
+      const requesterUserId = String(user.id);
+
+      if (foundQuestion.userId !== requesterUserId)
+        throw new HttpError("Forbidden to access this route", 403);
+
+      if (!["NEWEST", "OLDEST"].includes(sortOption))
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["NEWEST", "OLDEST"].join(", ")}`,
+          400,
+        );
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? limitCount
+          : 10;
+
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.createdAt ?? "",
+            cursor.publishedPriority ?? "",
+          ].join(":")
+        : "initial";
+
+      const cacheKey = `aiAnswers:${questionId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cached = await getRedisCacheClient().get(cacheKey);
+      if (cached) return JSON.parse(cached);
+
+      const pipeline: any[] = [
+        { $match: { questionId } },
+
+        {
+          $addFields: {
+            publishedPriority: {
+              $cond: [{ $eq: ["$isPublished", true] }, 0, 1],
+            },
+          },
+        },
+      ];
+
+      if (cursor) {
+        if (!mongoose.isValidObjectId(cursor.id))
+          throw new HttpError("Invalid cursor", 400);
+
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+
+        pipeline.push({
+          $match: {
+            $or: [
+              { publishedPriority: { $gt: cursor.publishedPriority ?? 0 } },
+
+              {
+                publishedPriority: cursor.publishedPriority ?? 0,
+                createdAt:
+                  sortOption === "NEWEST"
+                    ? { $lt: cursor.createdAt }
+                    : { $gt: cursor.createdAt },
+              },
+
+              {
+                publishedPriority: cursor.publishedPriority ?? 0,
+                createdAt: cursor.createdAt,
+                _id: { $lt: cursorObjectId },
+              },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({
+        $sort: {
+          publishedPriority: 1,
+          createdAt: sortOption === "NEWEST" ? -1 : 1,
+          _id: -1,
+        },
+      });
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          questionVersion: 1,
+          body: 1,
+          confidence: 1,
+          meta: 1,
+          isPublished: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const aiAnswers = await AiAnswer.aggregate(pipeline);
+
+      const hasMore = aiAnswers.length > normalizedLimitCount;
+      const slicedAnswers = hasMore
+        ? aiAnswers.slice(0, normalizedLimitCount)
+        : aiAnswers;
+      const lastAnswer = slicedAnswers[slicedAnswers.length - 1];
+
+      const nextCursor = hasMore
+        ? {
+            id: lastAnswer.id,
+            createdAt: lastAnswer.createdAt,
+            publishedPriority: lastAnswer.isPublished ? 0 : 1,
+          }
+        : null;
+
+      const result = {
+        aiAnswers: slicedAnswers,
+        nextCursor,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    feedbacksOnAiAnswer: async (
+      _: any,
+      {
+        aiAnswerId,
+        sortOption = "NEWEST",
+        cursor,
+        limitCount = 10,
+      }: {
+        aiAnswerId: string;
+        sortOption: "NEWEST" | "OLDEST";
+        cursor?: FeedbacksOnAiAnswerCursor;
+        limitCount?: number;
+      },
+      {
+        user,
+        loaders,
+        getRedisCacheClient,
+      }: { user: User; loaders: any; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(aiAnswerId))
+        throw new HttpError("Invalid aiAnswerId", 400);
+
+      if (!["NEWEST", "OLDEST"].includes(sortOption))
+        throw new HttpError(
+          `Invalid sort option. Allowed values: ${["NEWEST", "OLDEST"].join(", ")}`,
+          400,
+        );
+
+      const foundAiAnswer = await AiAnswer.findById(aiAnswerId)
+        .select("questionId isPublished")
+        .lean();
+
+      if (!foundAiAnswer) throw new HttpError("Ai answer not found", 404);
+
+      if (!foundAiAnswer.isPublished) {
+        const cachedQuestion = await getRedisCacheClient().get(
+          `question:${foundAiAnswer.questionId}`,
+        );
+        const foundQuestion = cachedQuestion
+          ? JSON.parse(cachedQuestion)
+          : await Question.findById(foundAiAnswer.questionId).select("userId");
+
+        if (foundQuestion.userId !== user.id)
+          throw new HttpError("Forbidden to access this route", 403);
+      }
+
+      const normalizedLimitCount =
+        Number.isInteger(limitCount) && Number(limitCount) > 0
+          ? Number(limitCount)
+          : 10;
+
+      const requesterUserId = String(user.id);
+
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.publishedPriority ?? "",
+            cursor.createdAt ?? "",
+          ].join(":")
+        : "initial";
+
+      const cached = await getRedisCacheClient().get(
+        `aiAnswerFeedbacks:${aiAnswerId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
+      );
+
+      if (cached) return JSON.parse(cached);
+
+      const matchStage: Record<string, any> = {
+        aiAnswerId: new mongoose.Types.ObjectId(aiAnswerId),
+        isDeleted: false,
+        isActive: true,
+        $or: [
+          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          { userId: requesterUserId },
+        ],
+      };
+
+      const pipeline: any[] = [{ $match: matchStage }];
+
+      pipeline.push({
+        $addFields: {
+          publishedPriority: {
+            $cond: [{ $eq: ["$userId", requesterUserId] }, 0, 1],
+          },
+        },
+      });
+
+      if (cursor) {
+        if (
+          !mongoose.isValidObjectId(cursor.id) ||
+          !Number.isFinite(cursor.publishedPriority) ||
+          !Number.isFinite(cursor.createdAt)
+        )
+          throw new HttpError("Invalid cursor", 400);
+
+        const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
+
+        pipeline.push({
+          $match: {
+            $or: [
+              { publishedPriority: { $gt: cursor.publishedPriority } },
+
+              {
+                publishedPriority: cursor.publishedPriority,
+                createdAt:
+                  sortOption === "NEWEST"
+                    ? { $lt: new Date(cursor.createdAt) }
+                    : { $gt: new Date(cursor.createdAt) },
+              },
+
+              {
+                publishedPriority: cursor.publishedPriority,
+                createdAt: new Date(cursor.createdAt),
+                _id: { $lt: cursorObjectId },
+              },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({
+        $sort: {
+          publishedPriority: 1,
+          createdAt: sortOption === "NEWEST" ? -1 : 1,
+          _id: -1,
+        },
+      });
+
+      pipeline.push({ $limit: normalizedLimitCount + 1 });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          aiAnswerId: 1,
+          userId: 1,
+          type: 1,
+          body: 1,
+          questionVersionAtFeedback: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+
+      const feedbacks = await AiAnswerFeedback.aggregate(pipeline);
+
+      const hasMore = feedbacks.length > normalizedLimitCount;
+
+      const slicedFeedbacks = hasMore
+        ? feedbacks.slice(0, normalizedLimitCount)
+        : feedbacks;
+
+      const uniqueUserIds = [...new Set(slicedFeedbacks.map((f) => f.userId))];
+
+      const users = await loaders.userLoader.loadMany(uniqueUserIds);
+
+      const userMap = new Map(users.map((u: any) => [u?.id, u]));
+
+      const feedbacksWithUsers = slicedFeedbacks.map((f) => ({
+        ...f,
+        user: userMap.get(f.userId) || null,
+      }));
+
+      const last = slicedFeedbacks[slicedFeedbacks.length - 1];
+
+      const result = {
+        feedbacks: feedbacksWithUsers,
+        nextCursor: hasMore
+          ? {
+              id: last.id,
+              publishedPriority: last.userId === requesterUserId ? 0 : 1,
+              createdAt: last.createdAt,
+            }
+          : null,
+        hasMore,
+      };
+
+      await getRedisCacheClient().set(
+        `aiAnswerFeedbacks:${aiAnswerId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
       );
 
       return result;
