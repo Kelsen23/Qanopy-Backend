@@ -490,6 +490,77 @@ const questionResolver = {
       return result;
     },
 
+    reply: async (
+      _: any,
+      { id }: { id: string },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid replyId", 400);
+
+      const cacheKey = `reply:${id}`;
+
+      const cachedReply = await getRedisCacheClient().get(cacheKey);
+
+      if (cachedReply) {
+        const parsedCacheReply = JSON.parse(cachedReply);
+
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          moderationStatus: _moderationStatus,
+          ...publicReply
+        } = parsedCacheReply;
+
+        return publicReply;
+      }
+
+      const reply = await Reply.findOne({
+        _id: id,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+
+      if (!reply) return null;
+
+      const user = reply.userId
+        ? await loaders.userLoader.load(reply.userId)
+        : null;
+
+      const result = {
+        id: reply._id,
+        userId: reply.userId,
+        body: reply.body,
+
+        upvoteCount: reply.upvoteCount,
+        downvoteCount: reply.downvoteCount,
+
+        createdAt: reply.createdAt,
+        updatedAt: reply.updatedAt,
+
+        user: user && !(user as any)?.error ? user : null,
+      };
+
+      const cachePayload = {
+        ...result,
+        isActive: reply.isActive,
+        isDeleted: reply.isDeleted,
+        moderationStatus: reply.moderationStatus,
+      };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
     loadMoreAnswers: async (
       _: any,
       {
