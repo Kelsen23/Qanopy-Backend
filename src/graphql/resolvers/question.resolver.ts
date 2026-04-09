@@ -440,7 +440,6 @@ const questionResolver = {
         const {
           isActive: _isActive,
           isDeleted: _isDeleted,
-          topicStatus: _topicStatus,
           moderationStatus: _moderationStatus,
           ...publicAnswer
         } = parsedCacheAnswer;
@@ -478,8 +477,6 @@ const questionResolver = {
         ...result,
         isActive: answer.isActive,
         isDeleted: answer.isDeleted,
-        embedding: Array.isArray(answer.embedding) ? answer.embedding : [],
-        topicStatus: answer.topicStatus,
         moderationStatus: answer.moderationStatus,
       };
 
