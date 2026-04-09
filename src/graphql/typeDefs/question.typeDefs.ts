@@ -371,6 +371,8 @@ const questionTypeDefs = gql`
 
     answer(id: String!): Answer
 
+    reply(id: String!): Reply
+
     loadMoreAnswers(
       questionId: String!
       sortOption: AnswerSortOption!
