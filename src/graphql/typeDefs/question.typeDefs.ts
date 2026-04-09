@@ -24,7 +24,7 @@ const questionTypeDefs = gql`
     user: User
 
     searchScore: Float
-    
+
     canGenerateAiSuggestion: Boolean
     canGenerateAiAnswer: Boolean
 
@@ -369,9 +369,7 @@ const questionTypeDefs = gql`
 
     question(id: String!): Question
 
-    answer(
-      id: String!
-    ): Answer!
+    answer(id: String!): Answer
 
     loadMoreAnswers(
       questionId: String!
