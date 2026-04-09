@@ -94,11 +94,14 @@ const questionTypeDefs = gql`
   }
 
   type QuestionAiAnswer {
+    id: String!
     questionVersion: Int!
     body: String!
     confidence: QuestionAiAnswerConfidence!
     meta: JSON!
     isPublished: Boolean
+    createdAt: String!
+    updatedAt: String
   }
 
   type AiAnswerFeedback {
