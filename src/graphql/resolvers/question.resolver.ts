@@ -15,6 +15,7 @@ import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
+import { cache } from "sharp";
 
 type RecommendedQuestionsCursor = {
   id: string;
@@ -1488,12 +1489,12 @@ const questionResolver = {
         ? [cursor.id, sortToCachePart[sortOption]].join(":")
         : "initial";
 
-      const cachedQuestions = await getRedisCacheClient().get(
-        `questions:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
-      );
-      if (cachedQuestions) return JSON.parse(cachedQuestions);
-
       const requesterUserId = String(user.id);
+      const viewerScope = requesterUserId === userId ? "owner" : "public";
+
+      const cacheKey = `questions:u:${userId}:${viewerScope}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cachedQuestions = await getRedisCacheClient().get(cacheKey);
+      if (cachedQuestions) return JSON.parse(cachedQuestions);
 
       const matchStage: Record<string, any> = {
         userId,
@@ -1640,7 +1641,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `questions:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        cacheKey,
         JSON.stringify(result),
         "EX",
         60 * 15,
@@ -1689,12 +1690,12 @@ const questionResolver = {
           ].join(":")
         : "initial";
 
-      const cachedAnswers = await getRedisCacheClient().get(
-        `answers:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
-      );
-      if (cachedAnswers) return JSON.parse(cachedAnswers);
-
       const requesterUserId = String(user.id);
+      const viewerScope = requesterUserId === userId ? "owner" : "public";
+
+      const cacheKey = `answers:u:${userId}:${viewerScope}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cachedAnswers = await getRedisCacheClient().get(cacheKey);
+      if (cachedAnswers) return JSON.parse(cachedAnswers);
 
       const matchStage: any = {
         userId,
@@ -1854,7 +1855,7 @@ const questionResolver = {
       const result = { answers: slicedAnswers, nextCursor, hasMore };
 
       await getRedisCacheClient().set(
-        `answers:u:${userId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`,
+        cacheKey,
         JSON.stringify(result),
         "EX",
         60 * 15,
