@@ -346,7 +346,7 @@ const questionResolver = {
           moderationStatus: _moderationStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
-        
+
         return publicQuestion;
       }
 
@@ -392,6 +392,7 @@ const questionResolver = {
         user: user && !(user as any)?.error ? user : null,
         aiAnswer: aiAnswer
           ? {
+              id: aiAnswer._id,
               questionVersion: aiAnswer.questionVersion,
               body: aiAnswer.body,
               confidence: {
@@ -402,6 +403,8 @@ const questionResolver = {
                   : [],
               },
               meta: aiAnswer.meta ?? {},
+              createdAt: aiAnswer.createdAt,
+              updatedAt: aiAnswer.updatedAt,
             }
           : null,
       };
@@ -568,67 +571,65 @@ const questionResolver = {
     aiAnswerFeedback: async (
       _: any,
       { id }: { id: string },
-      {
-        getRedisCacheClient,
-      }: { getRedisCacheClient: () => Redis },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
     ) => {
       if (!mongoose.isValidObjectId(id))
         throw new HttpError("Invalid aiAnswerFeedbackId", 400);
-    
+
       const cacheKey = `aiAnswerFeedback:${id}`;
-    
+
       const cachedFeedback = await getRedisCacheClient().get(cacheKey);
-    
+
       if (cachedFeedback) {
         const parsedCacheFeedback = JSON.parse(cachedFeedback);
-    
+
         const {
           isActive: _isActive,
           isDeleted: _isDeleted,
           moderationStatus: _moderationStatus,
           ...publicFeedback
         } = parsedCacheFeedback;
-    
+
         return publicFeedback;
       }
-    
+
       const feedback = await AiAnswerFeedback.findOne({
         _id: id,
         isActive: true,
         isDeleted: false,
       }).lean();
-    
+
       if (!feedback) return null;
-    
+
       const result = {
         id: feedback._id.toString(),
         aiAnswerId: feedback.aiAnswerId.toString(),
         userId: feedback.userId,
-    
+
         type: feedback.type,
-    
+
         body: feedback.body,
-    
+
         questionVersionAtFeedback: feedback.questionVersionAtFeedback,
-    
+
         createdAt: feedback.createdAt,
         updatedAt: feedback.updatedAt,
       };
-    
+
       const cachePayload = {
         ...result,
         isActive: feedback.isActive,
         isDeleted: feedback.isDeleted,
         moderationStatus: feedback.moderationStatus,
       };
-    
+
       await getRedisCacheClient().set(
         cacheKey,
         JSON.stringify(cachePayload),
         "EX",
         60 * 15,
       );
-    
+
       return result;
     },
 
@@ -852,7 +853,7 @@ const questionResolver = {
         `answers:${questionId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 5,
+        60 * 10,
       );
 
       return result;
@@ -2079,6 +2080,18 @@ const questionResolver = {
           ? limitCount
           : 10;
 
+      const cursorCacheKey = cursor
+        ? [
+            cursor.id,
+            cursor.createdAt ?? "",
+            cursor.publishedPriority ?? "",
+          ].join(":")
+        : "initial";
+
+      const cacheKey = `aiAnswers:${questionId}:${sortOption}:${cursorCacheKey}:${normalizedLimitCount}`;
+      const cached = await getRedisCacheClient().get(cacheKey);
+      if (cached) return JSON.parse(cached);
+
       const pipeline: any[] = [
         { $match: { questionId } },
 
@@ -2134,10 +2147,13 @@ const questionResolver = {
         $project: {
           id: "$_id",
           _id: 0,
+          questionVersion: 1,
           body: 1,
+          confidence: 1,
+          meta: 1,
+          isPublished: 1,
           createdAt: 1,
           updatedAt: 1,
-          isPublished: 1,
         },
       });
 
@@ -2157,11 +2173,20 @@ const questionResolver = {
           }
         : null;
 
-      return {
+      const result = {
         aiAnswers: slicedAnswers,
         nextCursor,
         hasMore,
       };
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(result),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
     },
 
     feedbacksOnAiAnswer: async (
@@ -2345,7 +2370,7 @@ const questionResolver = {
         `aiAnswerFeedbacks:${aiAnswerId}:${sortOption}:${requesterUserId}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
-        60 * 5,
+        60 * 15,
       );
 
       return result;
