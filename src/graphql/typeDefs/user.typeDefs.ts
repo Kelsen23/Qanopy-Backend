@@ -8,7 +8,7 @@ const userTypeDefs = gql`
   }
 
   type Achievement {
-    id: ID!
+    id: String!
     userId: String!
     name: String!
     description: String!
@@ -16,7 +16,7 @@ const userTypeDefs = gql`
   }
 
   type User {
-    id: ID!
+    id: String!
     username: String!
     email: String!
     profilePictureKey: String
@@ -34,7 +34,7 @@ const userTypeDefs = gql`
   }
 
   extend type Query {
-    user(id: ID!): User
+    user(id: String!): User
   }
 `;
 

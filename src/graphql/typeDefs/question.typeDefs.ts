@@ -4,7 +4,7 @@ const questionTypeDefs = gql`
   scalar JSON
 
   type Question {
-    id: ID!
+    id: String!
     userId: String!
     title: String!
     body: String
@@ -24,20 +24,21 @@ const questionTypeDefs = gql`
     user: User
 
     searchScore: Float
+
+    canGenerateAiSuggestion: Boolean
     canGenerateAiAnswer: Boolean
+
     aiAnswer: QuestionAiAnswer
   }
 
   type QuestionVersion {
-    id: ID!
-    questionId: ID!
-    userId: ID!
+    id: String!
+    questionId: String!
+    userId: String!
     title: String!
     body: String!
     tags: [String]!
 
-    topicStatus: String!
-    moderationStatus: String!
     supersededByRollback: Boolean!
     version: Int!
     basedOnVersion: Int!
@@ -47,7 +48,7 @@ const questionTypeDefs = gql`
   }
 
   type Answer {
-    id: ID!
+    id: String!
     userId: String!
     body: String!
 
@@ -67,7 +68,7 @@ const questionTypeDefs = gql`
   }
 
   type Reply {
-    id: ID!
+    id: String!
     userId: String!
     body: String!
 
@@ -93,10 +94,29 @@ const questionTypeDefs = gql`
   }
 
   type QuestionAiAnswer {
+    id: String!
     questionVersion: Int!
     body: String!
     confidence: QuestionAiAnswerConfidence!
     meta: JSON!
+    isPublished: Boolean
+    createdAt: String!
+    updatedAt: String
+  }
+
+  type AiAnswerFeedback {
+    id: String!
+    aiAnswerId: String!
+    userId: String!
+
+    type: AiAnswerFeedbackType!
+
+    body: String
+
+    questionVersionAtFeedback: Int!
+
+    createdAt: String!
+    updatedAt: String
   }
 
   # Connections
@@ -155,6 +175,18 @@ const questionTypeDefs = gql`
     hasMore: Boolean!
   }
 
+  type AiAnswersConnection {
+    aiAnswers: [QuestionAiAnswer!]!
+    nextCursor: AiAnswersCursor
+    hasMore: Boolean!
+  }
+
+  type FeedbacksOnAiAnswerConnection {
+    feedbacks: [AiAnswerFeedback!]!
+    nextCursor: FeedbacksOnAiAnswerCursor
+    hasMore: Boolean!
+  }
+
   # Enums
 
   enum AnswerSortOption {
@@ -179,6 +211,21 @@ const questionTypeDefs = gql`
     NEWEST
     OLDEST
     RELEVANT
+  }
+
+  enum AiAnswersSortOption {
+    NEWEST
+    OLDEST
+  }
+
+  enum FeedbacksOnAiAnswerSortOption {
+    NEWEST
+    OLDEST
+  }
+
+  enum AiAnswerFeedbackType {
+    HELPFUL
+    NOT_HELPFUL
   }
 
   # Cursor Outputs
@@ -237,6 +284,18 @@ const questionTypeDefs = gql`
     id: String!
   }
 
+  type AiAnswersCursor {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
+  type FeedbacksOnAiAnswerCursor {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
   # Cursor Inputs
 
   input RecommendedQuestionsCursorInput {
@@ -293,23 +352,41 @@ const questionTypeDefs = gql`
     id: String!
   }
 
+  input AiAnswersCursorInput {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
+  input FeedbacksOnAiAnswerCursorInput {
+    id: String!
+    createdAt: String!
+    publishedPriority: Int!
+  }
+
   extend type Query {
     recommendedQuestions(
       cursor: RecommendedQuestionsCursorInput
       limitCount: Int
     ): RecommendedQuestionConnection!
 
-    question(id: ID!): Question
+    question(id: String!): Question
+
+    answer(id: String!): Answer
+
+    reply(id: String!): Reply
+
+    aiAnswerFeedback(id: String!): AiAnswerFeedback
 
     loadMoreAnswers(
-      questionId: ID!
+      questionId: String!
       sortOption: AnswerSortOption!
       cursor: AnswerCursorInput
       limitCount: Int
     ): AnswerConnection!
 
     loadMoreReplies(
-      answerId: ID!
+      answerId: String!
       cursor: ReplyCursorInput
       limitCount: Int
     ): ReplyConnection!
@@ -356,6 +433,20 @@ const questionTypeDefs = gql`
       cursor: UnansweredQuestionsByUserCursorInput
       limitCount: Int
     ): UnansweredQuestionsByUserConnection
+
+    aiAnswers(
+      questionId: String!
+      sortOption: AiAnswersSortOption!
+      cursor: AiAnswersCursorInput
+      limitCount: Int
+    ): AiAnswersConnection
+
+    feedbacksOnAiAnswer(
+      aiAnswerId: String!
+      sortOption: FeedbacksOnAiAnswerSortOption!
+      cursor: FeedbacksOnAiAnswerCursorInput
+      limitCount: Int
+    ): FeedbacksOnAiAnswerConnection
   }
 `;
 
