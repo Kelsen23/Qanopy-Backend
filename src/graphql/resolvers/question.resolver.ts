@@ -378,9 +378,13 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
+        canGenerateAiSuggestion:
+          question.topicStatus === "VALID" &&
+          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)),
         canGenerateAiAnswer:
           question.topicStatus === "VALID" &&
-          ["APPROVED", "REJECTED"].includes(String(question.moderationStatus)),
+          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
+          (question.embedding as Array<number>).length > 0,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
         user: user && !(user as any)?.error ? user : null,
@@ -411,6 +415,76 @@ const questionResolver = {
 
       await getRedisCacheClient().set(
         `question:${id}`,
+        JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    answer: async (
+      _: any,
+      { id }: { id: string },
+      {
+        loaders,
+        getRedisCacheClient,
+      }: { loaders: any; getRedisCacheClient: () => Redis },
+    ) => {
+      if (!mongoose.isValidObjectId(id))
+        throw new HttpError("Invalid answerId", 400);
+
+      const cachedAnswer = await getRedisCacheClient().get(`answer:${id}`);
+      if (cachedAnswer) {
+        const parsedCacheAnswer = JSON.parse(cachedAnswer);
+        const {
+          isActive: _isActive,
+          isDeleted: _isDeleted,
+          topicStatus: _topicStatus,
+          moderationStatus: _moderationStatus,
+          ...publicAnswer
+        } = parsedCacheAnswer;
+        return publicAnswer;
+      }
+
+      const answer = await Answer.findOne({
+        _id: new mongoose.Types.ObjectId(id),
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+
+      if (!answer) return null;
+
+      const user = answer.userId
+        ? await loaders.userLoader.load(answer.userId.toString())
+        : null;
+
+      const result = {
+        id: answer._id,
+        userId: answer.userId,
+        body: answer.body,
+        upvoteCount: answer.upvoteCount,
+        downvoteCount: answer.downvoteCount,
+        replyCount: answer.replyCount,
+        isAccepted: answer.isAccepted,
+        isBestAnswerByAsker: answer.isBestAnswerByAsker,
+        questionVersion: answer.questionVersion,
+        createdAt: answer.createdAt,
+        updatedAt: answer.updatedAt,
+        user: user && !(user as any)?.error ? user : null,
+      };
+
+      const cachePayload = {
+        ...result,
+        isActive: answer.isActive,
+        isDeleted: answer.isDeleted,
+        embedding: Array.isArray(answer.embedding) ? answer.embedding : [],
+        topicStatus: answer.topicStatus,
+        moderationStatus: answer.moderationStatus,
+      };
+
+      await getRedisCacheClient().set(
+        `answer:${id}`,
         JSON.stringify(cachePayload),
         "EX",
         60 * 15,
@@ -1199,7 +1273,11 @@ const questionResolver = {
       const foundVersion = await QuestionVersion.findOne({
         questionId: new mongoose.Types.ObjectId(questionId),
         version,
-      }).lean();
+      })
+        .select(
+          "_id questionId userId title body tags supersededByRollback version basedOnVersion isActive",
+        )
+        .lean();
 
       if (!foundVersion) throw new HttpError("Version not found", 404);
 
