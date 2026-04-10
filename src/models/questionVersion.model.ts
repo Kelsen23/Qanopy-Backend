@@ -19,6 +19,15 @@ const QuestionVersionSchema: Schema = new Schema(
     basedOnVersion: { type: Number, required: true },
     isActive: { type: Boolean, required: true, index: true },
 
+    similarQuestionIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Question",
+      default: [],
+      index: true,
+    },
+
+    embedding: { type: [Number], default: [] },
+
     moderationStatus: {
       type: String,
       enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
@@ -34,8 +43,6 @@ const QuestionVersionSchema: Schema = new Schema(
       enum: ["PENDING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
-
-    embedding: { type: [Number] },
   },
   {
     timestamps: true,
