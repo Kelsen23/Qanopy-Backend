@@ -1,15 +1,14 @@
 import HttpError from "../../utils/httpError.util.js";
 
+import { getRedisCacheClient } from "../../config/redis.config.js";
+import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+
 import mongoose from "mongoose";
 
 import Question from "../../models/question.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
-import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
-import questionEmbeddingQueue from "../../queues/questionEmbedding.queue.js";
-import contentModerationQueue from "../../queues/contentModeration.queue.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
 
 const rollbackVersion = async (
   userId: string,
@@ -50,13 +49,9 @@ const rollbackVersion = async (
   if (foundVersion.moderationStatus === "REJECTED")
     throw new HttpError("Cannot rollback to a rejected version", 400);
 
-  const inheritedEmbedding = Array.isArray(foundVersion.embedding)
-    ? foundVersion.embedding
-    : [];
-
   const session = await mongoose.startSession();
 
-  const { nextVersion, newVersion } = await session.withTransaction(
+  const { nextVersion, createdNewVersion } = await session.withTransaction(
     async () => {
       const freshQuestion =
         await Question.findById(questionId).session(session);
@@ -80,7 +75,7 @@ const rollbackVersion = async (
         { session },
       );
 
-      const [newVersion] = await QuestionVersion.create(
+      const [createdNewVersion] = await QuestionVersion.create(
         [
           {
             questionId,
@@ -93,8 +88,10 @@ const rollbackVersion = async (
             isActive: true,
             moderationStatus: foundVersion.moderationStatus,
             moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
-            topicStatus: foundVersion.topicStatus,
-            embedding: inheritedEmbedding,
+            topicStatus: "PENDING",
+            embedding: [],
+            embeddingStatus: "NONE",
+            similarQuestionIds: [],
           },
         ],
         { session },
@@ -109,13 +106,15 @@ const rollbackVersion = async (
           currentVersion: nextVersion,
           moderationStatus: foundVersion.moderationStatus,
           moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
-          topicStatus: foundVersion.topicStatus,
-          embedding: inheritedEmbedding,
+          topicStatus: "PENDING",
+          embedding: [],
+          embeddingStatus: "NONE",
+          similarQuestionIds: [],
         },
         { session },
       );
 
-      return { nextVersion, newVersion };
+      return { nextVersion, createdNewVersion };
     },
   );
 
@@ -129,43 +128,22 @@ const rollbackVersion = async (
 
   await clearVersionHistoryCache(questionId);
 
-  if (newVersion.moderationStatus === "PENDING") {
-    await contentModerationQueue.add(
-      "QUESTION",
-      {
-        contentId: questionId,
-        version: nextVersion,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-  } else if (newVersion.topicStatus === "PENDING") {
-    await topicDeterminationQueue.add(
-      "question",
-      {
-        questionId,
-        version: nextVersion,
-        isRollback: true,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-  } else if (
-    newVersion.topicStatus === "VALID" &&
-    inheritedEmbedding.length === 0
-  ) {
-    await questionEmbeddingQueue.add(
-      "question",
-      {
-        questionId,
-        version: nextVersion,
-        isRollback: true,
-      },
-      { removeOnComplete: true, removeOnFail: false },
-    );
-  }
+  await contentPipelineRouter.add(
+    "CONTENT_PIPELINE_ROUTE",
+    {
+      questionId,
+      version: nextVersion,
+    },
+    {
+      jobId: `route:${questionId}:${nextVersion}`,
+      removeOnComplete: true,
+      removeOnFail: false,
+    },
+  );
 
   return {
     message: "Successfully rolled back",
-    newVersion: newVersion,
+    newVersion: createdNewVersion,
   };
 };
 
