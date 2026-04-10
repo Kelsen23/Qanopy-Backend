@@ -95,8 +95,7 @@ const applyAiModerationDecisionService = async (
             : AiAnswerFeedback;
       const ContentModel = model as any;
 
-      const foundContent = await ContentModel
-        .findById(contentId)
+      const foundContent = await ContentModel.findById(contentId)
         .select("moderationStatus isActive")
         .session(session);
 
