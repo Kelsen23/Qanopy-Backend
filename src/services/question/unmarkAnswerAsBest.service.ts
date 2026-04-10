@@ -43,7 +43,7 @@ const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
   await statsQueue.add("unmarkAsBest", {
     userId: foundAnswer.userId as string,
     action: "UNMARK_ANSWER_AS_BEST",
-  });
+  }, { removeOnComplete: true, removeOnFail: false });
 
   await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
   await clearAnswerCache(foundAnswer.questionId as string);

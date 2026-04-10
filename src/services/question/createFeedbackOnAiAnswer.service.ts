@@ -63,9 +63,13 @@ const createFeedbackOnAiAnswerService = async (
     questionVersionAtFeedback,
   });
 
-  await contentModerationQueue.add("AI_ANSWER_FEEDBACK", {
-    contentId: newFeedback._id,
-  });
+  await contentModerationQueue.add(
+    "AI_ANSWER_FEEDBACK",
+    {
+      contentId: newFeedback._id,
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   return {
     message: "Successfully created AI answer feedback",

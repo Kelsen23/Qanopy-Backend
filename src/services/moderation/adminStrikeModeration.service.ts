@@ -297,9 +297,13 @@ const adminModerateStrike = async ({
     }
   }
 
-  await moderationMetricsQueue.add(actionTaken, {
-    userId: foundStrike.userId,
-  });
+  await moderationMetricsQueue.add(
+    actionTaken,
+    {
+      userId: foundStrike.userId,
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   await prisma.moderationStrike.update({
     where: { id: foundStrike.id },
@@ -328,11 +332,15 @@ const adminModerateStrike = async ({
   let contentRemovalQueued = false;
 
   if (shouldRemoveContent && targetContentState.canRemove) {
-    await deleteContentQueue.add("removeModeratedContent", {
-      userId: foundStrike.userId,
-      targetType,
-      targetId: foundStrike.targetContentId,
-    });
+    await deleteContentQueue.add(
+      "removeModeratedContent",
+      {
+        userId: foundStrike.userId,
+        targetType,
+        targetId: foundStrike.targetContentId,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
     contentRemovalQueued = true;
   }
 
@@ -347,47 +355,59 @@ const adminModerateStrike = async ({
   };
 
   if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
-    await moderationAuditQueue.add("banUserFromStrike", {
+    await moderationAuditQueue.add(
+      "banUserFromStrike",
+      {
+        decisionId,
+        targetType: "USER",
+        targetId: foundStrike.userId,
+        targetUserId: foundStrike.userId,
+        actorType: "ADMIN_MODERATION",
+        adminId: reviewedBy,
+        actionTaken,
+        meta: {
+          ...moderationMeta,
+          strikeId: foundStrike.id,
+        },
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+  }
+
+  await moderationAuditQueue.add(
+    "updateStrikeStatus",
+    {
       decisionId,
-      targetType: "USER",
-      targetId: foundStrike.userId,
+      targetType: "STRIKE",
+      targetId: moderatedStrike.id,
       targetUserId: foundStrike.userId,
       actorType: "ADMIN_MODERATION",
       adminId: reviewedBy,
       actionTaken,
-      meta: {
-        ...moderationMeta,
-        strikeId: foundStrike.id,
-      },
-    });
-  }
-
-  await moderationAuditQueue.add("updateStrikeStatus", {
-    decisionId,
-    targetType: "STRIKE",
-    targetId: moderatedStrike.id,
-    targetUserId: foundStrike.userId,
-    actorType: "ADMIN_MODERATION",
-    adminId: reviewedBy,
-    actionTaken,
-    meta: moderationMeta,
-  });
+      meta: moderationMeta,
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   if (contentRemovalQueued) {
-    await moderationAuditQueue.add("removeContent", {
-      decisionId,
-      targetType: "CONTENT",
-      targetId: foundStrike.targetContentId,
-      targetUserId: foundStrike.userId,
-      actorType: "ADMIN_MODERATION",
-      adminId: reviewedBy,
-      actionTaken: "REMOVE",
-      meta: {
-        actionTaken,
-        strikeId: foundStrike.id,
-        targetType,
+    await moderationAuditQueue.add(
+      "removeContent",
+      {
+        decisionId,
+        targetType: "CONTENT",
+        targetId: foundStrike.targetContentId,
+        targetUserId: foundStrike.userId,
+        actorType: "ADMIN_MODERATION",
+        adminId: reviewedBy,
+        actionTaken: "REMOVE",
+        meta: {
+          actionTaken,
+          strikeId: foundStrike.id,
+          targetType,
+        },
       },
-    });
+      { removeOnComplete: true, removeOnFail: false },
+    );
   }
 
   if (actionTaken === "WARN" && createdWarning) {

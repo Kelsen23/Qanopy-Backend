@@ -55,10 +55,14 @@ const editQuestion = async (
     { new: true },
   );
 
-  await contentFinalizeQueue.add("Question", {
-    userId,
-    entityId: editedQuestion?._id,
-  });
+  await contentFinalizeQueue.add(
+    "Question",
+    {
+      userId,
+      entityId: editedQuestion?._id,
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   await getRedisCacheClient().del(`question:${editedQuestion?._id}`);
   await clearVersionHistoryCache(questionId);

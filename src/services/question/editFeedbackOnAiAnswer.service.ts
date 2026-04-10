@@ -74,7 +74,7 @@ const editFeedbackOnAiAnswer = async (
 
   await contentModerationQueue.add("AI_ANSWER_FEEDBACK", {
     contentId: feedbackId,
-  });
+  }, { removeOnComplete: true, removeOnFail: false });
 
   return {
     message: "Successfully edited AI answer feedback",

@@ -36,10 +36,14 @@ const updateProfilePicture = asyncHandler(
 
     await getRedisCacheClient().del(`user:${userId}`);
 
-    await imageModerationQueue.add("profilePicture", {
-      userId,
-      objectKey,
-    });
+    await imageModerationQueue.add(
+      "profilePicture",
+      {
+        userId,
+        objectKey,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
 
     return res
       .status(202)
@@ -68,9 +72,13 @@ const deleteProfilePicture = asyncHandler(
       await getRedisCacheClient().del(`user:${userId}`);
 
       if (updatedUser.profilePictureKey)
-        await imageDeletionQueue.add("deleteSingle", {
-          objectKey: updatedUser.profilePictureKey,
-        });
+        await imageDeletionQueue.add(
+          "deleteSingle",
+          {
+            objectKey: updatedUser.profilePictureKey,
+          },
+          { removeOnComplete: true, removeOnFail: false },
+        );
 
       return res.status(202).json({
         message: "Successfully deleted profile picture",

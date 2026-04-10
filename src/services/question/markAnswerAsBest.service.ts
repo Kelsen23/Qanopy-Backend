@@ -53,10 +53,14 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
       { $set: { isBestAnswerByAsker: false } },
     );
 
-    await statsQueue.add("unmarkAsBest", {
-      userId: previousBest.userId as string,
-      action: "UNMARK_ANSWER_AS_BEST",
-    });
+    await statsQueue.add(
+      "unmarkAsBest",
+      {
+        userId: previousBest.userId as string,
+        action: "UNMARK_ANSWER_AS_BEST",
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
   }
 
   const newBestAnswer = await Answer.findByIdAndUpdate(
@@ -67,10 +71,14 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
 
   if (!newBestAnswer) throw new HttpError("Error marking answer as best", 500);
 
-  await statsQueue.add("markAsBest", {
-    userId: newBestAnswer.userId as string,
-    action: "MARK_ANSWER_AS_BEST",
-  });
+  await statsQueue.add(
+    "markAsBest",
+    {
+      userId: newBestAnswer.userId as string,
+      action: "MARK_ANSWER_AS_BEST",
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
   await clearAnswerCache(foundAnswer.questionId as string);

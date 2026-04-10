@@ -85,28 +85,44 @@ const deleteContent = async (
   });
 
   if (targetType === "QUESTION") {
-    await statsQueue.add("deleteQuestion", {
-      userId,
-      action: actionMap.QUESTION,
-    });
-    await imageDeletionQueue.add("deleteFromBody", {
-      body: foundContent.body,
-      entityType: targetType,
-      entityId: targetId,
-    });
+    await statsQueue.add(
+      "deleteQuestion",
+      {
+        userId,
+        action: actionMap.QUESTION,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+    await imageDeletionQueue.add(
+      "deleteFromBody",
+      {
+        body: foundContent.body,
+        entityType: targetType,
+        entityId: targetId,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
 
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "ANSWER") {
-    await statsQueue.add("deleteAnswer", {
-      userId,
-      action: actionMap.ANSWER,
-      mongoTargetId: foundContent.questionId as string,
-    });
-    await imageDeletionQueue.add("deleteFromBody", {
-      body: foundContent.body,
-      entityType: targetType,
-      entityId: targetId,
-    });
+    await statsQueue.add(
+      "deleteAnswer",
+      {
+        userId,
+        action: actionMap.ANSWER,
+        mongoTargetId: foundContent.questionId as string,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
+    await imageDeletionQueue.add(
+      "deleteFromBody",
+      {
+        body: foundContent.body,
+        entityType: targetType,
+        entityId: targetId,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
 
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
@@ -117,10 +133,14 @@ const deleteContent = async (
       throw new HttpError("Parent answer not found", 404);
     }
 
-    await statsQueue.add("deleteReply", {
-      action: actionMap.REPLY,
-      mongoTargetId: foundAnswer._id,
-    });
+    await statsQueue.add(
+      "deleteReply",
+      {
+        action: actionMap.REPLY,
+        mongoTargetId: foundAnswer._id,
+      },
+      { removeOnComplete: true, removeOnFail: false },
+    );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);

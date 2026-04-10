@@ -147,7 +147,7 @@ const moderateContentImage = asyncHandler(
     await imageModerationQueue.add("content", {
       userId,
       objectKey,
-    });
+    }, { removeOnComplete: true, removeOnFail: false });
 
     return res.status(202).json({
       message: "Image uploaded and queued for moderation",

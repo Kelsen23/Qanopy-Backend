@@ -108,10 +108,14 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
 
   session.endSession();
 
-  await statsQueue.add("unvote", {
-    userId: foundContent.userId as string,
-    action: actionMap[normalizedTargetType][normalizedVoteType],
-  });
+  await statsQueue.add(
+    "unvote",
+    {
+      userId: foundContent.userId as string,
+      action: actionMap[normalizedTargetType][normalizedVoteType],
+    },
+    { removeOnComplete: true, removeOnFail: false },
+  );
 
   await invalidateCacheOnUnvote(normalizedTargetType, targetId);
 
