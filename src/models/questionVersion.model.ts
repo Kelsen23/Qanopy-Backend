@@ -27,6 +27,11 @@ const QuestionVersionSchema: Schema = new Schema(
     },
 
     embedding: { type: [Number], default: [] },
+    embeddingStatus: {
+      type: String,
+      enum: ["NONE", "PENDING", "PROCESSING", "READY"],
+      default: "NONE",
+    },
 
     moderationStatus: {
       type: String,
@@ -40,7 +45,7 @@ const QuestionVersionSchema: Schema = new Schema(
     },
     topicStatus: {
       type: String,
-      enum: ["PENDING", "VALID", "OFF_TOPIC"],
+      enum: ["PENDING", "PROCESSING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
   },
