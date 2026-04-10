@@ -1,160 +1,103 @@
 import { Worker } from "bullmq";
+import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-import {
-  getRedisCacheClient,
-  redisMessagingClientConnection,
-} from "../config/redis.config.js";
-
-import { clearVersionHistoryCache } from "../utils/clearCache.util.js";
-
-import HttpError from "../utils/httpError.util.js";
-import convertQuestionToText from "../utils/convertQuestionToText.util.js";
+import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
-
-import mongoose from "mongoose";
-
-import connectMongoDB from "../config/mongodb.config.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
+import connectMongoDB from "../config/mongodb.config.js";
+
 import generateEmbedding from "../services/question/generateEmbedding.service.js";
+
+import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting question embedding worker...");
+  console.log("Mongo connected, starting embedding worker...");
 
   const worker = new Worker(
     "questionEmbeddingQueue",
     async (job) => {
-      const { questionId, version, isRollback } = job.data;
-      const session = await mongoose.startSession();
-      let shouldInvalidateCache = false;
+      const { questionId, version } = job.data;
 
-      try {
-        if (isRollback) {
-          const rolledBackVersion = await QuestionVersion.findOne({
-            questionId,
-            version,
-            topicStatus: "VALID",
-          })
-            .select("_id basedOnVersion")
-            .lean();
+      const versionDoc = await QuestionVersion.findOne({
+        questionId,
+        version,
+      }).select("_id title body tags embeddingStatus topicStatus isActive");
 
-          if (!rolledBackVersion)
-            throw new HttpError("Question version not found", 404);
+      if (!versionDoc) return;
 
-          const baseVersion = await QuestionVersion.findOne({
-            questionId,
-            version: rolledBackVersion.basedOnVersion,
-          })
-            .select("_id title body embedding")
-            .lean();
+      if (!versionDoc.isActive) return;
+      if (versionDoc.topicStatus !== "VALID") return;
+      if (versionDoc.embeddingStatus !== "NONE") return;
 
-          if (!baseVersion) throw new HttpError("Base version not found", 404);
+      const locked = await QuestionVersion.findOneAndUpdate(
+        {
+          _id: versionDoc._id,
+          embeddingStatus: "NONE",
+          topicStatus: "VALID",
+        },
+        {
+          $set: { embeddingStatus: "PROCESSING" },
+        },
+        { new: true },
+      );
 
-          let resolvedEmbedding = Array.isArray(baseVersion.embedding)
-            ? baseVersion.embedding
-            : [];
+      if (!locked) return;
 
-          const shouldBackfillBaseEmbedding = resolvedEmbedding.length === 0;
+      const tags = Array.isArray(versionDoc.tags) ? versionDoc.tags : [];
 
-          if (shouldBackfillBaseEmbedding) {
-            const questionText = convertQuestionToText(
-              normalizeText(baseVersion.title as string),
-              normalizeText(baseVersion.body as string),
-              [],
-              false,
-            );
+      const text = convertQuestionToEmbeddingText(
+        normalizeText(versionDoc.title as string),
+        normalizeText(versionDoc.body as string),
+        tags,
+      );
 
-            resolvedEmbedding = await generateEmbedding(questionText);
-          }
+      const embedding = await generateEmbedding(text);
 
-          await session.withTransaction(async () => {
-            const updatedQuestionVersion =
-              await QuestionVersion.findByIdAndUpdate(
-                rolledBackVersion._id as string,
-                { embedding: resolvedEmbedding },
-                { new: true, session },
-              ).select("isActive");
+      const updatedVersion = await QuestionVersion.findOneAndUpdate(
+        {
+          _id: versionDoc._id,
+          embeddingStatus: "PROCESSING",
+        },
+        {
+          $set: {
+            embedding,
+            embeddingStatus: "READY",
+          },
+        },
+        { new: true },
+      );
 
-            if (!updatedQuestionVersion)
-              throw new HttpError("Question not found", 404);
+      if (!updatedVersion) return;
 
-            if (shouldBackfillBaseEmbedding) {
-              await QuestionVersion.findByIdAndUpdate(
-                baseVersion._id as string,
-                { embedding: resolvedEmbedding },
-                { session },
-              );
-            }
+      const result = await Question.updateOne(
+        {
+          _id: questionId,
+          currentVersion: version,
+        },
+        {
+          embedding,
+          embeddingStatus: "READY",
+        },
+      );
 
-            if (updatedQuestionVersion.isActive) {
-              await Question.findByIdAndUpdate(
-                questionId as string,
-                {
-                  embedding: resolvedEmbedding,
-                },
-                { session },
-              );
-            }
-          });
-          shouldInvalidateCache = true;
-        } else {
-          const foundQuestionVersion = await QuestionVersion.findOne({
-            questionId,
-            version,
-            topicStatus: "VALID",
-          })
-            .select("_id title body")
-            .lean();
+      if (result.matchedCount === 0) return;
 
-          if (!foundQuestionVersion)
-            throw new HttpError("Question version not found", 404);
-
-          const questionText = convertQuestionToText(
-            normalizeText(foundQuestionVersion.title as string),
-            normalizeText(foundQuestionVersion.body as string),
-            [],
-            false,
-          );
-
-          const embedding = await generateEmbedding(questionText);
-
-          await session.withTransaction(async () => {
-            const updatedQuestionVersion =
-              await QuestionVersion.findByIdAndUpdate(
-                foundQuestionVersion._id as string,
-                { embedding },
-                { new: true, session },
-              ).select("isActive");
-
-            if (!updatedQuestionVersion)
-              throw new HttpError("Question not found", 404);
-
-            if (updatedQuestionVersion.isActive)
-              await Question.findByIdAndUpdate(
-                questionId as string,
-                { embedding },
-                { session },
-              );
-          });
-
-          shouldInvalidateCache = true;
-        }
-      } finally {
-        session.endSession();
-      }
-
-      if (shouldInvalidateCache) {
-        await Promise.all([
-          getRedisCacheClient().del(
-            `question:${questionId}`,
-            `v:${version}:question:${questionId}`,
-          ),
-          clearVersionHistoryCache(questionId as string),
-        ]);
-      }
+      await contentPipelineRouter.add(
+        "CONTENT_PIPELINE_ROUTE",
+        {
+          questionId,
+          version,
+        },
+        {
+          jobId: `route:${questionId}:${version}`,
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
     },
     {
       connection: redisMessagingClientConnection,
@@ -177,6 +120,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start question embedding worker:", error);
+  console.error("Failed to start embedding worker:", error);
   process.exit(1);
 });
