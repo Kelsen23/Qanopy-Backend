@@ -36,6 +36,7 @@ async function startWorker() {
         const foundQuestion = await Question.findById(questionId).select(
           "_id isActive isDeleted currentVersion",
         );
+        
         if (!foundQuestion) throw new HttpError("Question not found", 404);
 
         if (!foundQuestion.isActive || foundQuestion.isDeleted)
@@ -137,7 +138,7 @@ async function startWorker() {
             where: { id: userId },
             data: { credits: { increment: 5 } },
           });
-          
+
           await getRedisCacheClient().del(
             `credits:${userId}`,
             `user:${userId}`,
