@@ -8,7 +8,7 @@ import connectMongoDB from "../config/mongodb.config.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 
-import contentModerationQueue from "../queues/contentModeration.queue.js";
+import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -50,12 +50,25 @@ async function startWorker() {
         version: nextVersion,
         basedOnVersion,
         isActive: true,
+        moderationStatus: "PENDING",
+        topicStatus: "PENDING",
+        embeddingStatus: "NONE",
+        embedding: [],
+        similarQuestionIds: [],
       });
 
-      await contentModerationQueue.add("QUESTION", {
-        contentId: questionId,
-        version: nextVersion,
-      });
+      await contentPipelineRouter.add(
+        "CONTENT_PIPELINE_ROUTE",
+        {
+          questionId,
+          version: nextVersion,
+        },
+        {
+          jobId: `route:${questionId}:${nextVersion}`,
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
 
       if (activeVersion) {
         await getRedisCacheClient().del(
