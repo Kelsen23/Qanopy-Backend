@@ -8,7 +8,7 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import { getEditSessionSockets } from "../redis/editSession.service.js";
 
 import HttpError from "../../utils/httpError.util.js";
-import convertQuestionToText from "../../utils/convertQuestionToText.util.js";
+import convertQuestionToLLMText from "../../utils/convertQuestionToLLMText.js";
 import normalizeText from "../../utils/normalizeText.util.js";
 
 import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
@@ -51,11 +51,10 @@ const generateQuestionSuggestion = async ({
     if (!foundVersion) throw new HttpError("Version not found", 404);
     if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
 
-    const questionText = convertQuestionToText(
+    const questionText = convertQuestionToLLMText(
       normalizeText(foundVersion.title as string),
       normalizeText(foundVersion.body as string),
       foundVersion.tags as string[],
-      true,
     );
 
     const { suggestions, notes, confidence } =
