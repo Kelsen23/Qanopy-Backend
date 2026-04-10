@@ -15,6 +15,15 @@ const QuestionSchema: Schema = new Schema(
 
     currentVersion: { type: Number, default: 1, min: 1 },
 
+    similarQuestionIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Question",
+      default: [],
+      index: true,
+    },
+
+    embedding: { type: [Number], default: [] },
+
     moderationStatus: {
       type: String,
       enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
@@ -26,8 +35,6 @@ const QuestionSchema: Schema = new Schema(
       enum: ["PENDING", "VALID", "OFF_TOPIC"],
       default: "PENDING",
     },
-
-    embedding: { type: [Number] },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
