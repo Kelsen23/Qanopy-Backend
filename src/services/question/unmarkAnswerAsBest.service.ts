@@ -5,6 +5,7 @@ import Answer from "../../models/answer.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearAnswerCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
@@ -40,10 +41,18 @@ const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
     { new: true },
   );
 
-  await statsQueue.add("unmarkAsBest", {
-    userId: foundAnswer.userId as string,
-    action: "UNMARK_ANSWER_AS_BEST",
-  }, { removeOnComplete: true, removeOnFail: false });
+  await statsQueue.add(
+    "UNMARK_AS_BEST",
+    {
+      userId: foundAnswer.userId as string,
+      action: "UNMARK_ANSWER_AS_BEST",
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("stats", "unmarkAsBest", foundAnswer._id),
+    },
+  );
 
   await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
   await clearAnswerCache(foundAnswer.questionId as string);

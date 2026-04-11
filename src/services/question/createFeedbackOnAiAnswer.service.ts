@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 import HttpError from "../../utils/httpError.util.js";
 
+import { makeJobId } from "../../utils/makeJobId.util.js";
+
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
@@ -68,7 +70,11 @@ const createFeedbackOnAiAnswerService = async (
     {
       contentId: newFeedback._id,
     },
-    { removeOnComplete: true, removeOnFail: false },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("contentModeration", "AI_ANSWER_FEEDBACK", newFeedback._id),
+    },
   );
 
   return {

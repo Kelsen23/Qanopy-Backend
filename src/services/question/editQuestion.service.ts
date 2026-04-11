@@ -4,6 +4,7 @@ import Question from "../../models/question.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
 
@@ -51,17 +52,27 @@ const editQuestion = async (
       moderationStatus: "PENDING",
       topicStatus: "PENDING",
       embedding: [],
+      embeddingStatus: "PENDING",
     },
     { new: true },
   );
 
   await contentFinalizeQueue.add(
-    "Question",
+    "QUESTION",
     {
       userId,
       entityId: editedQuestion?._id,
     },
-    { removeOnComplete: true, removeOnFail: false },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId(
+        "contentFinalize",
+        "QUESTION",
+        editedQuestion?._id,
+        newVersion,
+      ),
+    },
   );
 
   await getRedisCacheClient().del(`question:${editedQuestion?._id}`);

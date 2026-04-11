@@ -22,6 +22,7 @@ import questionVersioningQueue from "../queues/questionVersioning.queue.js";
 import contentModerationQueue from "../queues/contentModeration.queue.js";
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+import { makeJobId } from "../utils/makeJobId.util.js";
 
 import crypto from "crypto";
 
@@ -35,10 +36,14 @@ async function startWorker() {
       const entityType = job.name;
       const { userId, entityId } = job.data;
 
-      const entity =
-        entityType === "Question"
-          ? await Question.findById(entityId)
-          : await Answer.findById(entityId).select("body");
+      let entity;
+      if (entityType === "QUESTION") {
+        entity = await Question.findById(entityId);
+      } else if (entityType === "ANSWER") {
+        entity = await Answer.findById(entityId).select("body");
+      } else {
+        throw new HttpError("Invalid job type", 500);
+      }
 
       if (!entity) throw new HttpError("Content not found", 404);
 
@@ -104,23 +109,43 @@ async function startWorker() {
         await entity.save();
       }
 
-      if (entityType === "Question") {
+      if (entityType === "QUESTION") {
         await getRedisCacheClient().del(`question:${entity._id}`);
 
         await questionVersioningQueue.add(
-          "createNewQuestionVersion",
+          "CREATE_NEW_QUESTION_VERSION",
           {
             questionId: entity._id,
             userId: entity.userId,
             title: entity.title,
             body: newBody,
             tags: entity.tags,
+            moderationStatus: entity.moderationStatus,
+            moderationUpdatedAt: entity.moderationUpdatedAt,
+            topicStatus: entity.topicStatus,
+            embeddingStatus: entity.embeddingStatus,
             basedOnVersion: null,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "questionVersioning",
+              "CREATE_NEW_QUESTION_VERSION",
+              job.id,
+            ),
+          },
         );
       } else {
-        await contentModerationQueue.add("ANSWER", { contentId: entityId });
+        await contentModerationQueue.add(
+          "ANSWER",
+          { contentId: entityId },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("contentModeration", "ANSWER", entityId),
+          },
+        );
 
         await clearAnswerCache(entity.questionId as string);
       }

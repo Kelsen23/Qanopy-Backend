@@ -6,6 +6,8 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
 import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.util.js";
 
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 import HttpError from "../utils/httpError.util.js";
 
 import voteService from "../services/question/vote.service.js";
@@ -53,21 +55,29 @@ const createQuestion = asyncHandler(
     });
 
     await statsQueue.add(
-      "askQuestion",
+      "ASK_QUESTION",
       {
         userId,
         action: "ASK_QUESTION",
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "askQuestion", newQuestion._id),
+      },
     );
 
     await contentFinalizeQueue.add(
-      "Question",
+      "QUESTION",
       {
         userId,
         entityId: newQuestion._id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentFinalize", "QUESTION", newQuestion._id),
+      },
     );
 
     return res.status(201).json({
@@ -106,22 +116,30 @@ const createAnswerOnQuestion = asyncHandler(
     await clearAnswerCache(questionId);
 
     await statsQueue.add(
-      "giveAnswer",
+      "GIVE_ANSWER",
       {
         userId,
         action: "GIVE_ANSWER",
         mongoTargetId: foundQuestion._id || foundQuestion.id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "giveAnswer", newAnswer._id),
+      },
     );
 
     await contentFinalizeQueue.add(
-      "Answer",
+      "ANSWER",
       {
         userId,
         entityId: newAnswer._id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentFinalize", "ANSWER", newAnswer._id),
+      },
     );
 
     return res
@@ -155,19 +173,27 @@ const createReplyOnAnswer = asyncHandler(
     const newReply = await Reply.create({ answerId, userId, body });
 
     await statsQueue.add(
-      "giveReply",
+      "GIVE_REPLY",
       {
         userId,
         action: "GIVE_REPLY",
         mongoTargetId: foundAnswer._id || foundAnswer.id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "giveReply", newReply._id),
+      },
     );
 
     await contentModerationQueue.add(
       "REPLY",
       { contentId: newReply._id },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentModeration", "REPLY", newReply._id),
+      },
     );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
@@ -243,13 +269,17 @@ const acceptAnswer = asyncHandler(
     );
 
     await statsQueue.add(
-      "acceptAnswer",
+      "ACCEPT_ANSWER",
       {
         userId,
         action: "ACCEPT_ANSWER",
         mongoTargetId: foundQuestion._id || foundQuestion.id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "acceptAnswer", answerId),
+      },
     );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
@@ -306,23 +336,31 @@ const unacceptAnswer = asyncHandler(
 
     if (foundAnswer.isBestAnswerByAsker) {
       await statsQueue.add(
-        "unacceptBestAnswer",
+        "UNACCEPT_BEST_ANSWER",
         {
           userId,
           action: "UNACCEPT_BEST_ANSWER",
           mongoTargetId: foundQuestion._id || foundQuestion.id,
         },
-        { removeOnComplete: true, removeOnFail: false },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("stats", "unacceptBestAnswer", answerId),
+        },
       );
     } else {
       await statsQueue.add(
-        "unacceptAnswer",
+        "UNACCEPT_ANSWER",
         {
           userId,
           action: "UNACCEPT_ANSWER",
           mongoTargetId: foundQuestion._id || foundQuestion.id,
         },
-        { removeOnComplete: true, removeOnFail: false },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("stats", "unacceptAnswer", answerId),
+        },
       );
     }
 
@@ -460,13 +498,23 @@ const generateSuggestion = asyncHandler(
 
       try {
         await aiSuggestionQueue.add(
-          "generateSuggestion",
+          "GENERATE_SUGGESTION",
           {
             userId,
             questionId,
             version: versionNumber,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "aiSuggestion",
+              "GENERATE_SUGGESTION",
+              userId,
+              questionId,
+              versionNumber,
+            ),
+          },
         );
       } catch (error) {
         await prisma.user.update({
@@ -584,13 +632,23 @@ const generateAiAnswer = asyncHandler(
 
       try {
         await aiAnswerQueue.add(
-          "generateAiAnswer",
+          "GENERATE_AI_ANSWER",
           {
             userId,
             questionId,
             version: versionNumber,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "aiAnswer",
+              "GENERATE_AI_ANSWER",
+              userId,
+              questionId,
+              versionNumber,
+            ),
+          },
         );
       } catch (error) {
         await prisma.user.update({

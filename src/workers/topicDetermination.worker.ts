@@ -3,6 +3,7 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
+import { makeJobId } from "../utils/makeJobId.util.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
@@ -75,20 +76,20 @@ async function startWorker() {
       if (result.matchedCount === 0) return;
 
       if (finalStatus === "VALID") {
-        await contentPipelineRouter.add(
-          "CONTENT_PIPELINE_ROUTE",
-          {
-            questionId,
-            version,
-          },
-          {
-            jobId: `route:${questionId}:${version}`,
-            removeOnComplete: true,
-            removeOnFail: false,
-          },
-        );
-      }
-    },
+	        await contentPipelineRouter.add(
+	          "CONTENT_PIPELINE_ROUTE",
+	          {
+	            questionId,
+	            version,
+	          },
+	          {
+	            jobId: makeJobId("contentPipelineRoute", questionId, version),
+	            removeOnComplete: true,
+	            removeOnFail: false,
+	          },
+	        );
+	      }
+	    },
     {
       connection: redisMessagingClientConnection,
       concurrency: 5,

@@ -10,10 +10,10 @@ const worker = new Worker(
   "imageDeletionQueue",
   async (job) => {
     switch (job.name) {
-      case "deleteSingle":
+      case "DELETE_SINGLE":
         await deleteSingleImage(job.data);
         break;
-      case "deleteFromBody":
+      case "DELETE_FROM_BODY":
         await deleteImagesFromBody(job.data);
         break;
       default:

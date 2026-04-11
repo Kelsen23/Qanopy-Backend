@@ -21,6 +21,8 @@ import HttpError from "../utils/httpError.util.js";
 
 import sanitizeUser from "../utils/sanitizeUser.util.js";
 
+import { makeUniqueJobId } from "../utils/makeJobId.util.js";
+
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
 
@@ -70,13 +72,22 @@ const register = asyncHandler(async (req: Request, res: Response) => {
   );
 
   await emailQueue.add(
-    "sendVerificationEmail",
+    "SEND_VERIFICATION_EMAIL",
     {
       email: newUser.email,
       subject: "Verify Email",
       htmlContent,
     },
-    { removeOnComplete: true, removeOnFail: true },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeUniqueJobId(
+        "email",
+        "SEND_VERIFICATION_EMAIL",
+        newUser.id,
+        newUser.email,
+      ),
+    },
   );
 
   return res.status(200).json({
@@ -353,13 +364,22 @@ const resendVerificationEmail = asyncHandler(
     );
 
     await emailQueue.add(
-      "resendVerificationEmail",
+      "RESEND_VERIFICATION_EMAIL",
       {
         email: updatedUser.email,
         subject: "Verify Email",
         htmlContent,
       },
-      { removeOnComplete: true, removeOnFail: true },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "RESEND_VERIFICATION_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
     );
 
     return res.status(200).json({
@@ -415,13 +435,22 @@ const sendResetPasswordEmail = asyncHandler(
     );
 
     await emailQueue.add(
-      "sendResetPasswordEmail",
+      "SEND_RESET_PASSWORD_EMAIL",
       {
         email: updatedUser.email,
         subject: "Reset Password Request",
         htmlContent,
       },
-      { removeOnComplete: true, removeOnFail: true },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_RESET_PASSWORD_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
     );
 
     return res
@@ -485,13 +514,22 @@ const resendResetPasswordEmail = asyncHandler(
     );
 
     await emailQueue.add(
-      "resendResetPasswordEmail",
+      "RESEND_RESET_PASSWORD_EMAIL",
       {
         email: updatedUser.email,
         subject: "Reset Password Request",
         htmlContent,
       },
-      { removeOnComplete: true, removeOnFail: true },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "RESEND_RESET_PASSWORD_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
     );
 
     return res

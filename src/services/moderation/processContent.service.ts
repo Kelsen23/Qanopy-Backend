@@ -6,6 +6,7 @@ import queueNotification from "../../utils/queueNotification.util.js";
 
 import computeRiskScore from "../../utils/computeRiskScore.util.js";
 import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
 
@@ -151,7 +152,7 @@ const processContent = async (
     };
 
     await moderationAuditQueue.add(
-      "modActionLog",
+      "MOD_ACTION_LOG",
       {
         decisionId,
         targetType: "USER",
@@ -161,7 +162,11 @@ const processContent = async (
         actionTaken: "BAN_PERM",
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "BAN_PERM"),
+      },
     );
 
     await moderationMetricsQueue.add(
@@ -169,7 +174,11 @@ const processContent = async (
       {
         userId: content.userId as string,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "BAN_PERM"),
+      },
     );
 
     await queueNotification({
@@ -256,7 +265,7 @@ const processContent = async (
     };
 
     await moderationAuditQueue.add(
-      "modActionLog",
+      "MOD_ACTION_LOG",
       {
         decisionId,
         targetType: "USER",
@@ -266,7 +275,11 @@ const processContent = async (
         actionTaken: "BAN_TEMP",
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "BAN_TEMP"),
+      },
     );
 
     await moderationMetricsQueue.add(
@@ -274,7 +287,11 @@ const processContent = async (
       {
         userId: content.userId as string,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "BAN_TEMP"),
+      },
     );
 
     if (contentType === "QUESTION")
@@ -285,7 +302,7 @@ const processContent = async (
           version,
         },
         {
-          jobId: `route:${contentId}:${version}`,
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
           removeOnComplete: true,
           removeOnFail: false,
         },
@@ -339,7 +356,7 @@ const processContent = async (
     };
 
     await moderationAuditQueue.add(
-      "modActionLog",
+      "MOD_ACTION_LOG",
       {
         decisionId,
         targetType: "USER",
@@ -349,7 +366,11 @@ const processContent = async (
         actionTaken: "WARN",
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "WARN"),
+      },
     );
 
     await moderationMetricsQueue.add(
@@ -357,7 +378,11 @@ const processContent = async (
       {
         userId: content.userId as string,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "WARN"),
+      },
     );
 
     if (contentType === "QUESTION")
@@ -368,7 +393,7 @@ const processContent = async (
           version,
         },
         {
-          jobId: `route:${contentId}:${version}`,
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
           removeOnComplete: true,
           removeOnFail: false,
         },
@@ -400,7 +425,7 @@ const processContent = async (
     };
 
     await moderationAuditQueue.add(
-      "modActionLog",
+      "MOD_ACTION_LOG",
       {
         decisionId,
         targetType: "USER",
@@ -410,7 +435,11 @@ const processContent = async (
         actionTaken: "IGNORE",
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "IGNORE"),
+      },
     );
 
     if (contentType === "QUESTION")
@@ -421,7 +450,7 @@ const processContent = async (
           version,
         },
         {
-          jobId: `route:${contentId}:${version}`,
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
           removeOnComplete: true,
           removeOnFail: false,
         },
@@ -432,7 +461,11 @@ const processContent = async (
       {
         userId: content.userId as string,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "IGNORE"),
+      },
     );
   }
 };

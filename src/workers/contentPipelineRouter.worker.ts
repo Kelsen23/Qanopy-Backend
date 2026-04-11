@@ -10,6 +10,8 @@ import topicDeterminationQueue from "../queues/topicDetermination.queue.js";
 import questionEmbeddingQueue from "../queues/questionEmbedding.queue.js";
 import similarQuestionsQueue from "../queues/similarQuestions.queue.js";
 
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Content pipeline router worker started...");
@@ -38,7 +40,12 @@ async function startWorker() {
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `moderation:${questionId}:${version}`,
+            jobId: makeJobId(
+              "contentModeration",
+              "QUESTION",
+              questionId,
+              version,
+            ),
           },
         );
       } else if (foundQuestionVersion.moderationStatus === "REJECTED") {
@@ -53,12 +60,17 @@ async function startWorker() {
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `topic:${questionId}:${version}`,
+            jobId: makeJobId(
+              "topicDetermination",
+              "QUESTION",
+              questionId,
+              version,
+            ),
           },
         );
       } else if (
         foundQuestionVersion.topicStatus === "VALID" &&
-        foundQuestionVersion.embeddingStatus === "NONE"
+        ["NONE", "PENDING"].includes(String(foundQuestionVersion.embeddingStatus))
       ) {
         return await questionEmbeddingQueue.add(
           "EMBED_QUESTION",
@@ -69,7 +81,12 @@ async function startWorker() {
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `embedding:${questionId}:${version}`,
+            jobId: makeJobId(
+              "questionEmbedding",
+              "EMBED_QUESTION",
+              questionId,
+              version,
+            ),
           },
         );
       } else if (
@@ -86,7 +103,7 @@ async function startWorker() {
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `similar:${questionId}`,
+            jobId: makeJobId("similarQuestions", questionId),
           },
         );
       }

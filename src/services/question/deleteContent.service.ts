@@ -12,6 +12,7 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
@@ -86,42 +87,68 @@ const deleteContent = async (
 
   if (targetType === "QUESTION") {
     await statsQueue.add(
-      "deleteQuestion",
+      "DELETE_QUESTION",
       {
         userId,
         action: actionMap.QUESTION,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteQuestion", targetId),
+      },
     );
     await imageDeletionQueue.add(
-      "deleteFromBody",
+      "DELETE_FROM_BODY",
       {
         body: foundContent.body,
         entityType: targetType,
         entityId: targetId,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "imageDeletion",
+          "DELETE_FROM_BODY",
+          targetType,
+          targetId,
+        ),
+      },
     );
 
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "ANSWER") {
     await statsQueue.add(
-      "deleteAnswer",
+      "DELETE_ANSWER",
       {
         userId,
         action: actionMap.ANSWER,
         mongoTargetId: foundContent.questionId as string,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteAnswer", targetId),
+      },
     );
     await imageDeletionQueue.add(
-      "deleteFromBody",
+      "DELETE_FROM_BODY",
       {
         body: foundContent.body,
         entityType: targetType,
         entityId: targetId,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "imageDeletion",
+          "DELETE_FROM_BODY",
+          targetType,
+          targetId,
+        ),
+      },
     );
 
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
@@ -134,12 +161,16 @@ const deleteContent = async (
     }
 
     await statsQueue.add(
-      "deleteReply",
+      "DELETE_REPLY",
       {
         action: actionMap.REPLY,
         mongoTargetId: foundAnswer._id,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteReply", targetId),
+      },
     );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);

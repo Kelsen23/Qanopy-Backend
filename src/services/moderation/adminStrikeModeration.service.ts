@@ -2,8 +2,8 @@ import crypto from "crypto";
 
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
-
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -302,7 +302,11 @@ const adminModerateStrike = async ({
     {
       userId: foundStrike.userId,
     },
-    { removeOnComplete: true, removeOnFail: false },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("moderationMetrics", decisionId, actionTaken),
+    },
   );
 
   await prisma.moderationStrike.update({
@@ -333,13 +337,23 @@ const adminModerateStrike = async ({
 
   if (shouldRemoveContent && targetContentState.canRemove) {
     await deleteContentQueue.add(
-      "removeModeratedContent",
+      "REMOVE_MODERATED_CONTENT",
       {
         userId: foundStrike.userId,
         targetType,
         targetId: foundStrike.targetContentId,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "deleteContent",
+          decisionId,
+          "REMOVE_MODERATED_CONTENT",
+          targetType,
+          foundStrike.targetContentId,
+        ),
+      },
     );
     contentRemovalQueued = true;
   }
@@ -356,7 +370,7 @@ const adminModerateStrike = async ({
 
   if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
     await moderationAuditQueue.add(
-      "banUserFromStrike",
+      "BAN_USER_FROM_STRIKE",
       {
         decisionId,
         targetType: "USER",
@@ -370,12 +384,16 @@ const adminModerateStrike = async ({
           strikeId: foundStrike.id,
         },
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "banUserFromStrike"),
+      },
     );
   }
 
   await moderationAuditQueue.add(
-    "updateStrikeStatus",
+    "UPDATE_STRIKE_STATUS",
     {
       decisionId,
       targetType: "STRIKE",
@@ -386,12 +404,16 @@ const adminModerateStrike = async ({
       actionTaken,
       meta: moderationMeta,
     },
-    { removeOnComplete: true, removeOnFail: false },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("moderationAudit", decisionId, "updateStrikeStatus"),
+    },
   );
 
   if (contentRemovalQueued) {
     await moderationAuditQueue.add(
-      "removeContent",
+      "REMOVE_CONTENT",
       {
         decisionId,
         targetType: "CONTENT",
@@ -406,7 +428,16 @@ const adminModerateStrike = async ({
           targetType,
         },
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "moderationAudit",
+          decisionId,
+          "removeContent",
+          foundStrike.targetContentId,
+        ),
+      },
     );
   }
 

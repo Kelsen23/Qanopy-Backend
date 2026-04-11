@@ -9,6 +9,7 @@ const convertQuestionToEmbeddingText = (
 
   return `
   ${title}
+  ${title}
   
   ${contextBlock}
   

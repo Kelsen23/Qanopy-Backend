@@ -1,7 +1,7 @@
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
-
 import { clearReportsCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import Report from "../../models/report.model.js";
 
@@ -119,7 +119,7 @@ const adminModerateReport = async ({
     if (!updatedReport) throw new HttpError("Report already resolved", 409);
 
     await moderationAuditQueue.add(
-      "updateReportStatus",
+      "UPDATE_REPORT_STATUS",
       {
         decisionId,
         targetType: "REPORT",
@@ -130,7 +130,11 @@ const adminModerateReport = async ({
         actionTaken,
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "updateReportStatus"),
+      },
     );
 
     await queueNotification({
@@ -149,17 +153,27 @@ const adminModerateReport = async ({
     if (!shouldRemoveContent) return;
 
     await deleteContentQueue.add(
-      "removeModeratedContent",
+      "REMOVE_MODERATED_CONTENT",
       {
         userId: reportTargetUserId,
         targetType,
         targetId: reportContentId,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "deleteContent",
+          decisionId,
+          "REMOVE_MODERATED_CONTENT",
+          targetType,
+          reportContentId,
+        ),
+      },
     );
 
     await moderationAuditQueue.add(
-      "removeContent",
+      "REMOVE_CONTENT",
       {
         decisionId,
         targetType: "CONTENT",
@@ -170,7 +184,11 @@ const adminModerateReport = async ({
         actionTaken: "REMOVE",
         meta,
       },
-      { removeOnComplete: true, removeOnFail: false },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "removeContent"),
+      },
     );
 
     await queueNotification({
@@ -246,7 +264,7 @@ const adminModerateReport = async ({
         };
 
         await moderationAuditQueue.add(
-          "banUserTemp",
+          "BAN_USER_TEMP",
           {
             decisionId,
             targetType: "USER",
@@ -257,7 +275,11 @@ const adminModerateReport = async ({
             actionTaken: "BAN_TEMP",
             meta,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationAudit", decisionId, "banUserTemp"),
+          },
         );
 
         await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
@@ -269,7 +291,11 @@ const adminModerateReport = async ({
           {
             userId: reportTargetUserId,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationMetrics", decisionId, "BAN_TEMP"),
+          },
         );
         await queueNotification({
           userId: reportTargetUserId,
@@ -330,7 +356,7 @@ const adminModerateReport = async ({
         };
 
         await moderationAuditQueue.add(
-          "banUserPerm",
+          "BAN_USER_PERM",
           {
             decisionId,
             targetType: "USER",
@@ -341,7 +367,11 @@ const adminModerateReport = async ({
             actionTaken: "BAN_PERM",
             meta,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationAudit", decisionId, "banUserPerm"),
+          },
         );
 
         await updateReportStatus("RESOLVED", "BAN_PERM", meta);
@@ -352,7 +382,11 @@ const adminModerateReport = async ({
           {
             userId: reportTargetUserId,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationMetrics", decisionId, "BAN_PERM"),
+          },
         );
 
         await queueNotification({
@@ -405,7 +439,11 @@ const adminModerateReport = async ({
           {
             userId: reportTargetUserId,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationMetrics", decisionId, "WARN"),
+          },
         );
 
         await queueNotification({
@@ -435,7 +473,11 @@ const adminModerateReport = async ({
           {
             userId: reportTargetUserId,
           },
-          { removeOnComplete: true, removeOnFail: false },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId("moderationMetrics", decisionId, "IGNORE"),
+          },
         );
 
         break;

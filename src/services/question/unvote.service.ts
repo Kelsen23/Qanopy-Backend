@@ -9,6 +9,7 @@ import Vote from "../../models/vote.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import invalidateCacheOnUnvote from "../../utils/invalidateCacheOnUnvote.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
@@ -109,12 +110,23 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
   session.endSession();
 
   await statsQueue.add(
-    "unvote",
+    "UNVOTE",
     {
       userId: foundContent.userId as string,
       action: actionMap[normalizedTargetType][normalizedVoteType],
     },
-    { removeOnComplete: true, removeOnFail: false },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeUniqueJobId(
+        "stats",
+        "unvote",
+        normalizedTargetType,
+        targetId,
+        normalizedVoteType,
+        userId,
+      ),
+    },
   );
 
   await invalidateCacheOnUnvote(normalizedTargetType, targetId);

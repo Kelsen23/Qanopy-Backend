@@ -8,6 +8,8 @@ import HttpError from "../utils/httpError.util.js";
 
 import { clearReportsCache } from "../utils/clearCache.util.js";
 
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
 import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
 import addAdminModPoints from "../services/moderation/modPoints.service.js";
@@ -144,10 +146,18 @@ const moderateContentImage = asyncHandler(
       throw new HttpError("Unauthorized", 403);
     }
 
-    await imageModerationQueue.add("content", {
-      userId,
-      objectKey,
-    }, { removeOnComplete: true, removeOnFail: false });
+    await imageModerationQueue.add(
+      "CONTENT",
+      {
+        userId,
+        objectKey,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("imageModeration", "CONTENT", userId, objectKey),
+      },
+    );
 
     return res.status(202).json({
       message: "Image uploaded and queued for moderation",

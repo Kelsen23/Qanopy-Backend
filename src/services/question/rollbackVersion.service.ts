@@ -2,6 +2,7 @@ import HttpError from "../../utils/httpError.util.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import mongoose from "mongoose";
 
@@ -135,7 +136,7 @@ const rollbackVersion = async (
       version: nextVersion,
     },
     {
-      jobId: `route:${questionId}:${nextVersion}`,
+      jobId: makeJobId("contentPipelineRoute", questionId, nextVersion),
       removeOnComplete: true,
       removeOnFail: false,
     },
