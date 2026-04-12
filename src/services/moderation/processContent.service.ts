@@ -4,9 +4,10 @@ import applyAiModerationDecisionService from "./applyAiModerationDecision.servic
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
 
+import { makeJobId } from "../../utils/makeJobId.util.js";
+
 import computeRiskScore from "../../utils/computeRiskScore.util.js";
 import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
 
@@ -296,9 +297,9 @@ const processContent = async (
 
     if (contentType === "QUESTION")
       await contentPipelineRouter.add(
-        "CONTENT_PIPELINE_ROUTE",
+        "QUESTION",
         {
-          questionId: contentId,
+          contentId,
           version,
         },
         {
@@ -387,9 +388,9 @@ const processContent = async (
 
     if (contentType === "QUESTION")
       await contentPipelineRouter.add(
-        "CONTENT_PIPELINE_ROUTE",
+        "QUESTION",
         {
-          questionId: contentId,
+          contentId,
           version,
         },
         {
@@ -444,9 +445,9 @@ const processContent = async (
 
     if (contentType === "QUESTION")
       await contentPipelineRouter.add(
-        "CONTENT_PIPELINE_ROUTE",
+        "QUESTION",
         {
-          questionId: contentId,
+          contentId,
           version,
         },
         {
