@@ -15,7 +15,6 @@ import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
-import { cache } from "sharp";
 
 type RecommendedQuestionsCursor = {
   id: string;
