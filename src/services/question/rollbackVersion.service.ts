@@ -130,9 +130,9 @@ const rollbackVersion = async (
   await clearVersionHistoryCache(questionId);
 
   await contentPipelineRouter.add(
-    "CONTENT_PIPELINE_ROUTE",
+    "QUESTION",
     {
-      questionId,
+      contentId: questionId,
       version: nextVersion,
     },
     {
