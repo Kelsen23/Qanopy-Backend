@@ -3,6 +3,7 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
+
 import { makeJobId } from "../utils/makeJobId.util.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
@@ -89,9 +90,9 @@ async function startWorker() {
       if (result.matchedCount === 0) return;
 
 	      await contentPipelineRouter.add(
-	        "CONTENT_PIPELINE_ROUTE",
+	        "QUESTION",
 	        {
-	          questionId,
+	          contentId: questionId,
 	          version,
 	        },
 	        {
