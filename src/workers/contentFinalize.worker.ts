@@ -4,27 +4,26 @@ import {
   redisMessagingClientConnection,
 } from "../config/redis.config.js";
 
-import { clearAnswerCache } from "../utils/clearCache.util.js";
+import connectMongoDB from "../config/mongodb.config.js";
 
 import { cloudfrontDomain } from "../config/s3.config.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 import getObjectKeyFromUrl from "../utils/getObjectKeyFromUrl.util.js";
 import moveS3Object from "../utils/moveS3Object.util.js";
-
-import connectMongoDB from "../config/mongodb.config.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
 
 import questionVersioningQueue from "../queues/questionVersioning.queue.js";
-import contentModerationQueue from "../queues/contentModeration.queue.js";
-
-import publishSocketEvent from "../utils/publishSocketEvent.util.js";
-import { makeJobId } from "../utils/makeJobId.util.js";
 
 import crypto from "crypto";
+import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -137,17 +136,7 @@ async function startWorker() {
           },
         );
       } else {
-        await contentModerationQueue.add(
-          "ANSWER",
-          { contentId: entityId },
-          {
-            removeOnComplete: true,
-            removeOnFail: false,
-            jobId: makeJobId("contentModeration", "ANSWER", entityId),
-          },
-        );
-
-        await clearAnswerCache(entity.questionId as string);
+        await contentPipelineRouter.add("ANSWER", { contentId: entityId });
       }
     },
     {
