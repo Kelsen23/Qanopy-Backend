@@ -142,18 +142,26 @@ async function startWorker() {
         let activeVersionNumber: number | null = null;
         let resolvedBasedOnVersion = basedOnVersion;
 
-        for (let attempt = 0; attempt <= QUESTION_VERSION_MAX_RETRIES; attempt++) {
+        for (
+          let attempt = 0;
+          attempt <= QUESTION_VERSION_MAX_RETRIES;
+          attempt++
+        ) {
           const session = await mongoose.startSession();
           try {
             await session.withTransaction(async () => {
-              const latestVersion = await QuestionVersion.findOne({ questionId })
+              const latestVersion = await QuestionVersion.findOne({
+                questionId,
+              })
                 .sort({
                   version: -1,
                 })
                 .session(session)
                 .lean();
 
-              nextVersion = latestVersion ? Number(latestVersion.version) + 1 : 1;
+              nextVersion = latestVersion
+                ? Number(latestVersion.version) + 1
+                : 1;
 
               if (!resolvedBasedOnVersion)
                 resolvedBasedOnVersion = latestVersion
@@ -215,9 +223,9 @@ async function startWorker() {
         basedOnVersion = resolvedBasedOnVersion;
 
         await contentPipelineRouter.add(
-          "CONTENT_PIPELINE_ROUTE",
+          "QUESTION",
           {
-            questionId,
+            contentId: questionId,
             version: nextVersion,
           },
           {
