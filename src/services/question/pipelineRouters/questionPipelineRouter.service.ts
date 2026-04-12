@@ -9,17 +9,19 @@ import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
 
 const questionPipelineRouter = async (questionId: string, version: number) => {
   const foundQuestionVersion = await QuestionVersion.findOne({
-    questionId: questionId,
+    questionId,
     version,
   }).select("moderationStatus topicStatus embeddingStatus similarQuestionIds");
 
   if (!foundQuestionVersion) return;
 
   if (foundQuestionVersion.moderationStatus === "PENDING") {
+    console.log(questionId, version);
+
     return await contentModerationQueue.add(
       "QUESTION",
       {
-        questionId,
+        contentId: questionId,
         version,
       },
       {
@@ -34,7 +36,7 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
     return await topicDeterminationQueue.add(
       "QUESTION_TOPIC",
       {
-        questionId: questionId,
+        questionId,
         version,
       },
       {
@@ -50,7 +52,7 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
     return await questionEmbeddingQueue.add(
       "QUESTION_EMBEDDING",
       {
-        questionId: questionId,
+        questionId,
         version,
       },
       {
