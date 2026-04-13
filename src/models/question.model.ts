@@ -23,6 +23,7 @@ const QuestionSchema: Schema = new Schema(
     },
 
     embedding: { type: [Number], default: [] },
+    embeddingHash: { type: String, default: "" },
     embeddingStatus: {
       type: String,
       enum: ["NONE", "PENDING", "PROCESSING", "READY"],
