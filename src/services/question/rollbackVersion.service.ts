@@ -1,7 +1,9 @@
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import HttpError from "../../utils/httpError.util.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+
 import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import mongoose from "mongoose";
@@ -89,10 +91,6 @@ const rollbackVersion = async (
             isActive: true,
             moderationStatus: foundVersion.moderationStatus,
             moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
-            topicStatus: "PENDING",
-            embedding: [],
-            embeddingStatus: "NONE",
-            similarQuestionIds: [],
           },
         ],
         { session },
@@ -108,8 +106,6 @@ const rollbackVersion = async (
           moderationStatus: foundVersion.moderationStatus,
           moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
           topicStatus: "PENDING",
-          embedding: [],
-          embeddingStatus: "NONE",
           similarQuestionIds: [],
         },
         { session },
