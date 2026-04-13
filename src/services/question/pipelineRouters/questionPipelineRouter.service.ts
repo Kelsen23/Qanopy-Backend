@@ -1,6 +1,7 @@
 import { makeJobId } from "../../../utils/makeJobId.util.js";
 
 import QuestionVersion from "../../../models/questionVersion.model.js";
+import Question from "../../../models/question.model.js";
 
 import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 import topicDeterminationQueue from "../../../queues/topicDetermination.queue.js";
@@ -11,14 +12,14 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
   const foundQuestionVersion = await QuestionVersion.findOne({
     questionId,
     version,
-  }).select("moderationStatus topicStatus embeddingStatus similarQuestionIds");
+  }).select("moderationStatus");
 
   if (!foundQuestionVersion) return;
 
   if (foundQuestionVersion.moderationStatus === "PENDING") {
     console.log(questionId, version);
 
-    return await contentModerationQueue.add(
+    return contentModerationQueue.add(
       "QUESTION",
       {
         contentId: questionId,
@@ -30,10 +31,26 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
         jobId: makeJobId("contentModeration", "QUESTION", questionId, version),
       },
     );
-  } else if (foundQuestionVersion.moderationStatus === "REJECTED") {
+  }
+
+  if (foundQuestionVersion.moderationStatus === "REJECTED") {
     return;
-  } else if (foundQuestionVersion.topicStatus === "PENDING") {
-    return await topicDeterminationQueue.add(
+  }
+
+  const foundQuestion = await Question.findOne({
+    _id: questionId,
+    currentVersion: version,
+    isActive: true,
+    isDeleted: false,
+  }).select("topicStatus embeddingStatus similarQuestionIds");
+
+  if (!foundQuestion) return;
+
+  const topicStatus = foundQuestion.topicStatus ?? "PENDING";
+  const embeddingStatus = foundQuestion.embeddingStatus ?? "NONE";
+
+  if (topicStatus === "PENDING") {
+    return topicDeterminationQueue.add(
       "QUESTION_TOPIC",
       {
         questionId,
@@ -45,11 +62,10 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
         jobId: makeJobId("topicDetermination", "QUESTION", questionId, version),
       },
     );
-  } else if (
-    foundQuestionVersion.topicStatus === "VALID" &&
-    ["NONE", "PENDING"].includes(String(foundQuestionVersion.embeddingStatus))
-  ) {
-    return await questionEmbeddingQueue.add(
+  }
+
+  if (topicStatus === "VALID") {
+    return questionEmbeddingQueue.add(
       "QUESTION_EMBEDDING",
       {
         questionId,
@@ -66,13 +82,15 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
         ),
       },
     );
-  } else if (
-    foundQuestionVersion.topicStatus === "VALID" &&
-    foundQuestionVersion.embeddingStatus === "READY" &&
-    Array.isArray(foundQuestionVersion.similarQuestionIds) &&
-    (foundQuestionVersion.similarQuestionIds as Array<string>).length === 0
+  }
+
+  if (
+    topicStatus === "VALID" &&
+    embeddingStatus === "READY" &&
+    Array.isArray(foundQuestion.similarQuestionIds) &&
+    foundQuestion.similarQuestionIds.length === 0
   ) {
-    return await similarQuestionsQueue.add(
+    return similarQuestionsQueue.add(
       "QUESTION_SIMILARITY",
       {
         questionId,
