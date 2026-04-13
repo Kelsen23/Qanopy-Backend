@@ -9,10 +9,10 @@ type NotificationType =
   | "REMOVE_CONTENT"
   | "UPVOTE"
   | "ANSWER"
-  | "MENTION"
   | "REPLY"
   | "AI_SUGGESTION"
-  | "AI_ANSWER";
+  | "AI_ANSWER"
+  | "SIMILAR_QUESTIONS";
 
 const queueNotification = async ({
   userId,
