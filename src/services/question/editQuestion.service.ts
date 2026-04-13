@@ -51,6 +51,9 @@ const editQuestion = async (
       currentVersion: newVersion,
       moderationStatus: "PENDING",
       topicStatus: "PENDING",
+      embeddingStatus: "NONE",
+      similarQuestionIds: [],
+      similarQuestionsStatus: "NONE",
     },
     { new: true },
   );
