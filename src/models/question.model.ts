@@ -21,9 +21,14 @@ const QuestionSchema: Schema = new Schema(
       default: [],
       index: true,
     },
+    similarQuestionsStatus: {
+      type: String,
+      enum: ["NONE", "PENDING", "PROCESSING", "READY"],
+      default: "NONE"
+    },
 
-    embedding: { type: [Number], default: [] },
-    embeddingHash: { type: String, default: "" },
+    embedding: { type: [Number], default: null, required: false },
+    embeddingHash: { type: String, default: null, required: false },
     embeddingStatus: {
       type: String,
       enum: ["NONE", "PENDING", "PROCESSING", "READY"],
