@@ -36,7 +36,7 @@ async function startWorker() {
         const foundQuestion = await Question.findById(questionId).select(
           "_id isActive isDeleted currentVersion",
         );
-        
+
         if (!foundQuestion) throw new HttpError("Question not found", 404);
 
         if (!foundQuestion.isActive || foundQuestion.isDeleted)
@@ -80,7 +80,17 @@ async function startWorker() {
               path: "embedding",
               queryVector: foundQuestionVersion.embedding,
               numCandidates: 80,
-              limit: 6,
+              limit: 15,
+            },
+          },
+
+          {
+            $project: {
+              _id: 1,
+              score: { $meta: "vectorSearchScore" },
+              topicStatus: 1,
+              isActive: 1,
+              isDeleted: 1,
             },
           },
 
@@ -89,14 +99,12 @@ async function startWorker() {
               _id: { $ne: questionObjectId },
               isActive: true,
               isDeleted: false,
-              topicStatus: "VALID",
               moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+              topicStatus: "VALID",
             },
           },
 
           { $limit: 5 },
-
-          { $project: { _id: 1, score: { $meta: "vectorSearchScore" } } },
         ]);
 
         const similarityThreshold = 0.7;
