@@ -13,6 +13,7 @@ import initializeSocketUserSession from "../services/socket/initializeSocketUser
 
 import initEditSessionListener from "./listeners/editSession.listener.js";
 import initAiAnswerSessionListener from "./listeners/aiAnswerSession.listener.js";
+import initQuestionSessionListener from "./listeners/questionSession.listener.js";
 
 export let io: SocketServer;
 
@@ -34,7 +35,7 @@ const initSocket = (server: http.Server) => {
       const token = socket.handshake.auth.token;
 
       if (!token) return next(new Error("Not authenticated: no token"));
-      
+
       const userId = decodeSocketToken(token);
       await validateSocketUser(userId);
 
@@ -62,6 +63,7 @@ const initSocket = (server: http.Server) => {
 
       initEditSessionListener(socket);
       initAiAnswerSessionListener(socket);
+      initQuestionSessionListener(socket);
 
       socket.on("disconnect", async () => {
         await removeUserSocket(socket.id);
