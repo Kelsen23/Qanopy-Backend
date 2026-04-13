@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
+import connectMongoDB from "../config/mongodb.config.js";
+
 import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
 
@@ -9,71 +11,76 @@ import { makeJobId } from "../utils/makeJobId.util.js";
 import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
-import connectMongoDB from "../config/mongodb.config.js";
-
 import determineTopicStatusService from "../services/question/topicDetermination.service.js";
 
 import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting topic determination worker...");
 
   const worker = new Worker(
     "topicDeterminationQueue",
     async (job) => {
       const { questionId, version } = job.data;
 
-      const foundQuestionVersion = await QuestionVersion.findOne({
-        questionId,
-        version,
-      }).select("_id title body tags");
+      const qv = await QuestionVersion.findOne({ questionId, version })
+        .select("title body tags")
+        .lean();
 
-      if (!foundQuestionVersion) return;
+      if (!qv) return;
 
-      const foundQuestion = await Question.findOne({
-        _id: questionId,
-        currentVersion: version,
-        isActive: true,
-        isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
-      }).select("_id");
-
-      if (!foundQuestion) return;
-
-      const tags = Array.isArray(foundQuestionVersion.tags)
-        ? foundQuestionVersion.tags
-        : [];
-
-      const text = convertQuestionToEmbeddingText(
-        normalizeText(foundQuestionVersion.title as string),
-        normalizeText(foundQuestionVersion.body as string),
-        tags,
-      );
-
-      const res = await determineTopicStatusService(text);
-
-      const finalStatus = res === "VALID" ? "VALID" : "OFF_TOPIC";
-
-      const updatedQuestion = await Question.updateOne(
+      const locked = await Question.findOneAndUpdate(
         {
           _id: questionId,
           currentVersion: version,
+          topicStatus: "PENDING",
         },
-        { topicStatus: finalStatus },
+        { $set: { topicStatus: "PROCESSING" } },
+        { new: true },
       );
 
-      if (!updatedQuestion) return;
+      if (!locked) return;
 
-      if (updatedQuestion.matchedCount === 0) return;
+      const text = convertQuestionToEmbeddingText(
+        normalizeText(qv.title as string),
+        normalizeText(qv.body as string),
+        Array.isArray(qv.tags) ? qv.tags : [],
+      );
+
+      let finalStatus: "VALID" | "OFF_TOPIC";
+
+      try {
+        const res = await determineTopicStatusService(text);
+        finalStatus = res === "VALID" ? "VALID" : "OFF_TOPIC";
+      } catch (err) {
+        await Question.updateOne(
+          { _id: questionId, currentVersion: version },
+          { $set: { topicStatus: "PENDING" } },
+        );
+        throw err;
+      }
+
+      const updated = await Question.updateOne(
+        {
+          _id: questionId,
+          currentVersion: version,
+          topicStatus: "PROCESSING",
+        },
+        {
+          $set: {
+            topicStatus: finalStatus,
+            embeddingStatus: "NONE",
+            similarQuestionsStatus: "NONE",
+          },
+        },
+      );
+
+      if (updated.modifiedCount === 0) return;
 
       if (finalStatus === "VALID") {
         await contentPipelineRouter.add(
           "QUESTION",
-          {
-            contentId: questionId,
-            version,
-          },
+          { contentId: questionId, version },
           {
             jobId: makeJobId("contentPipelineRoute", questionId, version),
             removeOnComplete: true,
