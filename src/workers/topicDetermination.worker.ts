@@ -24,31 +24,30 @@ async function startWorker() {
     async (job) => {
       const { questionId, version } = job.data;
 
-      const versionDoc = await QuestionVersion.findOne({
+      const foundQuestionVersion = await QuestionVersion.findOne({
         questionId,
         version,
-      }).select("_id title body tags topicStatus isActive");
+      }).select("_id title body tags");
 
-      if (!versionDoc) return;
+      if (!foundQuestionVersion) return;
 
-      const locked = await QuestionVersion.findOneAndUpdate(
-        {
-          _id: versionDoc._id,
-          topicStatus: "PENDING",
-        },
-        {
-          topicStatus: "PROCESSING",
-        },
-        { new: true },
-      );
+      const foundQuestion = await Question.findOne({
+        _id: questionId,
+        currentVersion: version,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+      }).select("_id");
 
-      if (!locked) return;
+      if (!foundQuestion) return;
 
-      const tags = Array.isArray(versionDoc.tags) ? versionDoc.tags : [];
+      const tags = Array.isArray(foundQuestionVersion.tags)
+        ? foundQuestionVersion.tags
+        : [];
 
       const text = convertQuestionToEmbeddingText(
-        normalizeText(versionDoc.title as string),
-        normalizeText(versionDoc.body as string),
+        normalizeText(foundQuestionVersion.title as string),
+        normalizeText(foundQuestionVersion.body as string),
         tags,
       );
 
@@ -56,41 +55,33 @@ async function startWorker() {
 
       const finalStatus = res === "VALID" ? "VALID" : "OFF_TOPIC";
 
-      const updated = await QuestionVersion.findOneAndUpdate(
+      const updatedQuestion = await Question.updateOne(
         {
-          _id: versionDoc._id,
-          topicStatus: "PROCESSING",
+          _id: questionId,
+          currentVersion: version,
         },
-        {
-          topicStatus: finalStatus,
-        },
-        { new: true },
-      );
-
-      if (!updated) return;
-
-      const result = await Question.updateOne(
-        { _id: questionId, currentVersion: version },
         { topicStatus: finalStatus },
       );
 
-      if (result.matchedCount === 0) return;
+      if (!updatedQuestion) return;
+
+      if (updatedQuestion.matchedCount === 0) return;
 
       if (finalStatus === "VALID") {
-	        await contentPipelineRouter.add(
-	          "QUESTION",
-	          {
-	            contentId: questionId,
-	            version,
-	          },
-	          {
-	            jobId: makeJobId("contentPipelineRoute", questionId, version),
-	            removeOnComplete: true,
-	            removeOnFail: false,
-	          },
-	        );
-	      }
-	    },
+        await contentPipelineRouter.add(
+          "QUESTION",
+          {
+            contentId: questionId,
+            version,
+          },
+          {
+            jobId: makeJobId("contentPipelineRoute", questionId, version),
+            removeOnComplete: true,
+            removeOnFail: false,
+          },
+        );
+      }
+    },
     {
       connection: redisMessagingClientConnection,
       concurrency: 5,
