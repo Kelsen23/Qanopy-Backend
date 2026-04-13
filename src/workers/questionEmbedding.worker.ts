@@ -15,6 +15,8 @@ import generateEmbedding from "../services/question/generateEmbedding.service.js
 
 import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
+import crypto from "crypto";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting embedding worker...");
@@ -24,84 +26,99 @@ async function startWorker() {
     async (job) => {
       const { questionId, version } = job.data;
 
-      const versionDoc = await QuestionVersion.findOne({
+      const foundQuestionVersion = await QuestionVersion.findOne({
         questionId,
         version,
-      }).select("_id title body tags embeddingStatus topicStatus isActive");
+      }).select("_id title body tags");
 
-      if (!versionDoc) return;
+      if (!foundQuestionVersion) return;
 
-      if (!versionDoc.isActive) return;
-      if (versionDoc.topicStatus !== "VALID") return;
-      if (!["NONE", "PENDING"].includes(String(versionDoc.embeddingStatus)))
-        return;
+      const foundQuestion = await Question.findOne({
+        _id: questionId,
+        currentVersion: version,
+        isActive: true,
+        isDeleted: false,
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        topicStatus: "VALID",
+      }).select("_id embeddingHash embedding embeddingStatus");
 
-      const locked = await QuestionVersion.findOneAndUpdate(
-        {
-          _id: versionDoc._id,
-          embeddingStatus: { $in: ["NONE", "PENDING"] },
-          topicStatus: "VALID",
-        },
-        {
-          $set: { embeddingStatus: "PROCESSING" },
-        },
-        { new: true },
-      );
+      if (!foundQuestion) return;
 
-      if (!locked) return;
-
-      const tags = Array.isArray(versionDoc.tags) ? versionDoc.tags : [];
+      const tags = Array.isArray(foundQuestionVersion.tags)
+        ? foundQuestionVersion.tags
+        : [];
 
       const text = convertQuestionToEmbeddingText(
-        normalizeText(versionDoc.title as string),
-        normalizeText(versionDoc.body as string),
+        normalizeText(foundQuestionVersion.title as string),
+        normalizeText(foundQuestionVersion.body as string),
         tags,
       );
 
-      const embedding = await generateEmbedding(text);
+      const newHash = crypto.createHash("sha256").update(text).digest("hex");
 
-      const updatedVersion = await QuestionVersion.findOneAndUpdate(
-        {
-          _id: versionDoc._id,
-          embeddingStatus: "PROCESSING",
-        },
-        {
-          $set: {
-            embedding,
-            embeddingStatus: "READY",
+      const existingHash = foundQuestion.embeddingHash;
+
+      const shouldRecompute = !existingHash || existingHash !== newHash;
+
+      console.log("Should recompute?:", shouldRecompute);
+
+      if (shouldRecompute) {
+        const lockedQuestion = await Question.findOneAndUpdate(
+          {
+            _id: questionId,
+            currentVersion: version,
+            isActive: true,
+            isDeleted: false,
+            moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+            topicStatus: "VALID",
+            embeddingStatus: { $in: ["NONE", "PENDING"] },
+            $or: [
+              { embeddingHash: { $ne: newHash } },
+              { embeddingHash: { $exists: false } },
+            ],
           },
-        },
-        { new: true },
-      );
+          {
+            $set: { embeddingStatus: "PROCESSING" },
+          },
+          { new: true },
+        );
 
-      if (!updatedVersion) return;
+        if (!lockedQuestion) return;
 
-      const result = await Question.updateOne(
+        const embedding = await generateEmbedding(text);
+
+        const updatedQuestion = await Question.findOneAndUpdate(
+          {
+            _id: questionId,
+            currentVersion: version,
+            embeddingStatus: "PROCESSING",
+          },
+          {
+            $set: {
+              embedding,
+              embeddingHash: newHash,
+              embeddingStatus: "READY",
+            },
+          },
+          { new: true },
+        );
+
+        if (!updatedQuestion) return;
+      }
+
+      await contentPipelineRouter.add(
+        "QUESTION",
         {
-          _id: questionId,
-          currentVersion: version,
+          contentId: questionId,
+          version,
         },
         {
-          embedding,
-          embeddingStatus: "READY",
+          jobId: makeJobId("contentPipelineRoute", questionId, version),
+          removeOnComplete: true,
+          removeOnFail: false,
         },
       );
-
-      if (result.matchedCount === 0) return;
-
-	      await contentPipelineRouter.add(
-	        "QUESTION",
-	        {
-	          contentId: questionId,
-	          version,
-	        },
-	        {
-	          jobId: makeJobId("contentPipelineRoute", questionId, version),
-	          removeOnComplete: true,
-	          removeOnFail: false,
-	        },
-	      );
-	    },
+    },
     {
       connection: redisMessagingClientConnection,
       concurrency: 10,
