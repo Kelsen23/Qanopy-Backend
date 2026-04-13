@@ -107,6 +107,7 @@ const rollbackVersion = async (
           moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
           topicStatus: "PENDING",
           similarQuestionIds: [],
+          similarQuestionsStatus: "NONE",
         },
         { session },
       );
