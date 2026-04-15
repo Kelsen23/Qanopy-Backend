@@ -43,6 +43,31 @@ const getQuestionSessionSockets = async (questionId: string) => {
   return sockets || [];
 };
 
+const getQuestionSessionUsers = async (questionId: string) => {
+  const socketIds = await getRedisCacheClient().smembers(
+    `question:view:${questionId}:sockets`,
+  );
+
+  if (!socketIds.length) return [];
+
+  const pipeline = getRedisCacheClient().pipeline();
+
+  socketIds.forEach((socketId) => {
+    pipeline.get(`socket:${socketId}`);
+  });
+
+  const results = await pipeline.exec();
+
+  const userIds = new Set<string>();
+
+  for (const result of results || []) {
+    const userId = result?.[1];
+    if (userId) userIds.add(userId as string);
+  }
+
+  return Array.from(userIds);
+};
+
 const isQuestionSessionActive = async (questionId: string) => {
   const count = await getRedisCacheClient().scard(
     `question:view:${questionId}:sockets`,
@@ -55,5 +80,6 @@ export {
   startQuestionSession,
   endQuestionSession,
   getQuestionSessionSockets,
+  getQuestionSessionUsers,
   isQuestionSessionActive,
 };
