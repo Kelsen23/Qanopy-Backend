@@ -10,7 +10,10 @@ import Question from "../models/question.model.js";
 import queueNotification from "../utils/queueNotification.util.js";
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
-import { getQuestionSessionSockets } from "../services/redis/questionSession.service.js";
+import {
+  getQuestionSessionSockets,
+  getQuestionSessionUsers,
+} from "../services/redis/questionSession.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -89,15 +92,15 @@ async function startWorker() {
       const sockets = await getQuestionSessionSockets(questionId);
 
       if (sockets.length) {
-        await publishSocketEvent(
-          locked.userId as string,
-          "similarQuestionsReady",
-          {
+        const userIdsToPublishTo = await getQuestionSessionUsers(questionId);
+
+        for (const userId of userIdsToPublishTo) {
+          await publishSocketEvent(userId as string, "similarQuestionsReady", {
             questionId,
             version,
             similarQuestionIds,
-          },
-        );
+          });
+        }
       } else {
         await queueNotification({
           userId: locked.userId as string,
