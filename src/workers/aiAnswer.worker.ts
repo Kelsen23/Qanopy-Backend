@@ -82,10 +82,10 @@ async function startWorker() {
           {
             $project: {
               _id: 1,
-              score: { $meta: "vectorSearchScore" },
-              topicStatus: 1,
               isActive: 1,
               isDeleted: 1,
+              topicStatus: 1,
+              score: { $meta: "vectorSearchScore" },
             },
           },
 
