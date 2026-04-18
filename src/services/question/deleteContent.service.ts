@@ -12,6 +12,7 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
@@ -85,28 +86,70 @@ const deleteContent = async (
   });
 
   if (targetType === "QUESTION") {
-    await statsQueue.add("deleteQuestion", {
-      userId,
-      action: actionMap.QUESTION,
-    });
-    await imageDeletionQueue.add("deleteFromBody", {
-      body: foundContent.body,
-      entityType: targetType,
-      entityId: targetId,
-    });
+    await statsQueue.add(
+      "DELETE_QUESTION",
+      {
+        userId,
+        action: actionMap.QUESTION,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteQuestion", targetId),
+      },
+    );
+    await imageDeletionQueue.add(
+      "DELETE_FROM_BODY",
+      {
+        body: foundContent.body,
+        entityType: targetType,
+        entityId: targetId,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "imageDeletion",
+          "DELETE_FROM_BODY",
+          targetType,
+          targetId,
+        ),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "ANSWER") {
-    await statsQueue.add("deleteAnswer", {
-      userId,
-      action: actionMap.ANSWER,
-      mongoTargetId: foundContent.questionId as string,
-    });
-    await imageDeletionQueue.add("deleteFromBody", {
-      body: foundContent.body,
-      entityType: targetType,
-      entityId: targetId,
-    });
+    await statsQueue.add(
+      "DELETE_ANSWER",
+      {
+        userId,
+        action: actionMap.ANSWER,
+        mongoTargetId: foundContent.questionId as string,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteAnswer", targetId),
+      },
+    );
+    await imageDeletionQueue.add(
+      "DELETE_FROM_BODY",
+      {
+        body: foundContent.body,
+        entityType: targetType,
+        entityId: targetId,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "imageDeletion",
+          "DELETE_FROM_BODY",
+          targetType,
+          targetId,
+        ),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
@@ -117,10 +160,18 @@ const deleteContent = async (
       throw new HttpError("Parent answer not found", 404);
     }
 
-    await statsQueue.add("deleteReply", {
-      action: actionMap.REPLY,
-      mongoTargetId: foundAnswer._id,
-    });
+    await statsQueue.add(
+      "DELETE_REPLY",
+      {
+        action: actionMap.REPLY,
+        mongoTargetId: foundAnswer._id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "deleteReply", targetId),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);

@@ -15,7 +15,6 @@ import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
-import { cache } from "sharp";
 
 type RecommendedQuestionsCursor = {
   id: string;
@@ -298,7 +297,10 @@ const questionResolver = {
           user = null;
         }
 
-        return { ...q, user };
+        return {
+          ...q,
+          user,
+        };
       });
 
       const result = {
@@ -345,10 +347,16 @@ const questionResolver = {
           embedding: _embedding,
           topicStatus: _topicStatus,
           moderationStatus: _moderationStatus,
+          similarQuestionsStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
 
-        return publicQuestion;
+        return {
+          ...publicQuestion,
+          similarQuestionsReady:
+            publicQuestion.similarQuestionsReady ??
+            similarQuestionsStatus === "READY",
+        };
       }
 
       const [question, aiAnswer] = await Promise.all([
@@ -381,13 +389,14 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
+        similarQuestionsReady: question.similarQuestionsStatus === "READY",
         canGenerateAiSuggestion:
           question.topicStatus === "VALID" &&
           ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)),
         canGenerateAiAnswer:
           question.topicStatus === "VALID" &&
           ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
-          (question.embedding as Array<number>).length > 0,
+          question.embeddingStatus === "READY",
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
         user: user && !(user as any)?.error ? user : null,
@@ -422,6 +431,118 @@ const questionResolver = {
       await getRedisCacheClient().set(
         `question:${id}`,
         JSON.stringify(cachePayload),
+        "EX",
+        60 * 15,
+      );
+
+      return result;
+    },
+
+    similarQuestions: async (
+      _: any,
+      { questionId }: { questionId: string },
+      {
+        getRedisCacheClient,
+        loaders,
+      }: { getRedisCacheClient: () => Redis; loaders: any },
+    ) => {
+      if (!mongoose.isValidObjectId(questionId))
+        throw new HttpError("Invalid questionId", 400);
+
+      const cacheKey = `similarQuestions:${questionId}`;
+      const cachedSimilarQuestions = await getRedisCacheClient().get(cacheKey);
+
+      if (cachedSimilarQuestions) return JSON.parse(cachedSimilarQuestions);
+
+      const foundQuestion = await Question.findOne({
+        _id: new mongoose.Types.ObjectId(questionId),
+        isActive: true,
+        isDeleted: false,
+      })
+        .select("similarQuestionIds")
+        .lean();
+
+      if (!foundQuestion) {
+        await getRedisCacheClient().set(
+          cacheKey,
+          JSON.stringify([]),
+          "EX",
+          60 * 15,
+        );
+
+        return [];
+      }
+
+      const uniqueLimitedIds = (
+        Array.isArray(foundQuestion.similarQuestionIds)
+          ? (foundQuestion.similarQuestionIds as Array<
+              string | mongoose.Types.ObjectId
+            >)
+          : []
+      )
+        .map((id) => String(id))
+        .filter((id) => mongoose.isValidObjectId(id))
+        .filter((id, index, arr) => arr.indexOf(id) === index)
+        .slice(0, 3);
+
+      if (uniqueLimitedIds.length === 0) {
+        await getRedisCacheClient().set(
+          cacheKey,
+          JSON.stringify([]),
+          "EX",
+          60 * 15,
+        );
+
+        return [];
+      }
+
+      const similarQuestions = await Question.find({
+        _id: {
+          $in: uniqueLimitedIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        isActive: true,
+        isDeleted: false,
+        topicStatus: "VALID",
+        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+      })
+        .select(
+          "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion createdAt updatedAt",
+        )
+        .lean();
+
+      const questionMap = new Map(
+        similarQuestions.map((q) => [String(q._id), q]),
+      );
+
+      const orderedSimilarQuestions = uniqueLimitedIds
+        .map((id) => questionMap.get(id))
+        .filter(Boolean);
+
+      const uniqueUserIds = [
+        ...new Set(orderedSimilarQuestions.map((q: any) => q.userId)),
+      ];
+      const users = await loaders.userLoader.loadMany(uniqueUserIds);
+      const userMap = new Map(users.map((u: any) => [u?.id, u]));
+
+      const result = orderedSimilarQuestions.map((q: any) => ({
+        id: q._id,
+        userId: q.userId,
+        title: q.title,
+        body: q.body,
+        tags: q.tags,
+        upvoteCount: q.upvoteCount,
+        downvoteCount: q.downvoteCount,
+        answerCount: q.answerCount,
+        acceptedAnswerCount: q.acceptedAnswerCount,
+        currentVersion: q.currentVersion,
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+        user: userMap.get(q.userId) || null,
+      }));
+
+      await getRedisCacheClient().set(
+        cacheKey,
+        JSON.stringify(result),
         "EX",
         60 * 15,
       );

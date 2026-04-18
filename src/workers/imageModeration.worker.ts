@@ -12,11 +12,11 @@ const worker = new Worker(
     const { userId, objectKey } = job.data;
 
     switch (job.name) {
-      case "profilePicture":
+      case "PROFILE_PICTURE":
         await updateProfilePictureService(userId, objectKey);
         break;
 
-      case "content":
+      case "CONTENT":
         await processContentImage(userId, objectKey);
         break;
 

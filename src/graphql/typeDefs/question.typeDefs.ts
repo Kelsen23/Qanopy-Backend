@@ -25,6 +25,7 @@ const questionTypeDefs = gql`
 
     searchScore: Float
 
+    similarQuestionsReady: Boolean
     canGenerateAiSuggestion: Boolean
     canGenerateAiAnswer: Boolean
 
@@ -371,6 +372,8 @@ const questionTypeDefs = gql`
     ): RecommendedQuestionConnection!
 
     question(id: String!): Question
+
+    similarQuestions(questionId: String!): [Question!]!
 
     answer(id: String!): Answer
 

@@ -8,6 +8,8 @@ import HttpError from "../utils/httpError.util.js";
 import interests from "../utils/interests.util.js";
 import sanitizeUser from "../utils/sanitizeUser.util.js";
 
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 import { getRedisCacheClient } from "../config/redis.config.js";
 
 import prisma from "../config/prisma.config.js";
@@ -36,10 +38,23 @@ const updateProfilePicture = asyncHandler(
 
     await getRedisCacheClient().del(`user:${userId}`);
 
-    await imageModerationQueue.add("profilePicture", {
-      userId,
-      objectKey,
-    });
+    await imageModerationQueue.add(
+      "PROFILE_PICTURE",
+      {
+        userId,
+        objectKey,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId(
+          "imageModeration",
+          "PROFILE_PICTURE",
+          userId,
+          objectKey,
+        ),
+      },
+    );
 
     return res
       .status(202)
@@ -68,9 +83,21 @@ const deleteProfilePicture = asyncHandler(
       await getRedisCacheClient().del(`user:${userId}`);
 
       if (updatedUser.profilePictureKey)
-        await imageDeletionQueue.add("deleteSingle", {
-          objectKey: updatedUser.profilePictureKey,
-        });
+        await imageDeletionQueue.add(
+          "DELETE_SINGLE",
+          {
+            objectKey: updatedUser.profilePictureKey,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "imageDeletion",
+              "DELETE_SINGLE",
+              updatedUser.profilePictureKey,
+            ),
+          },
+        );
 
       return res.status(202).json({
         message: "Successfully deleted profile picture",

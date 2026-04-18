@@ -5,6 +5,7 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../utils/clearCache.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
 
 import mongoose from "mongoose";
 
@@ -99,16 +100,31 @@ const vote = async (
 
     session.endSession();
 
-    await statsQueue.add("changeReputationPoints", {
-      userId: foundQuestion.userId as string,
-      action: existingVote
-        ? voteType === "UPVOTE"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION"
-        : voteType === "UPVOTE"
-          ? "RECEIVE_UPVOTE_QUESTION"
-          : "RECEIVE_DOWNVOTE_QUESTION",
-    });
+    await statsQueue.add(
+      "CHANGE_REPUTATION_POINTS",
+      {
+        userId: foundQuestion.userId as string,
+        action: existingVote
+          ? voteType === "UPVOTE"
+            ? "CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION"
+            : "CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION"
+          : voteType === "UPVOTE"
+            ? "RECEIVE_UPVOTE_QUESTION"
+            : "RECEIVE_DOWNVOTE_QUESTION",
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "stats",
+          "changeReputationPoints",
+          "QUESTION",
+          targetId,
+          voteType,
+          userId,
+        ),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${targetId}`);
 
@@ -165,16 +181,31 @@ const vote = async (
 
     session.endSession();
 
-    await statsQueue.add("changeReputationPoints", {
-      userId: foundAnswer.userId as string,
-      action: existingVote
-        ? voteType === "UPVOTE"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER"
-        : voteType === "UPVOTE"
-          ? "RECEIVE_UPVOTE_ANSWER"
-          : "RECEIVE_DOWNVOTE_ANSWER",
-    });
+    await statsQueue.add(
+      "CHANGE_REPUTATION_POINTS",
+      {
+        userId: foundAnswer.userId as string,
+        action: existingVote
+          ? voteType === "UPVOTE"
+            ? "CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER"
+            : "CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER"
+          : voteType === "UPVOTE"
+            ? "RECEIVE_UPVOTE_ANSWER"
+            : "RECEIVE_DOWNVOTE_ANSWER",
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "stats",
+          "changeReputationPoints",
+          "ANSWER",
+          targetId,
+          voteType,
+          userId,
+        ),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
@@ -232,16 +263,31 @@ const vote = async (
 
     session.endSession();
 
-    await statsQueue.add("changeReputationPoints", {
-      userId: foundReply.userId as string,
-      action: existingVote
-        ? voteType === "UPVOTE"
-          ? "CHANGE_DOWNVOTE_TO_UPVOTE_REPLY"
-          : "CHANGE_UPVOTE_TO_DOWNVOTE_REPLY"
-        : voteType === "UPVOTE"
-          ? "RECEIVE_UPVOTE_REPLY"
-          : "RECEIVE_DOWNVOTE_REPLY",
-    });
+    await statsQueue.add(
+      "CHANGE_REPUTATION_POINTS",
+      {
+        userId: foundReply.userId as string,
+        action: existingVote
+          ? voteType === "UPVOTE"
+            ? "CHANGE_DOWNVOTE_TO_UPVOTE_REPLY"
+            : "CHANGE_UPVOTE_TO_DOWNVOTE_REPLY"
+          : voteType === "UPVOTE"
+            ? "RECEIVE_UPVOTE_REPLY"
+            : "RECEIVE_DOWNVOTE_REPLY",
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "stats",
+          "changeReputationPoints",
+          "REPLY",
+          targetId,
+          voteType,
+          userId,
+        ),
+      },
+    );
 
     await clearReplyCache(foundReply.answerId as string);
 

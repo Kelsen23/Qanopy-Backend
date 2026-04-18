@@ -4,6 +4,8 @@ import applyAiModerationDecisionService from "./applyAiModerationDecision.servic
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
 
+import { makeJobId } from "../../utils/makeJobId.util.js";
+
 import computeRiskScore from "../../utils/computeRiskScore.util.js";
 import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
 
@@ -25,27 +27,9 @@ import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
-import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
+import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
 
 import crypto from "crypto";
-
-const queueTopicDetermination = async (
-  contentId: string,
-  contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
-  version?: number,
-) => {
-  if (contentType !== "QUESTION" || version === undefined) return;
-
-  await topicDeterminationQueue.add(
-    "question",
-    {
-      questionId: contentId,
-      version,
-      isRollback: false,
-    },
-    { removeOnComplete: true, removeOnFail: false },
-  );
-};
 
 const mapSeverityToDecision = (riskScore: number) => {
   if (riskScore >= 6.0) return "BAN_PERM";
@@ -147,7 +131,7 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version as number,
+          targetContentVersion: version,
           strikedBy: "AI_MODERATION",
         },
       });
@@ -168,25 +152,41 @@ const processContent = async (
       riskScore,
     };
 
-    await moderationAuditQueue.add("modActionLog", {
-      decisionId,
-      targetType: "USER",
-      targetId: content.userId,
-      targetUserId: content.userId,
-      actorType: "AI_MODERATION",
-      actionTaken: "BAN_PERM",
-      meta,
-    });
+    await moderationAuditQueue.add(
+      "MOD_ACTION_LOG",
+      {
+        decisionId,
+        targetType: "USER",
+        targetId: content.userId,
+        targetUserId: content.userId,
+        actorType: "AI_MODERATION",
+        actionTaken: "BAN_PERM",
+        meta,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "BAN_PERM"),
+      },
+    );
+
+    await moderationMetricsQueue.add(
+      "BAN_PERM",
+      {
+        userId: content.userId as string,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "BAN_PERM"),
+      },
+    );
 
     await queueNotification({
       userId: newStrike.userId,
       type: "STRIKE",
       referenceId: newStrike.id,
       meta,
-    });
-
-    await moderationMetricsQueue.add("BAN_PERM", {
-      userId: content.userId as string,
     });
   } else if (aiDecision === "BAN_TEMP") {
     const tempBanMs = calculateTempBanMs(
@@ -265,25 +265,55 @@ const processContent = async (
       durationMs: tempBanMs,
     };
 
-    await moderationAuditQueue.add("modActionLog", {
-      decisionId,
-      targetType: "USER",
-      targetId: content.userId,
-      targetUserId: content.userId,
-      actorType: "AI_MODERATION",
-      actionTaken: "BAN_TEMP",
-      meta,
-    });
+    await moderationAuditQueue.add(
+      "MOD_ACTION_LOG",
+      {
+        decisionId,
+        targetType: "USER",
+        targetId: content.userId,
+        targetUserId: content.userId,
+        actorType: "AI_MODERATION",
+        actionTaken: "BAN_TEMP",
+        meta,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "BAN_TEMP"),
+      },
+    );
+
+    await moderationMetricsQueue.add(
+      "BAN_TEMP",
+      {
+        userId: content.userId as string,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "BAN_TEMP"),
+      },
+    );
+
+    if (contentType === "QUESTION")
+      await contentPipelineRouter.add(
+        "QUESTION",
+        {
+          contentId,
+          version,
+        },
+        {
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
 
     await queueNotification({
       userId: content.userId as string,
       type: "STRIKE",
       referenceId: newBan.id,
       meta,
-    });
-
-    await moderationMetricsQueue.add("BAN_TEMP", {
-      userId: content.userId as string,
     });
 
     getRedisPub().publish(
@@ -326,15 +356,49 @@ const processContent = async (
       expiresAt: warningExpiresAt,
     };
 
-    await moderationAuditQueue.add("modActionLog", {
-      decisionId,
-      targetType: "USER",
-      targetId: content.userId,
-      targetUserId: content.userId,
-      actorType: "AI_MODERATION",
-      actionTaken: "WARN",
-      meta,
-    });
+    await moderationAuditQueue.add(
+      "MOD_ACTION_LOG",
+      {
+        decisionId,
+        targetType: "USER",
+        targetId: content.userId,
+        targetUserId: content.userId,
+        actorType: "AI_MODERATION",
+        actionTaken: "WARN",
+        meta,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "WARN"),
+      },
+    );
+
+    await moderationMetricsQueue.add(
+      "WARN",
+      {
+        userId: content.userId as string,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "WARN"),
+      },
+    );
+
+    if (contentType === "QUESTION")
+      await contentPipelineRouter.add(
+        "QUESTION",
+        {
+          contentId,
+          version,
+        },
+        {
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
 
     await queueNotification({
       userId: newWarning.userId,
@@ -342,12 +406,6 @@ const processContent = async (
       referenceId: newWarning.id,
       meta,
     });
-
-    await moderationMetricsQueue.add("WARN", {
-      userId: content.userId as string,
-    });
-
-    await queueTopicDetermination(contentId, contentType, version);
   } else if (aiDecision === "IGNORE") {
     await applyAiModerationDecisionService(
       contentId,
@@ -367,21 +425,49 @@ const processContent = async (
       riskScore,
     };
 
-    await moderationAuditQueue.add("modActionLog", {
-      decisionId,
-      targetType: "USER",
-      targetId: content.userId,
-      targetUserId: content.userId,
-      actorType: "AI_MODERATION",
-      actionTaken: "IGNORE",
-      meta,
-    });
+    await moderationAuditQueue.add(
+      "MOD_ACTION_LOG",
+      {
+        decisionId,
+        targetType: "USER",
+        targetId: content.userId,
+        targetUserId: content.userId,
+        actorType: "AI_MODERATION",
+        actionTaken: "IGNORE",
+        meta,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationAudit", decisionId, "IGNORE"),
+      },
+    );
 
-    await moderationMetricsQueue.add("IGNORE", {
-      userId: content.userId as string,
-    });
+    if (contentType === "QUESTION")
+      await contentPipelineRouter.add(
+        "QUESTION",
+        {
+          contentId,
+          version,
+        },
+        {
+          jobId: makeJobId("contentPipelineRoute", contentId, version),
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
 
-    await queueTopicDetermination(contentId, contentType, version);
+    await moderationMetricsQueue.add(
+      "IGNORE",
+      {
+        userId: content.userId as string,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("moderationMetrics", decisionId, "IGNORE"),
+      },
+    );
   }
 };
 

@@ -5,16 +5,13 @@ import {
 } from "../config/redis.config.js";
 
 import HttpError from "../utils/httpError.util.js";
-
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import mongoose from "mongoose";
 
 import Question from "../models/question.model.js";
-import QuestionVersion from "../models/questionVersion.model.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
-
 import prisma from "../config/prisma.config.js";
 
 import fullAnswerService from "../services/question/aiAnswers/fullAnswer.service.js";
@@ -33,41 +30,40 @@ async function startWorker() {
       const cancelKey = getAiAnswerCancelKey(questionId, version);
 
       try {
-        const foundQuestion = await Question.findById(questionId).select(
-          "_id isActive isDeleted currentVersion",
-        );
+        const foundQuestion = await Question.findById(questionId)
+          .select(
+            "_id isActive isDeleted currentVersion title body moderationStatus topicStatus embedding embeddingStatus",
+          )
+          .lean();
+
         if (!foundQuestion) throw new HttpError("Question not found", 404);
 
         if (!foundQuestion.isActive || foundQuestion.isDeleted)
           throw new HttpError("Question not active", 400);
 
-        const foundQuestionVersion = await QuestionVersion.findOne({
-          questionId,
-          version,
-        })
-          .select("_id title body embedding moderationStatus topicStatus")
-          .lean();
-
-        if (!foundQuestionVersion)
-          throw new HttpError("Question version not found", 404);
-
-        if (
-          !["APPROVED", "FLAGGED"].includes(
-            String(foundQuestionVersion.moderationStatus),
-          ) ||
-          foundQuestionVersion.topicStatus !== "VALID"
-        ) {
-          throw new HttpError(
-            "Question version is not eligible for AI answer",
-            400,
-          );
+        if (foundQuestion.currentVersion !== version) {
+          throw new HttpError("Not current version", 400);
         }
 
         if (
-          !Array.isArray(foundQuestionVersion.embedding) ||
-          foundQuestionVersion.embedding.length === 0
-        )
-          throw new HttpError("Question version does not have embedding", 400);
+          !["APPROVED", "FLAGGED"].includes(
+            String(foundQuestion.moderationStatus),
+          ) ||
+          foundQuestion.topicStatus !== "VALID"
+        ) {
+          throw new HttpError("Question is not eligible for AI answer", 400);
+        }
+
+        if (
+          !Array.isArray(foundQuestion.embedding) ||
+          foundQuestion.embedding.length === 0
+        ) {
+          throw new HttpError("Question does not have embedding", 400);
+        }
+
+        if (foundQuestion.embeddingStatus !== "READY") {
+          throw new HttpError("Embedding not ready", 400);
+        }
 
         const questionObjectId = new mongoose.Types.ObjectId(questionId);
         await getRedisCacheClient().del(cancelKey);
@@ -77,9 +73,19 @@ async function startWorker() {
             $vectorSearch: {
               index: "semantic_search_vector_index",
               path: "embedding",
-              queryVector: foundQuestionVersion.embedding,
+              queryVector: foundQuestion.embedding,
               numCandidates: 80,
-              limit: 6,
+              limit: 15,
+            },
+          },
+
+          {
+            $project: {
+              _id: 1,
+              isActive: 1,
+              isDeleted: 1,
+              topicStatus: 1,
+              score: { $meta: "vectorSearchScore" },
             },
           },
 
@@ -89,13 +95,10 @@ async function startWorker() {
               isActive: true,
               isDeleted: false,
               topicStatus: "VALID",
-              moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
             },
           },
-
+          
           { $limit: 5 },
-
-          { $project: { _id: 1, score: { $meta: "vectorSearchScore" } } },
         ]);
 
         const similarityThreshold = 0.7;
@@ -105,8 +108,8 @@ async function startWorker() {
           await fullAnswerService(
             userId,
             questionId,
-            String(foundQuestionVersion.title ?? ""),
-            String(foundQuestionVersion.body ?? ""),
+            String(foundQuestion.title ?? ""),
+            String(foundQuestion.body ?? ""),
             version,
           );
         } else {
@@ -116,8 +119,8 @@ async function startWorker() {
             similarQuestionIds,
             userId,
             questionId,
-            String(foundQuestionVersion.title ?? ""),
-            String(foundQuestionVersion.body ?? ""),
+            String(foundQuestion.title ?? ""),
+            String(foundQuestion.body ?? ""),
             version,
           );
         }
@@ -137,7 +140,7 @@ async function startWorker() {
             where: { id: userId },
             data: { credits: { increment: 5 } },
           });
-          
+
           await getRedisCacheClient().del(
             `credits:${userId}`,
             `user:${userId}`,
@@ -148,6 +151,7 @@ async function startWorker() {
           message: err.message,
           statusCode: err.statusCode || 500,
         });
+
         console.log("publishSocketEvent", {
           message: "aiAnswerFailed",
           data: {

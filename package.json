@@ -20,6 +20,7 @@
     "dev:email-worker": "tsx src/workers/email.worker.ts",
     "dev:contentModeration-worker": "tsx src/workers/contentModeration.worker.ts",
     "dev:questionVersioning-worker": "tsx src/workers/questionVersioning.worker.ts",
+    "dev:contentPipelineRouter-worker": "tsx src/workers/contentPipelineRouter.worker.ts",
     "dev:stats-worker": "tsx src/workers/stats.worker.ts",
     "dev:imageModeration-worker": "tsx src/workers/imageModeration.worker.ts",
     "dev:contentFinalize-worker": "tsx src/workers/contentFinalize.worker.ts",
@@ -32,7 +33,8 @@
     "dev:questionEmbedding-worker": "tsx src/workers/questionEmbedding.worker.ts",
     "dev:aiAnswer-worker": "tsx src/workers/aiAnswer.worker.ts",
     "dev:aiSuggestion-worker": "tsx src/workers/aiSuggestion.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\"",
+    "dev:similarQuestions-worker": "tsx src/workers/similarQuestions.worker.ts",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"

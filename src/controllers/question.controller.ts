@@ -6,6 +6,8 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
 import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.util.js";
 
+import { makeJobId } from "../utils/makeJobId.util.js";
+
 import HttpError from "../utils/httpError.util.js";
 
 import voteService from "../services/question/vote.service.js";
@@ -52,15 +54,31 @@ const createQuestion = asyncHandler(
       tags,
     });
 
-    await statsQueue.add("askQuestion", {
-      userId,
-      action: "ASK_QUESTION",
-    });
+    await statsQueue.add(
+      "ASK_QUESTION",
+      {
+        userId,
+        action: "ASK_QUESTION",
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "askQuestion", newQuestion._id),
+      },
+    );
 
-    await contentFinalizeQueue.add("Question", {
-      userId,
-      entityId: newQuestion._id,
-    });
+    await contentFinalizeQueue.add(
+      "QUESTION",
+      {
+        userId,
+        entityId: newQuestion._id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentFinalize", "QUESTION", newQuestion._id),
+      },
+    );
 
     return res.status(201).json({
       message: "Successfully created question",
@@ -97,16 +115,32 @@ const createAnswerOnQuestion = asyncHandler(
     await getRedisCacheClient().del(`question:${questionId}`);
     await clearAnswerCache(questionId);
 
-    await statsQueue.add("giveAnswer", {
-      userId,
-      action: "GIVE_ANSWER",
-      mongoTargetId: foundQuestion._id || foundQuestion.id,
-    });
+    await statsQueue.add(
+      "GIVE_ANSWER",
+      {
+        userId,
+        action: "GIVE_ANSWER",
+        mongoTargetId: foundQuestion._id || foundQuestion.id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "giveAnswer", newAnswer._id),
+      },
+    );
 
-    await contentFinalizeQueue.add("Answer", {
-      userId,
-      entityId: newAnswer._id,
-    });
+    await contentFinalizeQueue.add(
+      "ANSWER",
+      {
+        userId,
+        entityId: newAnswer._id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentFinalize", "ANSWER", newAnswer._id),
+      },
+    );
 
     return res
       .status(201)
@@ -138,13 +172,29 @@ const createReplyOnAnswer = asyncHandler(
 
     const newReply = await Reply.create({ answerId, userId, body });
 
-    await statsQueue.add("giveReply", {
-      userId,
-      action: "GIVE_REPLY",
-      mongoTargetId: foundAnswer._id || foundAnswer.id,
-    });
+    await statsQueue.add(
+      "GIVE_REPLY",
+      {
+        userId,
+        action: "GIVE_REPLY",
+        mongoTargetId: foundAnswer._id || foundAnswer.id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "giveReply", newReply._id),
+      },
+    );
 
-    await contentModerationQueue.add("REPLY", { contentId: newReply._id });
+    await contentModerationQueue.add(
+      "REPLY",
+      { contentId: newReply._id },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("contentModeration", "REPLY", newReply._id),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
@@ -218,11 +268,19 @@ const acceptAnswer = asyncHandler(
       { new: true },
     );
 
-    await statsQueue.add("acceptAnswer", {
-      userId,
-      action: "ACCEPT_ANSWER",
-      mongoTargetId: foundQuestion._id || foundQuestion.id,
-    });
+    await statsQueue.add(
+      "ACCEPT_ANSWER",
+      {
+        userId,
+        action: "ACCEPT_ANSWER",
+        mongoTargetId: foundQuestion._id || foundQuestion.id,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "acceptAnswer", answerId),
+      },
+    );
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
@@ -277,17 +335,33 @@ const unacceptAnswer = asyncHandler(
     );
 
     if (foundAnswer.isBestAnswerByAsker) {
-      await statsQueue.add("unacceptBestAnswer", {
-        userId,
-        action: "UNACCEPT_BEST_ANSWER",
-        mongoTargetId: foundQuestion._id || foundQuestion.id,
-      });
+      await statsQueue.add(
+        "UNACCEPT_BEST_ANSWER",
+        {
+          userId,
+          action: "UNACCEPT_BEST_ANSWER",
+          mongoTargetId: foundQuestion._id || foundQuestion.id,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("stats", "unacceptBestAnswer", answerId),
+        },
+      );
     } else {
-      await statsQueue.add("unacceptAnswer", {
-        userId,
-        action: "UNACCEPT_ANSWER",
-        mongoTargetId: foundQuestion._id || foundQuestion.id,
-      });
+      await statsQueue.add(
+        "UNACCEPT_ANSWER",
+        {
+          userId,
+          action: "UNACCEPT_ANSWER",
+          mongoTargetId: foundQuestion._id || foundQuestion.id,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("stats", "unacceptAnswer", answerId),
+        },
+      );
     }
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
@@ -423,11 +497,29 @@ const generateSuggestion = asyncHandler(
       await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
 
       try {
-        await aiSuggestionQueue.add("generateSuggestion", {
+        const jobId = makeJobId(
+          "aiSuggestion",
+          "GENERATE_SUGGESTION",
           userId,
           questionId,
-          version: versionNumber,
-        });
+          versionNumber,
+        );
+
+        await aiSuggestionQueue.remove(jobId);
+
+        await aiSuggestionQueue.add(
+          "GENERATE_SUGGESTION",
+          {
+            userId,
+            questionId,
+            version: versionNumber,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId,
+          },
+        );
       } catch (error) {
         await prisma.user.update({
           where: { id: userId },
@@ -543,11 +635,29 @@ const generateAiAnswer = asyncHandler(
       await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
 
       try {
-        await aiAnswerQueue.add("generateAiAnswer", {
+        const jobId = makeJobId(
+          "aiAnswer",
+          "GENERATE_AI_ANSWER",
           userId,
           questionId,
-          version: versionNumber,
-        });
+          versionNumber,
+        );
+
+        await aiAnswerQueue.remove(jobId);
+
+        await aiAnswerQueue.add(
+          "GENERATE_AI_ANSWER",
+          {
+            userId,
+            questionId,
+            version: versionNumber,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId,
+          },
+        );
       } catch (error) {
         await prisma.user.update({
           where: { id: userId },

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import HttpError from "../../utils/httpError.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
@@ -72,9 +73,17 @@ const editFeedbackOnAiAnswer = async (
     { new: true },
   );
 
-  await contentModerationQueue.add("AI_ANSWER_FEEDBACK", {
-    contentId: feedbackId,
-  });
+  await contentModerationQueue.add(
+    "AI_ANSWER_FEEDBACK",
+    {
+      contentId: feedbackId,
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("contentModeration", "AI_ANSWER_FEEDBACK", feedbackId),
+    },
+  );
 
   return {
     message: "Successfully edited AI answer feedback",

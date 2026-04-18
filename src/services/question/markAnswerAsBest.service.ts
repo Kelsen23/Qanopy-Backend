@@ -5,6 +5,7 @@ import Answer from "../../models/answer.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import { clearAnswerCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
@@ -53,10 +54,18 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
       { $set: { isBestAnswerByAsker: false } },
     );
 
-    await statsQueue.add("unmarkAsBest", {
-      userId: previousBest.userId as string,
-      action: "UNMARK_ANSWER_AS_BEST",
-    });
+    await statsQueue.add(
+      "UNMARK_AS_BEST",
+      {
+        userId: previousBest.userId as string,
+        action: "UNMARK_ANSWER_AS_BEST",
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("stats", "unmarkAsBest", previousBest._id),
+      },
+    );
   }
 
   const newBestAnswer = await Answer.findByIdAndUpdate(
@@ -67,10 +76,18 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
 
   if (!newBestAnswer) throw new HttpError("Error marking answer as best", 500);
 
-  await statsQueue.add("markAsBest", {
-    userId: newBestAnswer.userId as string,
-    action: "MARK_ANSWER_AS_BEST",
-  });
+  await statsQueue.add(
+    "MARK_AS_BEST",
+    {
+      userId: newBestAnswer.userId as string,
+      action: "MARK_ANSWER_AS_BEST",
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("stats", "markAsBest", newBestAnswer._id),
+    },
+  );
 
   await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
   await clearAnswerCache(foundAnswer.questionId as string);

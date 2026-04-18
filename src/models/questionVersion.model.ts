@@ -29,13 +29,6 @@ const QuestionVersionSchema: Schema = new Schema(
       type: Date,
       default: null,
     },
-    topicStatus: {
-      type: String,
-      enum: ["PENDING", "VALID", "OFF_TOPIC"],
-      default: "PENDING",
-    },
-
-    embedding: { type: [Number] },
   },
   {
     timestamps: true,

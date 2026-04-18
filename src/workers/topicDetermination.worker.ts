@@ -1,183 +1,92 @@
 import { Worker } from "bullmq";
+import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-import {
-  getRedisCacheClient,
-  redisMessagingClientConnection,
-} from "../config/redis.config.js";
+import connectMongoDB from "../config/mongodb.config.js";
 
-import { clearVersionHistoryCache } from "../utils/clearCache.util.js";
-
-import HttpError from "../utils/httpError.util.js";
-import convertQuestionToText from "../utils/convertQuestionToText.util.js";
+import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
+
+import { makeJobId } from "../utils/makeJobId.util.js";
 
 import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
-import mongoose from "mongoose";
-
-import connectMongoDB from "../config/mongodb.config.js";
-
 import determineTopicStatusService from "../services/question/topicDetermination.service.js";
 
-import questionEmbeddingQueue from "../queues/questionEmbedding.queue.js";
+import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting topic determination worker...");
 
   const worker = new Worker(
     "topicDeterminationQueue",
     async (job) => {
-      const { questionId, version, isRollback } = job.data;
-      let shouldQueueEmbedding = false;
-      let shouldInvalidateCache = false;
-      const session = await mongoose.startSession();
+      const { questionId, version } = job.data;
+
+      const qv = await QuestionVersion.findOne({ questionId, version })
+        .select("title body tags")
+        .lean();
+
+      if (!qv) return;
+
+      const locked = await Question.findOneAndUpdate(
+        {
+          _id: questionId,
+          currentVersion: version,
+          topicStatus: "PENDING",
+        },
+        { $set: { topicStatus: "PROCESSING" } },
+        { new: true },
+      );
+
+      if (!locked) return;
+
+      const text = convertQuestionToEmbeddingText(
+        normalizeText(qv.title as string),
+        normalizeText(qv.body as string),
+        Array.isArray(qv.tags) ? qv.tags : [],
+      );
+
+      let finalStatus: "VALID" | "OFF_TOPIC";
 
       try {
-        if (isRollback) {
-          const rolledBackVersion = await QuestionVersion.findOne({
-            questionId,
-            version,
-            topicStatus: { $in: ["PENDING", "VALID"] },
-          })
-            .select("_id basedOnVersion topicStatus")
-            .lean();
-
-          if (!rolledBackVersion)
-            throw new HttpError("Question version not found", 404);
-
-          const baseVersion = await QuestionVersion.findOne({
-            questionId,
-            version: rolledBackVersion.basedOnVersion,
-          })
-            .select("_id title body topicStatus")
-            .lean();
-
-          if (!baseVersion) throw new HttpError("Base version not found", 404);
-
-          let resolvedTopicStatus = rolledBackVersion.topicStatus as
-            | "PENDING"
-            | "VALID"
-            | "OFF_TOPIC";
-
-          if (resolvedTopicStatus === "PENDING") {
-            const inheritedBaseTopicStatus = baseVersion.topicStatus as
-              | "PENDING"
-              | "VALID"
-              | "OFF_TOPIC";
-
-            resolvedTopicStatus = inheritedBaseTopicStatus;
-
-            if (resolvedTopicStatus === "PENDING") {
-              const questionText = convertQuestionToText(
-                normalizeText(baseVersion.title as string),
-                normalizeText(baseVersion.body as string),
-                [],
-                false,
-              );
-
-              const determinedTopicStatus =
-                await determineTopicStatusService(questionText);
-              resolvedTopicStatus =
-                determinedTopicStatus === "VALID" ? "VALID" : "OFF_TOPIC";
-            }
-          }
-
-          await session.withTransaction(async () => {
-            const updatedQuestionVersion =
-              await QuestionVersion.findByIdAndUpdate(
-                rolledBackVersion._id as string,
-                { topicStatus: resolvedTopicStatus },
-                { new: true, session },
-              ).select("isActive");
-
-            if (!updatedQuestionVersion)
-              throw new HttpError("Question not found", 404);
-
-            if (baseVersion.topicStatus === "PENDING") {
-              await QuestionVersion.findByIdAndUpdate(
-                baseVersion._id as string,
-                { topicStatus: resolvedTopicStatus },
-                { session },
-              );
-            }
-
-            if (updatedQuestionVersion.isActive) {
-              await Question.findByIdAndUpdate(
-                questionId as string,
-                { topicStatus: resolvedTopicStatus },
-                { session },
-              );
-            }
-
-            shouldQueueEmbedding = resolvedTopicStatus === "VALID";
-            shouldInvalidateCache = true;
-          });
-        } else {
-          const foundQuestionVersion = await QuestionVersion.findOne({
-            questionId,
-            version,
-            $or: [
-              { moderationStatus: "APPROVED" },
-              { moderationStatus: "FLAGGED" },
-            ],
-            topicStatus: "PENDING",
-          })
-            .select("_id title body")
-            .lean();
-
-          if (!foundQuestionVersion)
-            throw new HttpError("Question version not found", 404);
-
-          const questionText = convertQuestionToText(
-            normalizeText(foundQuestionVersion.title as string),
-            normalizeText(foundQuestionVersion.body as string),
-            [],
-            false,
-          );
-
-          const topicStatus = await determineTopicStatusService(questionText);
-
-          await session.withTransaction(async () => {
-            const updatedQuestionVersion =
-              await QuestionVersion.findByIdAndUpdate(
-                foundQuestionVersion._id as string,
-                { topicStatus },
-                { new: true, session },
-              ).select("isActive");
-
-            if (!updatedQuestionVersion)
-              throw new HttpError("Question not found", 404);
-
-            if (updatedQuestionVersion.isActive) {
-              await Question.findByIdAndUpdate(
-                questionId as string,
-                { topicStatus },
-                { session },
-              );
-            }
-          });
-
-          shouldQueueEmbedding = topicStatus === "VALID";
-          shouldInvalidateCache = true;
-        }
-      } finally {
-        session.endSession();
+        const res = await determineTopicStatusService(text);
+        finalStatus = res === "VALID" ? "VALID" : "OFF_TOPIC";
+      } catch (err) {
+        await Question.updateOne(
+          { _id: questionId, currentVersion: version },
+          { $set: { topicStatus: "PENDING" } },
+        );
+        throw err;
       }
 
-      if (shouldQueueEmbedding) {
-        await questionEmbeddingQueue.add("question", job.data);
-      }
+      const updated = await Question.updateOne(
+        {
+          _id: questionId,
+          currentVersion: version,
+          topicStatus: "PROCESSING",
+        },
+        {
+          $set: {
+            topicStatus: finalStatus,
+            embeddingStatus: "NONE",
+            similarQuestionsStatus: "NONE",
+          },
+        },
+      );
 
-      if (shouldInvalidateCache) {
-        await Promise.all([
-          getRedisCacheClient().del(
-            `question:${questionId}`,
-            `v:${version}:question:${questionId}`,
-          ),
-          clearVersionHistoryCache(questionId as string),
-        ]);
+      if (updated.modifiedCount === 0) return;
+
+      if (finalStatus === "VALID") {
+        await contentPipelineRouter.add(
+          "QUESTION",
+          { contentId: questionId, version },
+          {
+            jobId: makeJobId("contentPipelineRoute", questionId, version),
+            removeOnComplete: true,
+            removeOnFail: false,
+          },
+        );
       }
     },
     {
