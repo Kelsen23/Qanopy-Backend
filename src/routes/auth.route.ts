@@ -20,9 +20,10 @@ import {
   loginSchema,
   oauthSchema,
   registerSchema,
-  resetPasswordSchema,
-  sendResetPasswordEmailSchema,
   verifyEmailSchema,
+  sendResetPasswordEmailSchema,
+  verifyResetPasswordOtpSchema,
+  resetPasswordSchema,
 } from "../validations/auth.schema.js";
 
 import {
@@ -76,7 +77,7 @@ router
   .route("/resetPasswordOtp/verify")
   .post(
     emailVerificationLimiterMiddleware,
-    validate(verifyEmailSchema),
+    validate(verifyResetPasswordOtpSchema),
     verifyResetPasswordOtp,
   );
 router
