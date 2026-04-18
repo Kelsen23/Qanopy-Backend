@@ -13,9 +13,23 @@ import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 
+import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+
 import crypto from "crypto";
 
 type AdminReportActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
+
+type ReportTargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
+
+const actionToModerationStatus: Record<
+  AdminReportActionTaken,
+  "APPROVED" | "FLAGGED" | "REJECTED"
+> = {
+  BAN_TEMP: "REJECTED",
+  BAN_PERM: "REJECTED",
+  WARN: "FLAGGED",
+  IGNORE: "APPROVED",
+};
 
 const adminModerateReport = async ({
   targetId,
@@ -29,7 +43,7 @@ const adminModerateReport = async ({
   warningDurationMs,
 }: {
   targetId: string;
-  targetType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
+  targetType: ReportTargetType;
   reviewedBy: string;
   reviewComment?: string;
   actionTaken: AdminReportActionTaken;
@@ -203,6 +217,30 @@ const adminModerateReport = async ({
     });
   };
 
+  const applyContentModerationStatus = async () => {
+    const mappedStatus = actionToModerationStatus[actionTaken];
+
+    try {
+      await applyAiModerationDecisionService(
+        reportContentId,
+        targetType,
+        mappedStatus,
+      );
+    } catch (error) {
+      console.error(
+        "[adminModerateReport] Failed to apply content moderation status",
+        {
+          decisionId,
+          reportId,
+          reportContentId,
+          targetType,
+          mappedStatus,
+          error,
+        },
+      );
+    }
+  };
+
   try {
     switch (actionTaken) {
       case "BAN_TEMP": {
@@ -283,7 +321,7 @@ const adminModerateReport = async ({
         );
 
         await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
-
+        await applyContentModerationStatus();
         await queueDeleteContentIfNeeded(meta);
 
         await moderationMetricsQueue.add(
@@ -297,6 +335,7 @@ const adminModerateReport = async ({
             jobId: makeJobId("moderationMetrics", decisionId, "BAN_TEMP"),
           },
         );
+
         await queueNotification({
           userId: reportTargetUserId,
           type: "STRIKE",
@@ -311,7 +350,7 @@ const adminModerateReport = async ({
           },
         });
 
-        getRedisPub().publish(
+        await getRedisPub().publish(
           "socket:disconnect",
           JSON.stringify(reportTargetUserId),
         );
@@ -375,6 +414,7 @@ const adminModerateReport = async ({
         );
 
         await updateReportStatus("RESOLVED", "BAN_PERM", meta);
+        await applyContentModerationStatus();
         await queueDeleteContentIfNeeded(meta);
 
         await moderationMetricsQueue.add(
@@ -402,7 +442,7 @@ const adminModerateReport = async ({
           },
         });
 
-        getRedisPub().publish(
+        await getRedisPub().publish(
           "socket:disconnect",
           JSON.stringify(reportTargetUserId),
         );
@@ -432,6 +472,7 @@ const adminModerateReport = async ({
         };
 
         await updateReportStatus("RESOLVED", "WARN", meta);
+        await applyContentModerationStatus();
         await queueDeleteContentIfNeeded(meta);
 
         await moderationMetricsQueue.add(
@@ -467,6 +508,7 @@ const adminModerateReport = async ({
         };
 
         await updateReportStatus("DISMISSED", "IGNORE", meta);
+        await applyContentModerationStatus();
 
         await moderationMetricsQueue.add(
           "IGNORE",

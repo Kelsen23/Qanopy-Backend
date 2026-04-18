@@ -12,6 +12,13 @@ const MOD_POINTS = {
 const MOD_COOLDOWN_SECONDS = 120;
 const MOD_LIMIT = 20;
 
+async function checkAdminModPointsLimit(userId: string) {
+  const current = await getRedisCacheClient().get(`admin:${userId}:mod_points`);
+  if (current !== null && Number(current) >= MOD_LIMIT) {
+    throw new HttpError("Slow down. Moderation cooldown active", 429);
+  }
+}
+
 async function addAdminModPoints(
   userId: string,
   actionTaken: keyof typeof MOD_POINTS,
@@ -50,4 +57,4 @@ async function addAdminModPoints(
   return newPoints;
 }
 
-export default addAdminModPoints;
+export { checkAdminModPointsLimit, addAdminModPoints };

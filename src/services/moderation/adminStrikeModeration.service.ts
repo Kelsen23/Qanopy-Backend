@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import HttpError from "../../utils/httpError.util.js";
 import queueNotification from "../../utils/queueNotification.util.js";
@@ -23,6 +24,20 @@ import applyAiModerationDecisionService from "./applyAiModerationDecision.servic
 type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
+
+type SideEffectContext = {
+  decisionId: string;
+  strikeId: string;
+  actionTaken: AdminStrikeActionTaken;
+  targetUserId: string;
+};
+
+type SideEffectResult = {
+  success: boolean;
+  attempts: number;
+};
+
+const SIDE_EFFECT_RETRY_DELAYS_MS = [0, 200, 600] as const;
 
 const contentModelMap = {
   QUESTION: Question,
@@ -75,6 +90,35 @@ const getTargetContentState = async (
   };
 };
 
+const runSideEffectWithRetry = async (
+  effectName: string,
+  fn: () => Promise<unknown>,
+  context: SideEffectContext,
+): Promise<SideEffectResult> => {
+  let lastError: unknown;
+
+  for (let i = 0; i < SIDE_EFFECT_RETRY_DELAYS_MS.length; i++) {
+    const delayMs = SIDE_EFFECT_RETRY_DELAYS_MS[i];
+    if (delayMs > 0) await sleep(delayMs);
+
+    try {
+      await fn();
+      return { success: true, attempts: i + 1 };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  console.error("[adminModerateStrike] Non-critical side effect failed", {
+    ...context,
+    effectName,
+    attempts: SIDE_EFFECT_RETRY_DELAYS_MS.length,
+    error: lastError,
+  });
+
+  return { success: false, attempts: SIDE_EFFECT_RETRY_DELAYS_MS.length };
+};
+
 const adminModerateStrike = async ({
   targetId,
   reviewedBy,
@@ -106,80 +150,77 @@ const adminModerateStrike = async ({
     }
   }
 
-  const foundStrike = await prisma.moderationStrike.findUnique({
+  const preCheckStrike = await prisma.moderationStrike.findUnique({
     where: { id: targetId },
+    select: {
+      id: true,
+      userId: true,
+      targetType: true,
+      targetContentId: true,
+    },
   });
 
-  if (!foundStrike) throw new HttpError("Strike not found", 404);
+  if (!preCheckStrike) throw new HttpError("Strike not found", 404);
 
-  if (foundStrike.userId === reviewedBy) {
-    throw new HttpError("Self-moderation is not allowed", 403);
-  }
-
-  if (foundStrike.isReviewed) {
-    throw new HttpError("Strike already reviewed", 409);
-  }
-
-  const reviewedAt = new Date();
-  const claimedStrike = await prisma.moderationStrike.updateMany({
-    where: { id: foundStrike.id, isReviewed: false },
-    data: { isReviewed: true, reviewedBy, reviewedAt },
-  });
-
-  if (claimedStrike.count === 0) {
-    throw new HttpError("Strike already reviewed", 409);
-  }
-
-  const targetType = foundStrike.targetType as TargetType;
-  const targetUser = await prisma.user.findUnique({
-    where: { id: foundStrike.userId },
-    select: { status: true },
-  });
-
-  if (!targetUser) throw new HttpError("Target user not found", 404);
-
-  if (actionTaken !== "IGNORE" && targetUser.status === "TERMINATED") {
-    throw new HttpError("Target user account is already terminated", 409);
-  }
-
-  const targetContentState = await getTargetContentState(
-    targetType,
-    foundStrike.targetContentId,
-    foundStrike.userId,
+  const preCheckTargetType = preCheckStrike.targetType as TargetType;
+  const preCheckTargetContentState = await getTargetContentState(
+    preCheckTargetType,
+    preCheckStrike.targetContentId,
+    preCheckStrike.userId,
   );
 
-  if (targetContentState.exists && !targetContentState.ownerMatches) {
+  if (
+    preCheckTargetContentState.exists &&
+    !preCheckTargetContentState.ownerMatches
+  ) {
     throw new HttpError("Strike target content owner mismatch", 409);
   }
 
-  const decisionId = crypto.randomUUID();
-  const shouldRemoveContent =
-    actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP";
+  const reviewedAt = new Date();
 
-  const baseMeta = {
-    title,
-    reasons: reasons,
-    reviewComment,
-    originalAiDecision: foundStrike.aiDecision,
-    originalAiConfidence: foundStrike.aiConfidence,
-    originalAiReasons: foundStrike.aiReasons,
-    severity: foundStrike.severity,
-    riskScore: foundStrike.riskScore,
-    targetContentId: foundStrike.targetContentId,
-    targetType,
-    targetContentVersion: foundStrike.targetContentVersion,
-  };
+  const transactionResult = await prisma.$transaction(async (tx) => {
+    const foundStrike = await tx.moderationStrike.findUnique({
+      where: { id: targetId },
+    });
 
-  const moderatedStrike = foundStrike;
-  let createdBan: { id: string } | null = null;
-  let createdWarning: { id: string; expiresAt: Date | null } | null = null;
-  let expiresAt: Date | null = null;
+    if (!foundStrike) throw new HttpError("Strike not found", 404);
 
-  switch (actionTaken) {
-    case "BAN_TEMP": {
-      expiresAt = new Date(Date.now() + (banDurationMs as number));
+    if (foundStrike.userId === reviewedBy) {
+      throw new HttpError("Self-moderation is not allowed", 403);
+    }
 
-      const result = await prisma.$transaction(async (tx) => {
+    if (foundStrike.isReviewed) {
+      throw new HttpError("Strike already reviewed", 409);
+    }
+
+    const claimedStrike = await tx.moderationStrike.updateMany({
+      where: { id: foundStrike.id, isReviewed: false },
+      data: { isReviewed: true, reviewedBy, reviewedAt },
+    });
+
+    if (claimedStrike.count === 0) {
+      throw new HttpError("Strike already reviewed", 409);
+    }
+
+    const targetUser = await tx.user.findUnique({
+      where: { id: foundStrike.userId },
+      select: { status: true },
+    });
+
+    if (!targetUser) throw new HttpError("Target user not found", 404);
+
+    if (actionTaken !== "IGNORE" && targetUser.status === "TERMINATED") {
+      throw new HttpError("Target user account is already terminated", 409);
+    }
+
+    let createdBan: { id: string } | null = null;
+    let createdWarning: { id: string; expiresAt: Date | null } | null = null;
+    let expiresAt: Date | null = null;
+
+    switch (actionTaken) {
+      case "BAN_TEMP": {
+        expiresAt = new Date(Date.now() + (banDurationMs as number));
+
         const existingTempBan = await tx.ban.findFirst({
           where: {
             userId: foundStrike.userId,
@@ -205,11 +246,11 @@ const adminModerateStrike = async ({
           throw new HttpError("User already permanently banned", 409);
         }
 
-        const newBan = await tx.ban.create({
+        createdBan = await tx.ban.create({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons,
+            reasons,
             banType: "TEMP",
             severity: foundStrike.severity ?? undefined,
             bannedBy: "ADMIN_MODERATION",
@@ -224,15 +265,10 @@ const adminModerateStrike = async ({
           data: { status: "SUSPENDED" },
         });
 
-        return { newBan };
-      });
+        break;
+      }
 
-      createdBan = result.newBan;
-      break;
-    }
-
-    case "BAN_PERM": {
-      const result = await prisma.$transaction(async (tx) => {
+      case "BAN_PERM": {
         const existingPermBan = await tx.ban.findFirst({
           where: {
             userId: foundStrike.userId,
@@ -245,11 +281,11 @@ const adminModerateStrike = async ({
           throw new HttpError("User already has a permanent ban", 409);
         }
 
-        const newBan = await tx.ban.create({
+        createdBan = await tx.ban.create({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons,
+            reasons,
             banType: "PERM",
             severity: foundStrike.severity ?? undefined,
             bannedBy: "ADMIN_MODERATION",
@@ -262,22 +298,17 @@ const adminModerateStrike = async ({
           data: { status: "TERMINATED" },
         });
 
-        return { newBan };
-      });
+        break;
+      }
 
-      createdBan = result.newBan;
-      break;
-    }
+      case "WARN": {
+        expiresAt = new Date(Date.now() + (warningDurationMs as number));
 
-    case "WARN": {
-      expiresAt = new Date(Date.now() + (warningDurationMs as number));
-
-      const result = await prisma.$transaction(async (tx) => {
-        const warning = await tx.warning.create({
+        createdWarning = await tx.warning.create({
           data: {
             userId: foundStrike.userId,
             title,
-            reasons: reasons,
+            reasons,
             severity: foundStrike.severity ?? undefined,
             warnedBy: "ADMIN_MODERATION",
             expiresAt,
@@ -285,38 +316,80 @@ const adminModerateStrike = async ({
           select: { id: true, expiresAt: true },
         });
 
-        return { warning };
-      });
+        break;
+      }
 
-      createdWarning = result.warning;
-      break;
+      case "IGNORE": {
+        break;
+      }
     }
 
-    case "IGNORE": {
-      break;
-    }
+    return {
+      foundStrike,
+      createdBan,
+      createdWarning,
+      expiresAt,
+    };
+  });
+
+  const { foundStrike, createdBan, createdWarning, expiresAt } =
+    transactionResult;
+  const targetType = foundStrike.targetType as TargetType;
+  const decisionId = crypto.randomUUID();
+
+  const context: SideEffectContext = {
+    decisionId,
+    strikeId: foundStrike.id,
+    actionTaken,
+    targetUserId: foundStrike.userId,
+  };
+
+  let targetContentState = {
+    exists: false,
+    isActive: false,
+    isDeleted: false,
+    ownerMatches: false,
+    canRemove: false,
+  };
+
+  try {
+    targetContentState = await getTargetContentState(
+      targetType,
+      foundStrike.targetContentId,
+      foundStrike.userId,
+    );
+  } catch (error) {
+    console.error(
+      "[adminModerateStrike] Failed to load target content state post-commit",
+      {
+        ...context,
+        targetType,
+        targetContentId: foundStrike.targetContentId,
+        error,
+      },
+    );
   }
 
-  await moderationMetricsQueue.add(
-    actionTaken,
-    {
-      userId: foundStrike.userId,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("moderationMetrics", decisionId, actionTaken),
-    },
-  );
+  const shouldRemoveContent =
+    actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP";
 
-  await prisma.moderationStrike.update({
-    where: { id: foundStrike.id },
-    data: {
-      isReviewed: true,
-      reviewedBy,
-      reviewedAt: new Date(),
+  await runSideEffectWithRetry(
+    "moderationMetricsQueue:add",
+    async () => {
+      await moderationMetricsQueue.add(
+        actionTaken,
+        {
+          userId: foundStrike.userId,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("moderationMetrics", decisionId, actionTaken),
+        },
+      );
     },
-  });
+    context,
+  );
 
   if (targetContentState.exists && targetContentState.isActive) {
     const mappedStatus = actionToModerationStatus[actionTaken];
@@ -325,38 +398,65 @@ const adminModerateStrike = async ({
         ? (foundStrike.targetContentVersion ?? undefined)
         : undefined;
 
-    await applyAiModerationDecisionService(
-      foundStrike.targetContentId,
-      targetType,
-      mappedStatus,
-      questionVersion,
+    await runSideEffectWithRetry(
+      "applyAiModerationDecisionService",
+      async () => {
+        await applyAiModerationDecisionService(
+          foundStrike.targetContentId,
+          targetType,
+          mappedStatus,
+          questionVersion,
+        );
+      },
+      context,
     );
   }
 
   let contentRemovalQueued = false;
 
   if (shouldRemoveContent && targetContentState.canRemove) {
-    await deleteContentQueue.add(
-      "REMOVE_MODERATED_CONTENT",
-      {
-        userId: foundStrike.userId,
-        targetType,
-        targetId: foundStrike.targetContentId,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "deleteContent",
-          decisionId,
+    const contentRemovalQueueResult = await runSideEffectWithRetry(
+      "deleteContentQueue:add",
+      async () => {
+        await deleteContentQueue.add(
           "REMOVE_MODERATED_CONTENT",
-          targetType,
-          foundStrike.targetContentId,
-        ),
+          {
+            userId: foundStrike.userId,
+            targetType,
+            targetId: foundStrike.targetContentId,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "deleteContent",
+              decisionId,
+              "REMOVE_MODERATED_CONTENT",
+              targetType,
+              foundStrike.targetContentId,
+            ),
+          },
+        );
       },
+      context,
     );
-    contentRemovalQueued = true;
+
+    contentRemovalQueued = contentRemovalQueueResult.success;
   }
+
+  const baseMeta = {
+    title,
+    reasons,
+    reviewComment,
+    originalAiDecision: foundStrike.aiDecision,
+    originalAiConfidence: foundStrike.aiConfidence,
+    originalAiReasons: foundStrike.aiReasons,
+    severity: foundStrike.severity,
+    riskScore: foundStrike.riskScore,
+    targetContentId: foundStrike.targetContentId,
+    targetType,
+    targetContentVersion: foundStrike.targetContentVersion,
+  };
 
   const moderationMeta = {
     ...baseMeta,
@@ -364,134 +464,187 @@ const adminModerateStrike = async ({
     banDurationMs,
     warningDurationMs,
     expiresAt,
+    contentRemovalRequested: shouldRemoveContent && targetContentState.canRemove,
     contentRemovalQueued,
     targetContentState,
   };
 
   if (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") {
-    await moderationAuditQueue.add(
-      "BAN_USER_FROM_STRIKE",
-      {
-        decisionId,
-        targetType: "USER",
-        targetId: foundStrike.userId,
-        targetUserId: foundStrike.userId,
-        actorType: "ADMIN_MODERATION",
-        adminId: reviewedBy,
-        actionTaken,
-        meta: {
-          ...moderationMeta,
-          strikeId: foundStrike.id,
-        },
+    await runSideEffectWithRetry(
+      "moderationAuditQueue:add:BAN_USER_FROM_STRIKE",
+      async () => {
+        await moderationAuditQueue.add(
+          "BAN_USER_FROM_STRIKE",
+          {
+            decisionId,
+            targetType: "USER",
+            targetId: foundStrike.userId,
+            targetUserId: foundStrike.userId,
+            actorType: "ADMIN_MODERATION",
+            adminId: reviewedBy,
+            actionTaken,
+            meta: {
+              ...moderationMeta,
+              strikeId: foundStrike.id,
+            },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "moderationAudit",
+              decisionId,
+              "banUserFromStrike",
+            ),
+          },
+        );
       },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId("moderationAudit", decisionId, "banUserFromStrike"),
-      },
+      context,
     );
   }
 
-  await moderationAuditQueue.add(
-    "UPDATE_STRIKE_STATUS",
-    {
-      decisionId,
-      targetType: "STRIKE",
-      targetId: moderatedStrike.id,
-      targetUserId: foundStrike.userId,
-      actorType: "ADMIN_MODERATION",
-      adminId: reviewedBy,
-      actionTaken,
-      meta: moderationMeta,
+  await runSideEffectWithRetry(
+    "moderationAuditQueue:add:UPDATE_STRIKE_STATUS",
+    async () => {
+      await moderationAuditQueue.add(
+        "UPDATE_STRIKE_STATUS",
+        {
+          decisionId,
+          targetType: "STRIKE",
+          targetId: foundStrike.id,
+          targetUserId: foundStrike.userId,
+          actorType: "ADMIN_MODERATION",
+          adminId: reviewedBy,
+          actionTaken,
+          meta: moderationMeta,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("moderationAudit", decisionId, "updateStrikeStatus"),
+        },
+      );
     },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("moderationAudit", decisionId, "updateStrikeStatus"),
-    },
+    context,
   );
 
   if (contentRemovalQueued) {
-    await moderationAuditQueue.add(
-      "REMOVE_CONTENT",
-      {
-        decisionId,
-        targetType: "CONTENT",
-        targetId: foundStrike.targetContentId,
-        targetUserId: foundStrike.userId,
-        actorType: "ADMIN_MODERATION",
-        adminId: reviewedBy,
-        actionTaken: "REMOVE",
-        meta: {
-          actionTaken,
-          strikeId: foundStrike.id,
-          targetType,
-        },
+    await runSideEffectWithRetry(
+      "moderationAuditQueue:add:REMOVE_CONTENT",
+      async () => {
+        await moderationAuditQueue.add(
+          "REMOVE_CONTENT",
+          {
+            decisionId,
+            targetType: "CONTENT",
+            targetId: foundStrike.targetContentId,
+            targetUserId: foundStrike.userId,
+            actorType: "ADMIN_MODERATION",
+            adminId: reviewedBy,
+            actionTaken: "REMOVE",
+            meta: {
+              actionTaken,
+              strikeId: foundStrike.id,
+              targetType,
+            },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "moderationAudit",
+              decisionId,
+              "removeContent",
+              foundStrike.targetContentId,
+            ),
+          },
+        );
       },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "moderationAudit",
-          decisionId,
-          "removeContent",
-          foundStrike.targetContentId,
-        ),
-      },
+      context,
     );
   }
 
   if (actionTaken === "WARN" && createdWarning) {
-    await queueNotification({
-      userId: foundStrike.userId,
-      type: "WARN",
-      referenceId: createdWarning.id,
-      meta: {
-        title,
-        reasons: reasons,
-        expiresAt: createdWarning.expiresAt,
-        strikeId: foundStrike.id,
+    await runSideEffectWithRetry(
+      "queueNotification:WARN",
+      async () => {
+        await queueNotification({
+          userId: foundStrike.userId,
+          type: "WARN",
+          referenceId: createdWarning.id,
+          meta: {
+            title,
+            reasons,
+            expiresAt: createdWarning.expiresAt,
+            strikeId: foundStrike.id,
+          },
+        });
       },
-    });
+      context,
+    );
   } else {
-    await queueNotification({
-      userId: foundStrike.userId,
-      type: "STRIKE",
-      referenceId: moderatedStrike.id,
-      meta: {
-        actionTaken,
-        title,
-        reasons: reasons,
-        expiresAt,
-        strikeId: moderatedStrike.id,
+    await runSideEffectWithRetry(
+      "queueNotification:STRIKE",
+      async () => {
+        await queueNotification({
+          userId: foundStrike.userId,
+          type: "STRIKE",
+          referenceId: foundStrike.id,
+          meta: {
+            actionTaken,
+            title,
+            reasons,
+            expiresAt,
+            strikeId: foundStrike.id,
+          },
+        });
       },
-    });
+      context,
+    );
   }
 
   if (contentRemovalQueued) {
-    await queueNotification({
-      userId: foundStrike.userId,
-      type: "REMOVE_CONTENT",
-      referenceId: foundStrike.targetContentId,
-      meta: {
-        strikeId: moderatedStrike.id,
-        targetType,
-        actionTaken,
+    await runSideEffectWithRetry(
+      "queueNotification:REMOVE_CONTENT",
+      async () => {
+        await queueNotification({
+          userId: foundStrike.userId,
+          type: "REMOVE_CONTENT",
+          referenceId: foundStrike.targetContentId,
+          meta: {
+            strikeId: foundStrike.id,
+            targetType,
+            actionTaken,
+          },
+        });
       },
-    });
+      context,
+    );
   }
 
   if (
     (actionTaken === "BAN_TEMP" || actionTaken === "BAN_PERM") &&
     createdBan
   ) {
-    getRedisPub().publish(
-      "socket:disconnect",
-      JSON.stringify(foundStrike.userId),
+    await runSideEffectWithRetry(
+      "redisPub:socket:disconnect",
+      async () => {
+        await getRedisPub().publish(
+          "socket:disconnect",
+          JSON.stringify(foundStrike.userId),
+        );
+      },
+      context,
     );
   }
 
-  await clearStrikesCache();
+  await runSideEffectWithRetry(
+    "clearStrikesCache",
+    async () => {
+      await clearStrikesCache();
+    },
+    context,
+  );
 };
 
 export default adminModerateStrike;

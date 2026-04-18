@@ -46,27 +46,44 @@ const applyAiModerationDecisionService = async (
   const moderationUpdatedAt = new Date();
   const session = await mongoose.startSession();
 
+  let effectiveVersion: number | undefined = version;
+
   try {
     await session.withTransaction(async () => {
       if (contentType === "QUESTION") {
-        if (version === undefined)
-          throw new HttpError("Version required for Question moderation", 400);
+        if (effectiveVersion === undefined) {
+          const questionForVersion = await Question.findById(contentId)
+            .select("version isActive")
+            .session(session);
+
+          if (!questionForVersion) {
+            throw new HttpError("Question not found", 404);
+          }
+
+          if (!questionForVersion.isActive) {
+            throw new HttpError("Question not found", 404);
+          }
+
+          effectiveVersion = questionForVersion.version as number;
+        }
 
         const foundQuestionVersion = await QuestionVersion.findOneAndUpdate(
-          { questionId: contentId, version },
+          { questionId: contentId, version: effectiveVersion },
           { moderationStatus, moderationUpdatedAt },
           { new: true, session },
         );
 
-        if (!foundQuestionVersion)
+        if (!foundQuestionVersion) {
           throw new HttpError("Question version not found", 404);
+        }
 
         const foundQuestion = await Question.findById(contentId)
           .select("moderationStatus isActive")
           .session(session);
 
-        if (!foundQuestion || !foundQuestion.isActive)
+        if (!foundQuestion || !foundQuestion.isActive) {
           throw new HttpError("Question not found", 404);
+        }
 
         if (
           shouldAdvanceModerationStatus(
@@ -99,8 +116,9 @@ const applyAiModerationDecisionService = async (
         .select("moderationStatus isActive")
         .session(session);
 
-      if (!foundContent || !foundContent.isActive)
+      if (!foundContent || !foundContent.isActive) {
         throw new HttpError(`${contentType} not found`, 404);
+      }
 
       if (
         shouldAdvanceModerationStatus(
@@ -119,10 +137,10 @@ const applyAiModerationDecisionService = async (
       }
     });
 
-    if (contentType === "QUESTION" && version !== undefined) {
+    if (contentType === "QUESTION" && effectiveVersion !== undefined) {
       await getRedisCacheClient().del(
         `question:${contentId}`,
-        `v:${version}:question:${contentId}`,
+        `v:${effectiveVersion}:question:${contentId}`,
       );
       await clearVersionHistoryCache(contentId);
     }
