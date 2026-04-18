@@ -159,6 +159,7 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           profilePictureUrl: picture,
           isVerified: true,
           authProvider: "GOOGLE",
+          moderationStats: { create: {} },
         },
       });
       generateToken(res, newUser.id);
@@ -213,6 +214,7 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           profilePictureUrl: avatar_url,
           isVerified: true,
           authProvider: "GITHUB",
+          moderationStats: { create: {} },
         },
       });
 
