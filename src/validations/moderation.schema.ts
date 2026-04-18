@@ -35,7 +35,8 @@ const moderateSchema = z
     ),
     reviewComment: z
       .string()
-      .max(500, "Review comment must be at most 500 characters")
+      .min(3, "Review comment must be at least 3 characters")
+      .max(150, "Review comment must be at most 150 characters")
       .optional(),
     actionTaken: z.enum(
       ["BAN_TEMP", "BAN_PERM", "WARN", "IGNORE"],
