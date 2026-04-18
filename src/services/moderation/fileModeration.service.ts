@@ -47,7 +47,7 @@ const moderateFile = async (userId: string, objectKey: string) => {
       throw new HttpError(`Couldn't delete an object: ${error}`, 500);
     }
 
-    publishSocketEvent(userId, `unsafeFileDeleted`, { objectKey });
+    await publishSocketEvent(userId, `unsafeFileDeleted`, { objectKey });
 
     throw new HttpError(
       `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
