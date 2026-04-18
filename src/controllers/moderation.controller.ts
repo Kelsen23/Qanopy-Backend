@@ -12,7 +12,10 @@ import { makeJobId } from "../utils/makeJobId.util.js";
 
 import adminModerateReportService from "../services/moderation/adminReportModeration.service.js";
 import adminModerateStrikeService from "../services/moderation/adminStrikeModeration.service.js";
-import addAdminModPoints from "../services/moderation/modPoints.service.js";
+import {
+  checkAdminModPointsLimit,
+  addAdminModPoints,
+} from "../services/moderation/modPoints.service.js";
 
 import Question from "../models/question.model.js";
 import Answer from "../models/answer.model.js";
@@ -92,6 +95,8 @@ const moderate = asyncHandler(
     const userId = req.user.id;
     const { type, actionTaken } = req.body;
     const normalizedType = String(type).toUpperCase();
+
+    await checkAdminModPointsLimit(userId);
 
     if (normalizedType === "REPORT") {
       await adminModerateReportService({ ...req.body, reviewedBy: userId });
