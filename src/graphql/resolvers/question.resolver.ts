@@ -510,8 +510,12 @@ const questionResolver = {
         )
         .lean();
 
+      const questionMap = new Map(
+        similarQuestions.map((q) => [String(q._id), q]),
+      );
+
       const orderedSimilarQuestions = uniqueLimitedIds
-        .map((id) => similarQuestions.find((q) => String(q._id) === id))
+        .map((id) => questionMap.get(id))
         .filter(Boolean);
 
       const uniqueUserIds = [
