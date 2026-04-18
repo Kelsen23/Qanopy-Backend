@@ -497,6 +497,16 @@ const generateSuggestion = asyncHandler(
       await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
 
       try {
+        const jobId = makeJobId(
+          "aiSuggestion",
+          "GENERATE_SUGGESTION",
+          userId,
+          questionId,
+          versionNumber,
+        );
+
+        await aiSuggestionQueue.remove(jobId);
+
         await aiSuggestionQueue.add(
           "GENERATE_SUGGESTION",
           {
@@ -507,13 +517,7 @@ const generateSuggestion = asyncHandler(
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: makeJobId(
-              "aiSuggestion",
-              "GENERATE_SUGGESTION",
-              userId,
-              questionId,
-              versionNumber,
-            ),
+            jobId,
           },
         );
       } catch (error) {
@@ -631,6 +635,16 @@ const generateAiAnswer = asyncHandler(
       await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
 
       try {
+        const jobId = makeJobId(
+          "aiAnswer",
+          "GENERATE_AI_ANSWER",
+          userId,
+          questionId,
+          versionNumber,
+        );
+
+        await aiAnswerQueue.remove(jobId);
+
         await aiAnswerQueue.add(
           "GENERATE_AI_ANSWER",
           {
@@ -641,13 +655,7 @@ const generateAiAnswer = asyncHandler(
           {
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: makeJobId(
-              "aiAnswer",
-              "GENERATE_AI_ANSWER",
-              userId,
-              questionId,
-              versionNumber,
-            ),
+            jobId,
           },
         );
       } catch (error) {
