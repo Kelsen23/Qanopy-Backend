@@ -14,7 +14,7 @@ const queueNotification = async ({
     "CREATE_NOTIFICATION",
     {
       recipientId,
-      actorId,
+      actorId: actorId ?? null,
       event,
       target,
       meta,
