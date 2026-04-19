@@ -5,7 +5,7 @@ const ReportSchema: Schema = new Schema(
     reportedBy: { type: String, required: true },
     targetUserId: { type: String, required: true },
 
-    targetId: { type: Schema.Types.ObjectId, required: true },
+    targetId: { type: String, required: true },
     targetType: {
       type: String,
       required: true,
