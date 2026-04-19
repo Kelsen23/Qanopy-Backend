@@ -33,12 +33,24 @@ const NotificationSchema = new Schema(
     target: {
       entityType: {
         type: String,
-        enum: ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK", "REPORT", "USER"],
+        enum: [
+          "QUESTION",
+          "ANSWER",
+          "REPLY",
+          "AI_ANSWER_FEEDBACK",
+          "REPORT",
+          "USER",
+        ],
         required: true,
       },
       entityId: { type: String, required: true },
       parentId: { type: String },
       questionVersion: { type: Number },
+    },
+
+    meta: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
 
     seen: { type: Boolean, default: false },
