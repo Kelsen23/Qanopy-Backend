@@ -28,7 +28,7 @@ type UserNotificationParams = Omit<NotificationParams, "event"> & {
 };
 
 interface NotificationTarget {
-  entityType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK" | "REPORT";
+  entityType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK" | "REPORT" | "USER";
   entityId: string;
   parentId?: string;
   questionVersion?: number;
@@ -36,7 +36,7 @@ interface NotificationTarget {
 
 interface NotificationParams {
   recipientId: string;
-  actorId: string;
+  actorId?: string;
   event: UserEvent | SystemEvent;
   target: NotificationTarget;
   meta: Record<string, unknown>;
