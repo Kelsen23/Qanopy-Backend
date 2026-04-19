@@ -201,6 +201,8 @@ model User {
 
   moderationStats ModerationStats?
 
+  notificationSettings NotificationSettings?
+
   otp                               String?
   otpResendAvailableAt              DateTime?
   otpExpireAt                       DateTime?
@@ -210,6 +212,29 @@ model User {
   resetPasswordOtpExpireAt          DateTime?
   isVerified                        Boolean      @default(false)
   authProvider                      AuthProvider @default(LOCAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationSettings {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+
+  upvote   Boolean @default(true)
+  downvote Boolean @default(true)
+
+  answerCreated Boolean @default(true)
+  replyCreated  Boolean @default(true)
+
+  aiSuggestionUnlocked Boolean @default(true)
+  aiAnswerUnlocked     Boolean @default(true)
+
+  similarQuestionsReady Boolean @default(true)
+
+  warn   Boolean @default(true)
+  strike Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
