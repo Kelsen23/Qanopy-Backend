@@ -33,7 +33,7 @@ const NotificationSchema = new Schema(
     target: {
       entityType: {
         type: String,
-        enum: ["QUESTION", "ANSWER", "REPLY"],
+        enum: ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK", "REPORT"],
         required: true,
       },
       entityId: { type: String, required: true },

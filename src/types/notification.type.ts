@@ -28,7 +28,7 @@ type UserNotificationParams = Omit<NotificationParams, "event"> & {
 };
 
 interface NotificationTarget {
-  entityType: "QUESTION" | "ANSWER" | "REPLY";
+  entityType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK" | "REPORT";
   entityId: string;
   parentId?: string;
   questionVersion?: number;
