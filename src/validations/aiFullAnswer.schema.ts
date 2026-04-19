@@ -40,7 +40,7 @@ export const aiFullAnswerConfidenceResponseSchema = z
   })
   .strict();
 
-const aiFullAnswerSchema = z
+const aiAnswerSchema = z
   .object({
     body: z
       .string()
@@ -51,4 +51,4 @@ const aiFullAnswerSchema = z
   })
   .strict();
 
-export default aiFullAnswerSchema;
+export default aiAnswerSchema;
