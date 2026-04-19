@@ -16,19 +16,27 @@ async function startWorker() {
   const worker = new Worker(
     "notificationQueue",
     async (job) => {
-      const { userId, type, referenceId, meta } = job.data;
-
-      const sockets = await getUserSockets(userId);
-      const shouldPublishToSocket = sockets.length > 0;
+      const { recipientId, actorId, event, target, meta } = job.data;
 
       try {
-        await Notification.create({ userId, type, referenceId, meta });
+        const notification = await Notification.create({
+          recipientId,
+          actorId,
+          event,
+          target,
+          meta,
+        });
 
-        if (shouldPublishToSocket)
-          await publishSocketEvent(userId, "notification", {
-            type,
-            referenceId,
+        const sockets = await getUserSockets(recipientId);
+
+        if (sockets.length > 0)
+          await publishSocketEvent(recipientId, "notification", {
+            id: notification._id,
+            actorId,
+            event,
+            target,
             meta,
+            createdAt: notification.createdAt,
           });
       } catch (error) {
         console.error("Failed to process notification job:", error);
