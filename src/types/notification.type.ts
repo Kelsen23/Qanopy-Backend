@@ -17,9 +17,15 @@ type SystemEvent =
   | "AI_ANSWER_READY"
   | "AI_SUGGESTION_READY"
   | "REPORT_UPDATE"
-  | "REMOVE_CONTENT";
+  | "REMOVE_CONTENT"
+  | "WARN"
+  | "STRIKE";
 
 type UserEvent = Exclude<NotificationEvent, SystemEvent>;
+
+type UserNotificationParams = Omit<NotificationParams, "event"> & {
+  event: UserEvent;
+};
 
 interface NotificationTarget {
   entityType: "QUESTION" | "ANSWER" | "REPLY";
@@ -37,4 +43,10 @@ interface NotificationParams {
 }
 
 export default NotificationParams;
-export { NotificationEvent, UserEvent, SystemEvent, NotificationTarget };
+export {
+  NotificationEvent,
+  UserEvent,
+  SystemEvent,
+  UserNotificationParams,
+  NotificationTarget,
+};

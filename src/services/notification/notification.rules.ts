@@ -7,9 +7,7 @@ type SettingsKey =
   | "replyCreated"
   | "aiSuggestionUnlocked"
   | "aiAnswerUnlocked"
-  | "similarQuestionsReady"
-  | "warn"
-  | "strike";
+  | "similarQuestionsReady";
 
 type EventMapKey =
   | "UPVOTE"
@@ -18,9 +16,7 @@ type EventMapKey =
   | "REPLY_CREATED"
   | "AI_SUGGESTION_UNLOCKED"
   | "AI_ANSWER_UNLOCKED"
-  | "SIMILAR_QUESTIONS_READY"
-  | "WARN"
-  | "STRIKE";
+  | "SIMILAR_QUESTIONS_READY";
 
 const eventMap: Record<EventMapKey, SettingsKey> = {
   UPVOTE: "upvote",
@@ -30,8 +26,6 @@ const eventMap: Record<EventMapKey, SettingsKey> = {
   AI_SUGGESTION_UNLOCKED: "aiSuggestionUnlocked",
   AI_ANSWER_UNLOCKED: "aiAnswerUnlocked",
   SIMILAR_QUESTIONS_READY: "similarQuestionsReady",
-  WARN: "warn",
-  STRIKE: "strike",
 } as const;
 
 const shouldNotify = async ({
