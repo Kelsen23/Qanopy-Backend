@@ -13,9 +13,8 @@ import normalizeText from "../../utils/normalizeText.util.js";
 
 import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 
-import queueNotification from "../../utils/queueNotification.util.js";
-
 import generateSuggestion from "./generateSuggestion.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 const generateQuestionSuggestion = async ({
   userId,
@@ -80,13 +79,16 @@ const generateQuestionSuggestion = async ({
     if (sockets.length > 0)
       await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
     else
-      await queueNotification({
-        userId,
-        type: "AI_SUGGESTION",
-        referenceId: newSuggestion._id.toString(),
+      await routeNotification({
+        recipientId: userId,
+        event: "AI_SUGGESTION_READY",
+        target: {
+          entityType: "QUESTION",
+          entityId: questionId,
+        },
         meta: {
-          questionVersion: version,
           questionId,
+          questionVersion: version,
           generatedAt: new Date().toISOString(),
           source: "DeepSeek-Chat",
         },
