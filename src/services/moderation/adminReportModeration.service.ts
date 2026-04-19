@@ -1,5 +1,4 @@
 import HttpError from "../../utils/httpError.util.js";
-import queueNotification from "../../utils/queueNotification.util.js";
 import { clearReportsCache } from "../../utils/clearCache.util.js";
 import { makeJobId } from "../../utils/makeJobId.util.js";
 
@@ -14,6 +13,7 @@ import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 
 import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 import crypto from "crypto";
 
@@ -151,10 +151,14 @@ const adminModerateReport = async ({
       },
     );
 
-    await queueNotification({
-      userId: reporterUserId,
-      type: "REPORT_UPDATE",
-      referenceId: reportId,
+    await routeNotification({
+      recipientId: reporterUserId,
+      actorId: reviewedBy,
+      event: "REPORT_UPDATE",
+      target: {
+        entityType: "REPORT",
+        entityId: reportId,
+      },
       meta: {
         status: updatedReport.status,
         actionTaken: updatedReport.actionTaken,
@@ -205,10 +209,14 @@ const adminModerateReport = async ({
       },
     );
 
-    await queueNotification({
-      userId: reportTargetUserId,
-      type: "REMOVE_CONTENT",
-      referenceId: reportContentId,
+    await routeNotification({
+      recipientId: reportTargetUserId,
+      actorId: reviewedBy,
+      event: "REMOVE_CONTENT",
+      target: {
+        entityType: targetType,
+        entityId: reportContentId,
+      },
       meta: {
         reportId,
         targetType,
@@ -336,10 +344,14 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "STRIKE",
-          referenceId: reportId,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "STRIKE",
+          target: {
+            entityType: targetType,
+            entityId: reportId,
+          },
           meta: {
             actionTaken: "BAN_TEMP",
             title,
@@ -429,10 +441,14 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "STRIKE",
-          referenceId: reportId,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "STRIKE",
+          target: {
+            entityType: targetType,
+            entityId: reportId,
+          },
           meta: {
             actionTaken: "BAN_PERM",
             title,
@@ -487,10 +503,14 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "WARN",
-          referenceId: warning.id,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "WARN",
+          target: {
+            entityType: targetType,
+            entityId: reportId,
+          },
           meta: {
             title,
             reasons,
