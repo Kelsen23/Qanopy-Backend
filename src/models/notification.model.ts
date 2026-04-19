@@ -1,30 +1,47 @@
 import mongoose, { Schema } from "mongoose";
 
-const NotificationSchema: Schema = new Schema(
+const NotificationSchema = new Schema(
   {
-    userId: { type: String, required: true },
-    type: {
+    recipientId: { type: String, required: true, index: true },
+
+    actorId: { type: String, default: null },
+
+    event: {
       type: String,
       enum: [
+        "UPVOTE",
+        "DOWNVOTE",
+        "ANSWER_CREATED",
+        "REPLY_CREATED",
+
+        "AI_SUGGESTION_UNLOCKED",
+        "AI_ANSWER_UNLOCKED",
+
+        "SIMILAR_QUESTIONS_READY",
+        "AI_SUGGESTION_READY",
+        "AI_ANSWER_READY",
+
         "WARN",
         "STRIKE",
         "REPORT_UPDATE",
         "REMOVE_CONTENT",
-        "UPVOTE",
-        "ANSWER",
-        "REPLY",
-        "AI_SUGGESTION",
-        "AI_ANSWER",
-        "SIMILAR_QUESTIONS",
       ],
       required: true,
+      index: true,
     },
 
-    referenceId: { type: String, required: true },
+    target: {
+      entityType: {
+        type: String,
+        enum: ["QUESTION", "ANSWER", "REPLY"],
+        required: true,
+      },
+      entityId: { type: String, required: true },
+      parentId: { type: String },
+      questionVersion: { type: Number },
+    },
 
     seen: { type: Boolean, default: false },
-
-    meta: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   {
     timestamps: true,
