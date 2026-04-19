@@ -233,9 +233,6 @@ model NotificationSettings {
 
   similarQuestionsReady Boolean @default(true)
 
-  warn   Boolean @default(true)
-  strike Boolean @default(true)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
