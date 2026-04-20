@@ -3,6 +3,8 @@ type NotificationEvent =
   | "DOWNVOTE"
   | "ANSWER_CREATED"
   | "REPLY_CREATED"
+  | "ANSWER_ACCEPTED"
+  | "ANSWER_MARKED_BEST"
   | "AI_SUGGESTION_UNLOCKED"
   | "AI_ANSWER_UNLOCKED"
   | "SIMILAR_QUESTIONS_READY"
@@ -28,7 +30,13 @@ type UserNotificationParams = Omit<NotificationParams, "event"> & {
 };
 
 interface NotificationTarget {
-  entityType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK" | "REPORT" | "USER";
+  entityType:
+    | "QUESTION"
+    | "ANSWER"
+    | "REPLY"
+    | "AI_ANSWER_FEEDBACK"
+    | "REPORT"
+    | "USER";
   entityId: string;
   parentId?: string;
   questionVersion?: number;
