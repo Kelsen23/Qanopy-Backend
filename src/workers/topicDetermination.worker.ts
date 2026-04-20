@@ -12,6 +12,7 @@ import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
 import determineTopicStatusService from "../services/question/topicDetermination.service.js";
+import routeNotification from "../services/notification/routeNotification.service.js";
 
 import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
@@ -87,6 +88,18 @@ async function startWorker() {
             removeOnFail: false,
           },
         );
+
+        await routeNotification({
+          recipientId: locked.userId as string,
+          event: "AI_SUGGESTION_UNLOCKED",
+          target: {
+            entityType: "QUESTION",
+            entityId: questionId,
+          },
+          meta: {
+            topicStatus: finalStatus,
+          },
+        });
       }
     },
     {
