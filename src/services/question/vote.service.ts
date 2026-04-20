@@ -16,6 +16,8 @@ import Vote from "../../models/vote.model.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
+import routeNotification from "../notification/routeNotification.service.js";
+
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type VoteType = "UPVOTE" | "DOWNVOTE";
 
@@ -128,6 +130,19 @@ const vote = async (
 
     await getRedisCacheClient().del(`question:${targetId}`);
 
+    if (foundQuestion.userId !== userId) {
+      await routeNotification({
+        recipientId: foundQuestion.userId as string,
+        actorId: userId,
+        event: voteType,
+        target: {
+          entityType: "QUESTION",
+          entityId: targetId,
+        },
+        meta: {},
+      });
+    }
+
     return {
       message: "Vote processed",
       vote: resultVote,
@@ -210,6 +225,20 @@ const vote = async (
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
 
+    if (foundAnswer.userId !== userId) {
+      await routeNotification({
+        recipientId: foundAnswer.userId as string,
+        actorId: userId,
+        event: voteType,
+        target: {
+          entityType: "ANSWER",
+          entityId: targetId,
+          parentId: foundAnswer.questionId as string,
+        },
+        meta: {},
+      });
+    }
+
     return {
       message: "Vote processed",
       vote: resultVote,
@@ -290,6 +319,20 @@ const vote = async (
     );
 
     await clearReplyCache(foundReply.answerId as string);
+
+    if (foundReply.userId !== userId) {
+      await routeNotification({
+        recipientId: foundReply.userId as string,
+        actorId: userId,
+        event: voteType,
+        target: {
+          entityType: "REPLY",
+          entityId: targetId,
+          parentId: foundReply.answerId as string,
+        },
+        meta: {},
+      });
+    }
 
     return {
       message: "Vote processed",
