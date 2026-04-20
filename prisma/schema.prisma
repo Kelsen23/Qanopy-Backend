@@ -228,6 +228,9 @@ model NotificationSettings {
   answerCreated Boolean @default(true)
   replyCreated  Boolean @default(true)
 
+  answerAccepted   Boolean @default(true)
+  answerMarkedBest Boolean @default(true)
+
   aiSuggestionUnlocked Boolean @default(true)
   aiAnswerUnlocked     Boolean @default(true)
 
