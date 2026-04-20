@@ -5,6 +5,8 @@ type SettingsKey =
   | "downvote"
   | "answerCreated"
   | "replyCreated"
+  | "answerAccepted"
+  | "answerMarkedBest"
   | "aiSuggestionUnlocked"
   | "aiAnswerUnlocked"
   | "similarQuestionsReady";
@@ -14,6 +16,8 @@ type EventMapKey =
   | "DOWNVOTE"
   | "ANSWER_CREATED"
   | "REPLY_CREATED"
+  | "ANSWER_ACCEPTED"
+  | "ANSWER_MARKED_BEST"
   | "AI_SUGGESTION_UNLOCKED"
   | "AI_ANSWER_UNLOCKED"
   | "SIMILAR_QUESTIONS_READY";
@@ -23,6 +27,8 @@ const eventMap: Record<EventMapKey, SettingsKey> = {
   DOWNVOTE: "downvote",
   ANSWER_CREATED: "answerCreated",
   REPLY_CREATED: "replyCreated",
+  ANSWER_ACCEPTED: "answerAccepted",
+  ANSWER_MARKED_BEST: "answerMarkedBest",
   AI_SUGGESTION_UNLOCKED: "aiSuggestionUnlocked",
   AI_ANSWER_UNLOCKED: "aiAnswerUnlocked",
   SIMILAR_QUESTIONS_READY: "similarQuestionsReady",
