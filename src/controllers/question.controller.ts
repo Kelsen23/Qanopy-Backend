@@ -22,6 +22,7 @@ import unpublishAiAnswerService from "../services/question/unpublishAiAnswer.ser
 import createFeedbackOnAiAnswerService from "../services/question/createFeedbackOnAiAnswer.service.js";
 import editFeedbackOnAiAnswerService from "../services/question/editFeedbackOnAiAnswer.service.js";
 import deleteFeedbackOnAiAnswerService from "../services/question/deleteFeedbackOnAiAnswer.service.js";
+import routeNotification from "../services/notification/routeNotification.service.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -142,6 +143,19 @@ const createAnswerOnQuestion = asyncHandler(
       },
     );
 
+    await routeNotification({
+      recipientId: foundQuestion.userId as string,
+      actorId: userId,
+      event: "ANSWER_CREATED",
+      target: {
+        entityType: "QUESTION",
+        entityId: questionId,
+      },
+      meta: {
+        answerId: (newAnswer._id as string).toString(),
+      },
+    });
+
     return res
       .status(201)
       .json({ message: "Successfully created answer", answer: newAnswer });
@@ -172,6 +186,10 @@ const createReplyOnAnswer = asyncHandler(
 
     const newReply = await Reply.create({ answerId, userId, body });
 
+    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
+    await clearAnswerCache(foundAnswer.questionId as string);
+    await clearReplyCache(foundAnswer._id as string);
+
     await statsQueue.add(
       "GIVE_REPLY",
       {
@@ -196,9 +214,21 @@ const createReplyOnAnswer = asyncHandler(
       },
     );
 
-    await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
-    await clearAnswerCache(foundAnswer.questionId as string);
-    await clearReplyCache(foundAnswer._id as string);
+    if (foundAnswer.userId !== userId) {
+      await routeNotification({
+        recipientId: foundAnswer.userId as string,
+        actorId: userId,
+        event: "REPLY_CREATED",
+        target: {
+          entityType: "ANSWER",
+          entityId: answerId,
+          parentId: foundAnswer.questionId as string,
+        },
+        meta: {
+          replyId: (newReply._id as string).toString(),
+        },
+      });
+    }
 
     return res
       .status(201)
@@ -268,6 +298,8 @@ const acceptAnswer = asyncHandler(
       { new: true },
     );
 
+    if (!acceptedAnswer) throw new HttpError("Answer acceptance failed", 500);
+
     await statsQueue.add(
       "ACCEPT_ANSWER",
       {
@@ -284,6 +316,20 @@ const acceptAnswer = asyncHandler(
 
     await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
     await clearAnswerCache(foundAnswer.questionId as string);
+
+    if (foundAnswer.userId !== userId) {
+      await routeNotification({
+        recipientId: acceptedAnswer.userId as string,
+        actorId: userId,
+        event: "ANSWER_ACCEPTED",
+        target: {
+          entityType: "ANSWER",
+          entityId: acceptedAnswer._id as string,
+          parentId: foundQuestion._id ?? foundQuestion.id,
+        },
+        meta: {},
+      });
+    }
 
     return res
       .status(200)
