@@ -9,6 +9,8 @@ import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 
+import routeNotification from "../notification/routeNotification.service.js";
+
 const markAnswerAsBest = async (userId: string, answerId: string) => {
   const foundAnswer = await Answer.findById(answerId).lean();
 
@@ -76,6 +78,9 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
 
   if (!newBestAnswer) throw new HttpError("Error marking answer as best", 500);
 
+  await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
+  await clearAnswerCache(foundAnswer.questionId as string);
+
   await statsQueue.add(
     "MARK_AS_BEST",
     {
@@ -89,8 +94,19 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
     },
   );
 
-  await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
-  await clearAnswerCache(foundAnswer.questionId as string);
+  if (newBestAnswer.userId !== userId) {
+    await routeNotification({
+      recipientId: newBestAnswer.userId as string,
+      actorId: userId,
+      event: "ANSWER_MARKED_BEST",
+      target: {
+        entityType: "ANSWER",
+        entityId: newBestAnswer._id as string,
+        parentId: foundQuestion._id ?? foundQuestion.id,
+      },
+      meta: {},
+    });
+  }
 
   return {
     message: "Successfully marked answer as best",
