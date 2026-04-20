@@ -35,10 +35,15 @@ async function clearStrikesCache() {
   await deleteKeysByPattern("strikes:*");
 }
 
+async function clearNotificationCache(userId: string) {
+  await deleteKeysByPattern(`notifications:${userId}:*`);
+}
+
 export {
   clearAnswerCache,
   clearReplyCache,
   clearVersionHistoryCache,
   clearReportsCache,
   clearStrikesCache,
+  clearNotificationCache,
 };
