@@ -6,8 +6,10 @@ import connectMongoDB from "../config/mongodb.config.js";
 import Notification from "../models/notification.model.js";
 
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
+import { clearNotificationCache } from "../utils/clearCache.util.js";
 
 import { getUserSockets } from "../services/redis/presence.service.js";
+import prisma from "../config/prisma.config.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -29,15 +31,35 @@ async function startWorker() {
 
         const sockets = await getUserSockets(recipientId);
 
-        if (sockets.length > 0)
+        let actor = null;
+
+        if (sockets.length > 0) {
+          if (actorId) {
+            actor = await prisma.user.findUnique({
+              where: { id: actorId },
+              select: {
+                id: true,
+                username: true,
+                profilePictureKey: true,
+                profilePictureUrl: true,
+              },
+            });
+          }
+
           await publishSocketEvent(recipientId, "notification", {
             id: notification._id,
             actorId,
+            actor,
             event,
             target,
             meta,
+            seen: false,
             createdAt: notification.createdAt,
+            updatedAt: notification.updatedAt,
           });
+        }
+
+        await clearNotificationCache(recipientId);
       } catch (error) {
         console.error("Failed to process notification job:", error);
         throw error;
