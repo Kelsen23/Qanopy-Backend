@@ -5,7 +5,10 @@ import QuestionVersion from "../models/questionVersion.model.js";
 import Question from "../models/question.model.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
+
 import generateEmbedding from "../services/question/generateEmbedding.service.js";
+
+import routeNotification from "../services/notification/routeNotification.service.js";
 
 import convertQuestionToEmbeddingText from "../utils/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../utils/normalizeText.util.js";
@@ -35,7 +38,7 @@ async function startWorker() {
           _id: questionId,
           currentVersion: version,
           topicStatus: "VALID",
-          embeddingStatus: "NONE", 
+          embeddingStatus: "NONE",
         },
         { $set: { embeddingStatus: "PROCESSING" } },
         { new: true },
@@ -96,6 +99,16 @@ async function startWorker() {
           removeOnFail: false,
         },
       );
+
+      await routeNotification({
+        recipientId: locked.userId as string,
+        event: "AI_ANSWER_UNLOCKED",
+        target: {
+          entityType: "QUESTION",
+          entityId: questionId,
+        },
+        meta: {},
+      });
     },
     {
       connection: redisMessagingClientConnection,
