@@ -47,7 +47,6 @@ const NotificationSchema = new Schema(
       },
       entityId: { type: String, required: true },
       parentId: { type: String },
-      questionVersion: { type: Number },
     },
 
     meta: {
