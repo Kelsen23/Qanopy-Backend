@@ -13,6 +13,8 @@ const NotificationSchema = new Schema(
         "DOWNVOTE",
         "ANSWER_CREATED",
         "REPLY_CREATED",
+        "ANSWER_ACCEPTED",
+        "ANSWER_MARKED_BEST",
 
         "AI_SUGGESTION_UNLOCKED",
         "AI_ANSWER_UNLOCKED",
