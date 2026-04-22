@@ -55,7 +55,6 @@ const queueNotification = async ({
         event,
         target.entityType,
         target.entityId,
-        makeNotificationDiscriminator(target, meta),
       ),
     },
   );
