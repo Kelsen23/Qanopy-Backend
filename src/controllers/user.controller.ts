@@ -197,6 +197,25 @@ const saveInterests = asyncHandler(
   },
 );
 
+const getNotificationSettings = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    let settings = await prisma.notificationSettings.findUnique({
+      where: { userId },
+    });
+
+    if (!settings) {
+      settings = await prisma.notificationSettings.create({ data: { userId } });
+    }
+
+    return res.status(200).json({
+      message: "Successfully received notification settings",
+      settings,
+    });
+  },
+);
+
 const markNotificationsAsSeen = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -233,5 +252,6 @@ export {
   updateProfile,
   getInterests,
   saveInterests,
+  getNotificationSettings,
   markNotificationsAsSeen,
 };
