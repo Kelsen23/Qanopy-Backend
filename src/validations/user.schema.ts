@@ -42,4 +42,16 @@ const saveInterestsSchema = z.object({
     .nonempty({ message: "You must select at least one interest" }),
 });
 
-export { updateProfilePictureSchema, updateProfileSchema, saveInterestsSchema };
+const markNotificationsAsSeenSchema = z.object({
+  notificationIds: z
+    .array(z.string("Only strings allowed as notification ids"))
+    .max(100, "Max of 100 notification allowed to be passed")
+    .nonempty({ message: "There must be at least one notification" }),
+});
+
+export {
+  updateProfilePictureSchema,
+  updateProfileSchema,
+  saveInterestsSchema,
+  markNotificationsAsSeenSchema,
+};
