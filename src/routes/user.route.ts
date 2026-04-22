@@ -6,6 +6,7 @@ import {
   saveInterests,
   updateProfile,
   updateProfilePicture,
+  markNotificationsAsSeen,
 } from "../controllers/user.controller.js";
 
 import isAuthenticated, {
@@ -18,6 +19,7 @@ import {
   updateProfilePictureSchema,
   updateProfileSchema,
   saveInterestsSchema,
+  markNotificationsAsSeenSchema,
 } from "../validations/user.schema.js";
 
 import {
@@ -73,6 +75,16 @@ router
     requireActiveUser,
     validate(saveInterestsSchema),
     saveInterests,
+  );
+
+router
+  .route("/notifications/seen")
+  .patch(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(markNotificationsAsSeenSchema),
+    markNotificationsAsSeen,
   );
 
 export default router;
