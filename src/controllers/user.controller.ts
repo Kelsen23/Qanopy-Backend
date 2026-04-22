@@ -216,6 +216,28 @@ const getNotificationSettings = asyncHandler(
   },
 );
 
+const updateNotificationSettings = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    const updatedSettings = await prisma.notificationSettings.upsert({
+      where: { userId },
+      update: {
+        ...req.body,
+      },
+      create: {
+        userId,
+        ...req.body,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Notification settings updated successfully",
+      settings: updatedSettings,
+    });
+  },
+);
+
 const markNotificationsAsSeen = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -253,5 +275,6 @@ export {
   getInterests,
   saveInterests,
   getNotificationSettings,
+  updateNotificationSettings,
   markNotificationsAsSeen,
 };
