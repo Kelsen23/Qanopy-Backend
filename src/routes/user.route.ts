@@ -6,6 +6,7 @@ import {
   saveInterests,
   updateProfile,
   updateProfilePicture,
+  getNotificationSettings,
   markNotificationsAsSeen,
 } from "../controllers/user.controller.js";
 
@@ -76,6 +77,10 @@ router
     validate(saveInterestsSchema),
     saveInterests,
   );
+
+router
+  .route("/settings/notifications")
+  .get(isAuthenticated, isVerified, requireActiveUser, getNotificationSettings);
 
 router
   .route("/notifications/seen")
