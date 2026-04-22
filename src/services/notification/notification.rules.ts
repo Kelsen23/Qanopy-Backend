@@ -49,7 +49,7 @@ const shouldNotify = async ({
     where: { userId: recipientId },
   });
 
-  if (!settings) return false;
+  if (!settings) return true;
 
   const key = eventMap[event];
 
