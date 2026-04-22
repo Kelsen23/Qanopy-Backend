@@ -25,10 +25,10 @@ const queueNotification = async ({
       jobId: makeJobId(
         "notification",
         recipientId,
+        actorId ?? "system",
         event,
         target.entityType,
         target.entityId,
-        target.questionVersion ?? "none",
       ),
     },
   );
