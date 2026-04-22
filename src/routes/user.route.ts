@@ -7,6 +7,7 @@ import {
   updateProfile,
   updateProfilePicture,
   getNotificationSettings,
+  updateNotificationSettings,
   markNotificationsAsSeen,
 } from "../controllers/user.controller.js";
 
@@ -20,6 +21,7 @@ import {
   updateProfilePictureSchema,
   updateProfileSchema,
   saveInterestsSchema,
+  updateNotificationSettingsSchema,
   markNotificationsAsSeenSchema,
 } from "../validations/user.schema.js";
 
@@ -81,6 +83,16 @@ router
 router
   .route("/settings/notifications")
   .get(isAuthenticated, isVerified, requireActiveUser, getNotificationSettings);
+
+router
+  .route("/settings/notifications")
+  .put(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate(updateNotificationSettingsSchema),
+    updateNotificationSettings,
+  );
 
 router
   .route("/notifications/seen")
