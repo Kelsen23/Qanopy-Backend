@@ -10,7 +10,13 @@ import sanitizeUser from "../utils/sanitizeUser.util.js";
 
 import { makeJobId } from "../utils/makeJobId.util.js";
 
+import { clearNotificationCache } from "../utils/clearCache.util.js";
+
 import { getRedisCacheClient } from "../config/redis.config.js";
+
+import mongoose from "mongoose";
+
+import Notification from "../models/notification.model.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -191,10 +197,41 @@ const saveInterests = asyncHandler(
   },
 );
 
+const markNotificationsAsSeen = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  const userId = req.user.id;
+  const { notificationIds } = req.body;
+
+  const validIds = notificationIds.filter((id: string) =>
+    mongoose.isValidObjectId(id),
+  );
+
+  if (validIds.length === 0)
+    return res.status(200).json({ message: "No valid notification ids" });
+
+  await Notification.updateMany(
+    {
+      recipientId: userId,
+      _id: { $in: validIds },
+      seen: false,
+    },
+    { $set: { seen: true } },
+  );
+
+  await clearNotificationCache(userId);
+
+  return res.status(200).json({
+    message: "Notifications marked as seen",
+  });
+};
+
 export {
   updateProfilePicture,
   deleteProfilePicture,
   updateProfile,
   getInterests,
   saveInterests,
+  markNotificationsAsSeen,
 };
