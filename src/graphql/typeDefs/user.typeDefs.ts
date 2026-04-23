@@ -50,6 +50,7 @@ const userTypeDefs = gql`
     entityType: NotificationEntityType!
     entityId: String!
     parentId: String
+    questionVersion: Int
   }
 
   # Connections
