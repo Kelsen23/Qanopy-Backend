@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
+import prisma from "../config/prisma.config.js";
+
 import connectMongoDB from "../config/mongodb.config.js";
 
 import Notification from "../models/notification.model.js";
@@ -9,7 +11,6 @@ import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 import { clearNotificationCache } from "../utils/clearCache.util.js";
 
 import { getUserSockets } from "../services/redis/presence.service.js";
-import prisma from "../config/prisma.config.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
