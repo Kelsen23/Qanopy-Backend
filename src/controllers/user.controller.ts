@@ -201,13 +201,11 @@ const getNotificationSettings = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    let settings = await prisma.notificationSettings.findUnique({
+    const settings = await prisma.notificationSettings.upsert({
       where: { userId },
+      update: {},
+      create: { userId },
     });
-
-    if (!settings) {
-      settings = await prisma.notificationSettings.create({ data: { userId } });
-    }
 
     return res.status(200).json({
       message: "Successfully received notification settings",
