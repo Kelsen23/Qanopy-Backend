@@ -7,13 +7,13 @@ import mongoose from "mongoose";
 
 import Question from "../models/question.model.js";
 
-import queueNotification from "../utils/queueNotification.util.js";
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import {
   getQuestionSessionSockets,
   getQuestionSessionUsers,
 } from "../services/redis/questionSession.service.js";
+import routeNotification from "../services/notification/routeNotification.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -102,10 +102,14 @@ async function startWorker() {
           });
         }
       } else {
-        await queueNotification({
-          userId: locked.userId as string,
-          type: "SIMILAR_QUESTIONS",
-          referenceId: questionId,
+        await routeNotification({
+          recipientId: locked.userId as string,
+          event: "SIMILAR_QUESTIONS_READY",
+          target: {
+            entityType: "QUESTION",
+            entityId: questionId,
+            questionVersion: version,
+          },
           meta: {
             count: similarQuestionIds.length,
             previewIds: similarQuestionIds.slice(0, 3),

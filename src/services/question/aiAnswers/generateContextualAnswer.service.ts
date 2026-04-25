@@ -7,12 +7,13 @@ import {
 } from "../../redis/aiAnswerSession.service.js";
 
 import publishSocketEvent from "../../../utils/publishSocketEvent.util.js";
-import queueNotification from "../../../utils/queueNotification.util.js";
 import HttpError from "../../../utils/httpError.util.js";
 
 import AiAnswer from "../../../models/aiAnswer.model.js";
 
-import aiFullAnswerSchema from "../../../validations/aiFullAnswer.schema.js";
+import aiAnswerSchema from "../../../validations/aiFullAnswer.schema.js";
+
+import routeNotification from "../../notification/routeNotification.service.js";
 
 const generateContextualAnswerService = async (
   userId: string,
@@ -193,7 +194,7 @@ const generateContextualAnswerService = async (
 
     const parsedConfidence = JSON.parse(rawConfidence);
 
-    const validatedAnswer = aiFullAnswerSchema.parse({
+    const validatedAnswer = aiAnswerSchema.parse({
       body: answerBody,
       confidence: parsedConfidence.confidence,
     });
@@ -234,15 +235,19 @@ const generateContextualAnswerService = async (
         data: newAiAnswer,
       });
 
-      await queueNotification({
-        userId,
-        type: "AI_ANSWER",
-        referenceId: newAiAnswer._id.toString(),
+      await routeNotification({
+        recipientId: userId,
+        event: "AI_ANSWER_READY",
+        target: {
+          entityType: "QUESTION",
+          entityId: questionId,
+        },
         meta: {
           questionId,
           questionVersion,
           generatedAt: new Date().toISOString(),
           source: "Claude-Haiku-4-5-Contextual",
+          mode: "CONTEXTUAL",
         },
       });
     }

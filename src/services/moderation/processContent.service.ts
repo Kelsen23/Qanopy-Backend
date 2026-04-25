@@ -1,8 +1,8 @@
 import aiModerateContent from "./aiModeration.service.js";
 import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 import HttpError from "../../utils/httpError.util.js";
-import queueNotification from "../../utils/queueNotification.util.js";
 
 import { makeJobId } from "../../utils/makeJobId.util.js";
 
@@ -119,6 +119,18 @@ const processContent = async (
 
   const decisionId = crypto.randomUUID();
 
+  const baseMeta = {
+    targetContentId: contentId,
+    targetContentType: contentType,
+    targetContentVersion: version,
+
+    aiDecision,
+    aiConfidence,
+    aiReasons,
+    severity,
+    riskScore,
+  };
+
   if (aiDecision === "BAN_PERM") {
     const newStrike = await prisma.$transaction(async (tx) => {
       const createdStrike = await tx.moderationStrike.create({
@@ -141,15 +153,9 @@ const processContent = async (
     await clearStrikesCache();
 
     const meta = {
+      ...baseMeta,
       strikeId: newStrike.id,
-      targetContentId: contentId,
-      targetType: moderationContentTypeMap[contentType],
-      targetContentVersion: version,
-      aiDecision,
-      aiConfidence,
-      aiReasons,
-      severity,
-      riskScore,
+      action: "BAN_PERM",
     };
 
     await moderationAuditQueue.add(
@@ -182,10 +188,14 @@ const processContent = async (
       },
     );
 
-    await queueNotification({
-      userId: newStrike.userId,
-      type: "STRIKE",
-      referenceId: newStrike.id,
+    await routeNotification({
+      recipientId: content.userId as string,
+      actorId: "AI_MODERATION",
+      event: "STRIKE",
+      target: {
+        entityType: "USER",
+        entityId: content.userId as string,
+      },
       meta,
     });
   } else if (aiDecision === "BAN_TEMP") {
@@ -252,15 +262,9 @@ const processContent = async (
     await removeTargetContent(contentId, contentType);
 
     const meta = {
+      ...baseMeta,
       banId: newBan.id,
-      targetContentId: contentId,
-      targetType: moderationContentTypeMap[contentType],
-      targetContentVersion: version,
-      aiDecision,
-      aiConfidence,
-      aiReasons,
-      severity,
-      riskScore,
+      action: "BAN_TEMP",
       expiresAt: tempBanExpiresAt,
       durationMs: tempBanMs,
     };
@@ -309,10 +313,14 @@ const processContent = async (
         },
       );
 
-    await queueNotification({
-      userId: content.userId as string,
-      type: "STRIKE",
-      referenceId: newBan.id,
+    await routeNotification({
+      recipientId: content.userId as string,
+      actorId: "AI_MODERATION",
+      event: "STRIKE",
+      target: {
+        entityType: "USER",
+        entityId: content.userId as string,
+      },
       meta,
     });
 
@@ -344,15 +352,9 @@ const processContent = async (
     );
 
     const meta = {
+      ...baseMeta,
       warningId: newWarning.id,
-      targetContentId: contentId,
-      targetType: moderationContentTypeMap[contentType],
-      targetContentVersion: version,
-      aiDecision,
-      aiConfidence,
-      aiReasons,
-      severity,
-      riskScore,
+      action: "WARN",
       expiresAt: warningExpiresAt,
     };
 
@@ -400,10 +402,14 @@ const processContent = async (
         },
       );
 
-    await queueNotification({
-      userId: newWarning.userId,
-      type: "WARN",
-      referenceId: newWarning.id,
+    await routeNotification({
+      recipientId: content.userId as string,
+      actorId: "AI_MODERATION",
+      event: "WARN",
+      target: {
+        entityType: "USER",
+        entityId: content.userId as string,
+      },
       meta,
     });
   } else if (aiDecision === "IGNORE") {
@@ -415,14 +421,8 @@ const processContent = async (
     );
 
     const meta = {
-      targetContentId: contentId,
-      targetType: moderationContentTypeMap[contentType],
-      targetContentVersion: version,
-      aiDecision,
-      aiConfidence,
-      aiReasons,
-      severity,
-      riskScore,
+      ...baseMeta,
+      action: "IGNORE",
     };
 
     await moderationAuditQueue.add(

@@ -8,7 +8,7 @@ import processContent from "../services/moderation/processContent.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting report moderation worker...");
+  console.log("Mongo connected, starting content moderation worker...");
 
   const worker = new Worker(
     "contentModerationQueue",

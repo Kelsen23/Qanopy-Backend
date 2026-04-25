@@ -1,42 +1,36 @@
 import notificationQueue from "../queues/notification.queue.js";
+import NotificationParams from "../types/notification.type.js";
 
 import { makeJobId } from "./makeJobId.util.js";
 
-type NotificationType =
-  | "WARN"
-  | "STRIKE"
-  | "REPORT_UPDATE"
-  | "REMOVE_CONTENT"
-  | "UPVOTE"
-  | "ANSWER"
-  | "REPLY"
-  | "AI_SUGGESTION"
-  | "AI_ANSWER"
-  | "SIMILAR_QUESTIONS";
-
 const queueNotification = async ({
-  userId,
-  type,
-  referenceId,
+  recipientId,
+  actorId,
+  event,
+  target,
   meta,
-}: {
-  userId: string;
-  type: NotificationType;
-  referenceId: string;
-  meta: Record<string, unknown>;
-}) => {
+}: NotificationParams) => {
   await notificationQueue.add(
     "CREATE_NOTIFICATION",
     {
-      userId,
-      type,
-      referenceId,
+      recipientId,
+      actorId: actorId ?? null,
+      event,
+      target,
       meta,
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("notification", userId, type, referenceId),
+      jobId: makeJobId(
+        "notification",
+        recipientId,
+        actorId ?? "system",
+        event,
+        target.entityType,
+        target.entityId,
+        target.parentId ?? "root",
+      ),
     },
   );
 };

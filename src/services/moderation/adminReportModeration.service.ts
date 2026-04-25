@@ -1,5 +1,4 @@
 import HttpError from "../../utils/httpError.util.js";
-import queueNotification from "../../utils/queueNotification.util.js";
 import { clearReportsCache } from "../../utils/clearCache.util.js";
 import { makeJobId } from "../../utils/makeJobId.util.js";
 
@@ -14,6 +13,7 @@ import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 
 import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 import crypto from "crypto";
 
@@ -151,14 +151,23 @@ const adminModerateReport = async ({
       },
     );
 
-    await queueNotification({
-      userId: reporterUserId,
-      type: "REPORT_UPDATE",
-      referenceId: reportId,
+    await routeNotification({
+      recipientId: reporterUserId,
+      actorId: reviewedBy,
+      event: "REPORT_UPDATE",
+      target: {
+        entityType: "REPORT",
+        entityId: reportId,
+      },
       meta: {
-        status: updatedReport.status,
-        actionTaken: updatedReport.actionTaken,
+        reportId,
+
+        status,
+        actionTaken,
         isRemovingContent: updatedReport.isRemovingContent,
+
+        targetContentId: reportContentId,
+        targetContentType: targetType,
       },
     });
   };
@@ -205,10 +214,14 @@ const adminModerateReport = async ({
       },
     );
 
-    await queueNotification({
-      userId: reportTargetUserId,
-      type: "REMOVE_CONTENT",
-      referenceId: reportContentId,
+    await routeNotification({
+      recipientId: reportTargetUserId,
+      actorId: reviewedBy,
+      event: "REMOVE_CONTENT",
+      target: {
+        entityType: targetType,
+        entityId: reportContentId,
+      },
       meta: {
         reportId,
         targetType,
@@ -248,16 +261,11 @@ const adminModerateReport = async ({
 
         await prisma.$transaction(async (tx) => {
           const existingPermBan = await tx.ban.findFirst({
-            where: {
-              userId: reportTargetUserId,
-              banType: "PERM",
-            },
-            select: { id: true },
+            where: { userId: reportTargetUserId, banType: "PERM" },
           });
 
-          if (existingPermBan) {
+          if (existingPermBan)
             throw new HttpError("User already has a permanent ban", 409);
-          }
 
           const existingTempBan = await tx.ban.findFirst({
             where: {
@@ -265,19 +273,14 @@ const adminModerateReport = async ({
               banType: "TEMP",
               expiresAt: { gt: new Date() },
             },
-            select: { id: true },
           });
 
-          if (existingTempBan) {
-            throw new HttpError(
-              "User already has an active temporary ban",
-              409,
-            );
-          }
+          if (existingTempBan)
+            throw new HttpError("User already has an active temp ban", 409);
 
           await tx.ban.create({
             data: {
-              userId: foundReport.targetUserId as string,
+              userId: reportTargetUserId,
               title,
               reasons,
               banType: "TEMP",
@@ -294,31 +297,15 @@ const adminModerateReport = async ({
         });
 
         const meta = {
+          reportId,
+          targetContentId: reportContentId,
+          targetContentType: targetType,
+          action: "BAN_TEMP",
           title,
           reasons,
-          banDurationMs,
           expiresAt,
-          contentRemoved: shouldRemoveContent,
+          durationMs: banDurationMs,
         };
-
-        await moderationAuditQueue.add(
-          "BAN_USER_TEMP",
-          {
-            decisionId,
-            targetType: "USER",
-            targetId: reportTargetUserId,
-            targetUserId: reportTargetUserId,
-            actorType: "ADMIN_MODERATION",
-            adminId: reviewedBy,
-            actionTaken: "BAN_TEMP",
-            meta,
-          },
-          {
-            removeOnComplete: true,
-            removeOnFail: false,
-            jobId: makeJobId("moderationAudit", decisionId, "banUserTemp"),
-          },
-        );
 
         await updateReportStatus("RESOLVED", "BAN_TEMP", meta);
         await applyContentModerationStatus();
@@ -326,9 +313,7 @@ const adminModerateReport = async ({
 
         await moderationMetricsQueue.add(
           "BAN_TEMP",
-          {
-            userId: reportTargetUserId,
-          },
+          { userId: reportTargetUserId },
           {
             removeOnComplete: true,
             removeOnFail: false,
@@ -336,18 +321,15 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "STRIKE",
-          referenceId: reportId,
-          meta: {
-            actionTaken: "BAN_TEMP",
-            title,
-            reasons,
-            expiresAt,
-            reportId,
-            targetType,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "STRIKE",
+          target: {
+            entityType: "USER",
+            entityId: reportTargetUserId,
           },
+          meta,
         });
 
         await getRedisPub().publish(
@@ -360,18 +342,6 @@ const adminModerateReport = async ({
 
       case "BAN_PERM": {
         await prisma.$transaction(async (tx) => {
-          const existingPermBan = await tx.ban.findFirst({
-            where: {
-              userId: reportTargetUserId,
-              banType: "PERM",
-            },
-            select: { id: true },
-          });
-
-          if (existingPermBan) {
-            throw new HttpError("User already has a permanent ban", 409);
-          }
-
           await tx.ban.create({
             data: {
               userId: reportTargetUserId,
@@ -389,29 +359,13 @@ const adminModerateReport = async ({
         });
 
         const meta = {
+          reportId,
+          targetContentId: reportContentId,
+          targetContentType: targetType,
+          action: "BAN_PERM",
           title,
           reasons,
-          contentRemoved: shouldRemoveContent,
         };
-
-        await moderationAuditQueue.add(
-          "BAN_USER_PERM",
-          {
-            decisionId,
-            targetType: "USER",
-            targetId: reportTargetUserId,
-            targetUserId: reportTargetUserId,
-            actorType: "ADMIN_MODERATION",
-            adminId: reviewedBy,
-            actionTaken: "BAN_PERM",
-            meta,
-          },
-          {
-            removeOnComplete: true,
-            removeOnFail: false,
-            jobId: makeJobId("moderationAudit", decisionId, "banUserPerm"),
-          },
-        );
 
         await updateReportStatus("RESOLVED", "BAN_PERM", meta);
         await applyContentModerationStatus();
@@ -419,9 +373,7 @@ const adminModerateReport = async ({
 
         await moderationMetricsQueue.add(
           "BAN_PERM",
-          {
-            userId: reportTargetUserId,
-          },
+          { userId: reportTargetUserId },
           {
             removeOnComplete: true,
             removeOnFail: false,
@@ -429,17 +381,15 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "STRIKE",
-          referenceId: reportId,
-          meta: {
-            actionTaken: "BAN_PERM",
-            title,
-            reasons,
-            reportId,
-            targetType,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "STRIKE",
+          target: {
+            entityType: "USER",
+            entityId: reportTargetUserId,
           },
+          meta,
         });
 
         await getRedisPub().publish(
@@ -453,7 +403,7 @@ const adminModerateReport = async ({
       case "WARN": {
         const expiresAt = new Date(Date.now() + (warningDurationMs as number));
 
-        const warning = await prisma.warning.create({
+        await prisma.warning.create({
           data: {
             userId: reportTargetUserId,
             title,
@@ -464,11 +414,12 @@ const adminModerateReport = async ({
         });
 
         const meta = {
+          reportId,
+          targetContentId: reportContentId,
+          targetContentType: targetType,
           title,
           reasons,
-          warningDurationMs,
           expiresAt,
-          contentRemoved: shouldRemoveContent,
         };
 
         await updateReportStatus("RESOLVED", "WARN", meta);
@@ -477,9 +428,7 @@ const adminModerateReport = async ({
 
         await moderationMetricsQueue.add(
           "WARN",
-          {
-            userId: reportTargetUserId,
-          },
+          { userId: reportTargetUserId },
           {
             removeOnComplete: true,
             removeOnFail: false,
@@ -487,34 +436,29 @@ const adminModerateReport = async ({
           },
         );
 
-        await queueNotification({
-          userId: reportTargetUserId,
-          type: "WARN",
-          referenceId: warning.id,
-          meta: {
-            title,
-            reasons,
-            expiresAt,
+        await routeNotification({
+          recipientId: reportTargetUserId,
+          actorId: reviewedBy,
+          event: "WARN",
+          target: {
+            entityType: "USER",
+            entityId: reportTargetUserId,
           },
+          meta,
         });
 
         break;
       }
 
       case "IGNORE": {
-        const meta = {
-          title,
-          reasons,
-        };
+        const meta = { title, reasons };
 
         await updateReportStatus("DISMISSED", "IGNORE", meta);
         await applyContentModerationStatus();
 
         await moderationMetricsQueue.add(
           "IGNORE",
-          {
-            userId: reportTargetUserId,
-          },
+          { userId: reportTargetUserId },
           {
             removeOnComplete: true,
             removeOnFail: false,

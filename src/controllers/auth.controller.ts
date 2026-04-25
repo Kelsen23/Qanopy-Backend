@@ -54,6 +54,7 @@ const register = asyncHandler(async (req: Request, res: Response) => {
         otpExpireAt,
         otpResendAvailableAt,
         moderationStats: { create: {} },
+        notificationSettings: { create: {} },
       },
     });
 
@@ -160,6 +161,7 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           isVerified: true,
           authProvider: "GOOGLE",
           moderationStats: { create: {} },
+          notificationSettings: { create: {} },
         },
       });
       generateToken(res, newUser.id);
@@ -215,6 +217,7 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           isVerified: true,
           authProvider: "GITHUB",
           moderationStats: { create: {} },
+          notificationSettings: { create: {} },
         },
       });
 

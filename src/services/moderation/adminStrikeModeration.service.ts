@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import HttpError from "../../utils/httpError.util.js";
-import queueNotification from "../../utils/queueNotification.util.js";
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
 import { makeJobId } from "../../utils/makeJobId.util.js";
 
@@ -20,6 +19,7 @@ import deleteContentQueue from "../../queues/deleteContent.queue.js";
 import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
@@ -464,7 +464,8 @@ const adminModerateStrike = async ({
     banDurationMs,
     warningDurationMs,
     expiresAt,
-    contentRemovalRequested: shouldRemoveContent && targetContentState.canRemove,
+    contentRemovalRequested:
+      shouldRemoveContent && targetContentState.canRemove,
     contentRemovalQueued,
     targetContentState,
   };
@@ -568,10 +569,14 @@ const adminModerateStrike = async ({
     await runSideEffectWithRetry(
       "queueNotification:WARN",
       async () => {
-        await queueNotification({
-          userId: foundStrike.userId,
-          type: "WARN",
-          referenceId: createdWarning.id,
+        await routeNotification({
+          recipientId: foundStrike.userId,
+          actorId: reviewedBy,
+          event: "WARN",
+          target: {
+            entityType: "USER",
+            entityId: foundStrike.userId,
+          },
           meta: {
             title,
             reasons,
@@ -586,10 +591,14 @@ const adminModerateStrike = async ({
     await runSideEffectWithRetry(
       "queueNotification:STRIKE",
       async () => {
-        await queueNotification({
-          userId: foundStrike.userId,
-          type: "STRIKE",
-          referenceId: foundStrike.id,
+        await routeNotification({
+          recipientId: foundStrike.userId,
+          actorId: reviewedBy,
+          event: "STRIKE",
+          target: {
+            entityType: "USER",
+            entityId: foundStrike.userId,
+          },
           meta: {
             actionTaken,
             title,
@@ -605,12 +614,16 @@ const adminModerateStrike = async ({
 
   if (contentRemovalQueued) {
     await runSideEffectWithRetry(
-      "queueNotification:REMOVE_CONTENT",
+      "queueNotification:",
       async () => {
-        await queueNotification({
-          userId: foundStrike.userId,
-          type: "REMOVE_CONTENT",
-          referenceId: foundStrike.targetContentId,
+        await routeNotification({
+          recipientId: foundStrike.userId,
+          actorId: reviewedBy,
+          event: "REMOVE_CONTENT",
+          target: {
+            entityType: targetType,
+            entityId: foundStrike.targetContentId,
+          },
           meta: {
             strikeId: foundStrike.id,
             targetType,
