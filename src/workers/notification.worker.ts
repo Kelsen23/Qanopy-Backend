@@ -20,6 +20,7 @@ async function startWorker() {
     "notificationQueue",
     async (job) => {
       const { recipientId, actorId, event, target, meta } = job.data;
+      const normalizedMeta = meta ?? {};
 
       try {
         const notification = await Notification.create({
@@ -27,7 +28,7 @@ async function startWorker() {
           actorId,
           event,
           target,
-          meta,
+          meta: normalizedMeta,
         });
 
         const sockets = await getUserSockets(recipientId);
@@ -53,7 +54,7 @@ async function startWorker() {
             actor,
             event,
             target,
-            meta,
+            meta: normalizedMeta,
             seen: false,
             createdAt: notification.createdAt,
             updatedAt: notification.updatedAt,

@@ -149,7 +149,7 @@ const userResolver = {
             actorId: 1,
             event: 1,
             target: 1,
-            meta: 1,
+            meta: { $ifNull: ["$meta", {}] },
             seen: 1,
             createdAt: 1,
             updatedAt: 1,
