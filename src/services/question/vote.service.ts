@@ -21,6 +21,20 @@ import routeNotification from "../notification/routeNotification.service.js";
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type VoteType = "UPVOTE" | "DOWNVOTE";
 
+const bestEffortRouteNotification = async (
+  params: Parameters<typeof routeNotification>[0],
+  context: Record<string, unknown>,
+) => {
+  try {
+    await routeNotification(params);
+  } catch (error) {
+    console.error("[vote] Failed to enqueue notification", {
+      ...context,
+      error,
+    });
+  }
+};
+
 const vote = async (
   userId: string,
   {
@@ -131,16 +145,25 @@ const vote = async (
     await getRedisCacheClient().del(`question:${targetId}`);
 
     if (foundQuestion.userId !== userId) {
-      await routeNotification({
-        recipientId: foundQuestion.userId as string,
-        actorId: userId,
-        event: voteType,
-        target: {
-          entityType: "QUESTION",
-          entityId: targetId,
+      await bestEffortRouteNotification(
+        {
+          recipientId: foundQuestion.userId as string,
+          actorId: userId,
+          event: voteType,
+          target: {
+            entityType: "QUESTION",
+            entityId: targetId,
+          },
+          meta: {},
         },
-        meta: {},
-      });
+        {
+          recipientId: foundQuestion.userId,
+          actorId: userId,
+          event: voteType,
+          targetType,
+          targetId,
+        },
+      );
     }
 
     return {
@@ -226,17 +249,27 @@ const vote = async (
     await clearAnswerCache(foundAnswer.questionId as string);
 
     if (foundAnswer.userId !== userId) {
-      await routeNotification({
-        recipientId: foundAnswer.userId as string,
-        actorId: userId,
-        event: voteType,
-        target: {
-          entityType: "ANSWER",
-          entityId: targetId,
-          parentId: foundAnswer.questionId as string,
+      await bestEffortRouteNotification(
+        {
+          recipientId: foundAnswer.userId as string,
+          actorId: userId,
+          event: voteType,
+          target: {
+            entityType: "ANSWER",
+            entityId: targetId,
+            parentId: foundAnswer.questionId as string,
+          },
+          meta: {},
         },
-        meta: {},
-      });
+        {
+          recipientId: foundAnswer.userId,
+          actorId: userId,
+          event: voteType,
+          targetType,
+          targetId,
+          parentId: foundAnswer.questionId,
+        },
+      );
     }
 
     return {
@@ -321,17 +354,27 @@ const vote = async (
     await clearReplyCache(foundReply.answerId as string);
 
     if (foundReply.userId !== userId) {
-      await routeNotification({
-        recipientId: foundReply.userId as string,
-        actorId: userId,
-        event: voteType,
-        target: {
-          entityType: "REPLY",
-          entityId: targetId,
-          parentId: foundReply.answerId as string,
+      await bestEffortRouteNotification(
+        {
+          recipientId: foundReply.userId as string,
+          actorId: userId,
+          event: voteType,
+          target: {
+            entityType: "REPLY",
+            entityId: targetId,
+            parentId: foundReply.answerId as string,
+          },
+          meta: {},
         },
-        meta: {},
-      });
+        {
+          recipientId: foundReply.userId,
+          actorId: userId,
+          event: voteType,
+          targetType,
+          targetId,
+          parentId: foundReply.answerId,
+        },
+      );
     }
 
     return {
