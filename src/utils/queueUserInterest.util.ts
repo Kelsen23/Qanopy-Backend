@@ -1,5 +1,7 @@
 import userInterestQueue from "../queues/userInterest.queue.js";
 
+import { makeUniqueJobId } from "./makeJobId.util.js";
+
 export type UserInterestAction = "VIEW" | "UPVOTE" | "ANSWER";
 
 type QueueUserInterestParams = {
@@ -13,10 +15,18 @@ const queueUserInterest = async ({
   tags,
   action,
 }: QueueUserInterestParams) => {
-  await userInterestQueue.add(action, {
-    userId,
-    tags,
-  });
+  await userInterestQueue.add(
+    action,
+    {
+      userId,
+      tags,
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeUniqueJobId("userInterest", action, userId, ...tags),
+    },
+  );
 };
 
 export default queueUserInterest;
