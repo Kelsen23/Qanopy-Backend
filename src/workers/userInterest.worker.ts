@@ -2,15 +2,16 @@ import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
+
 import UserInterest from "../models/userInterest.model.js";
+
+import type { UserInterestAction } from "../utils/queueUserInterest.util.js";
 
 const actionScores = {
   VIEW: 1,
   UPVOTE: 3,
   ANSWER: 5,
 } as const;
-
-type UserInterestAction = keyof typeof actionScores;
 
 function isUserInterestAction(action: string): action is UserInterestAction {
   return action in actionScores;
