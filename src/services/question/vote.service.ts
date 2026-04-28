@@ -144,11 +144,11 @@ const vote = async (
     );
 
     if (voteType === "UPVOTE" && foundQuestion.tags?.length) {
-      await queueUserInterest({
+      queueUserInterest({
         userId,
         tags: foundQuestion.tags as string[],
         action: "UPVOTE",
-      });
+      }).catch(() => {});
     }
 
     await getRedisCacheClient().del(`question:${targetId}`);
