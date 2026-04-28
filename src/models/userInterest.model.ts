@@ -3,12 +3,15 @@ import mongoose, { Schema } from "mongoose";
 const UserInterestSchema = new Schema(
   {
     userId: { type: String, required: true },
-    interests: [
-      {
-        tag: { type: String, required: true },
-        score: { type: Number, default: 0, min: 0 },
-      },
-    ],
+    interests: {
+      type: [
+        {
+          tag: { type: String, required: true },
+          score: { type: Number, default: 0, min: 0 },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -28,4 +31,8 @@ const UserInterestSchema = new Schema(
 
 UserInterestSchema.index({ userId: 1 }, { unique: true });
 
-export default mongoose.model("UserInterest", UserInterestSchema, "user_interests");
+export default mongoose.model(
+  "UserInterest",
+  UserInterestSchema,
+  "user_interests",
+);
