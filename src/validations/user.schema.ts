@@ -36,12 +36,6 @@ const updateProfileSchema = z.object({
     }),
 });
 
-const saveInterestsSchema = z.object({
-  interests: z
-    .array(z.nativeEnum(Interest))
-    .nonempty({ message: "You must select at least one interest" }),
-});
-
 const updateNotificationSettingsSchema = z
   .object({
     upvote: z.boolean(),
@@ -66,7 +60,6 @@ const markNotificationsAsSeenSchema = z.object({
 export {
   updateProfilePictureSchema,
   updateProfileSchema,
-  saveInterestsSchema,
   updateNotificationSettingsSchema,
   markNotificationsAsSeenSchema,
 };

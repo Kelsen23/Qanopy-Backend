@@ -2,8 +2,6 @@ import express from "express";
 
 import {
   deleteProfilePicture,
-  getInterests,
-  saveInterests,
   updateProfile,
   updateProfilePicture,
   getNotificationSettings,
@@ -20,7 +18,6 @@ import validate from "../middlewares/validate.middleware.js";
 import {
   updateProfilePictureSchema,
   updateProfileSchema,
-  saveInterestsSchema,
   updateNotificationSettingsSchema,
   markNotificationsAsSeenSchema,
 } from "../validations/user.schema.js";
@@ -28,8 +25,6 @@ import {
 import {
   updateProfileLimiterMiddleware,
   updateProfilePictureLimiterMiddleware,
-  getInterestsLimiterMiddleware,
-  saveInterestsLimiterMiddleware,
 } from "../middlewares/rate-limiters/user.rate-limiters.js";
 
 const router = express.Router();
@@ -58,26 +53,6 @@ router
     requireActiveUser,
     validate(updateProfileSchema),
     updateProfile,
-  );
-
-router
-  .route("/interests")
-  .get(
-    getInterestsLimiterMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    getInterests,
-  );
-router
-  .route("/save/interests")
-  .patch(
-    saveInterestsLimiterMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    validate(saveInterestsSchema),
-    saveInterests,
   );
 
 router
