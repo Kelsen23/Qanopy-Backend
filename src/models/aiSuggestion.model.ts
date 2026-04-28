@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const aiSuggestionSchema = new Schema(
+const AiSuggestionSchema = new Schema(
   {
     questionId: {
       type: Schema.Types.ObjectId,
@@ -51,7 +51,7 @@ const aiSuggestionSchema = new Schema(
   },
 );
 
-aiSuggestionSchema.index(
+AiSuggestionSchema.index(
   {
     questionId: 1,
     version: 1,
@@ -59,10 +59,10 @@ aiSuggestionSchema.index(
   { unique: true },
 );
 
-aiSuggestionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 45 });
+AiSuggestionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 45 });
 
 export default mongoose.model(
   "AiSuggestion",
-  aiSuggestionSchema,
+  AiSuggestionSchema,
   "ai_suggestions",
 );

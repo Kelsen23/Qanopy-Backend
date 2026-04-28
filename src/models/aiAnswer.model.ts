@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const aiAnswerSchema = new Schema(
+const AiAnswerSchema = new Schema(
   {
     questionId: {
       type: Schema.Types.ObjectId,
@@ -47,11 +47,11 @@ const aiAnswerSchema = new Schema(
   },
 );
 
-aiAnswerSchema.index({ questionId: 1, questionVersion: 1 });
+AiAnswerSchema.index({ questionId: 1, questionVersion: 1 });
 
-aiAnswerSchema.index(
+AiAnswerSchema.index(
   { questionId: 1, isPublished: 1 },
   { unique: true, partialFilterExpression: { isPublished: true } },
 );
 
-export default mongoose.model("AiAnswer", aiAnswerSchema, "ai_answers");
+export default mongoose.model("AiAnswer", AiAnswerSchema, "ai_answers");
