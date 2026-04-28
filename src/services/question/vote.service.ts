@@ -6,6 +6,7 @@ import {
   clearReplyCache,
 } from "../../utils/clearCache.util.js";
 import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import queueUserInterest from "../../utils/queueUserInterest.util.js";
 
 import mongoose from "mongoose";
 
@@ -141,6 +142,14 @@ const vote = async (
         ),
       },
     );
+
+    if (voteType === "UPVOTE" && foundQuestion.tags?.length) {
+      await queueUserInterest({
+        userId,
+        tags: foundQuestion.tags as string[],
+        action: "UPVOTE",
+      });
+    }
 
     await getRedisCacheClient().del(`question:${targetId}`);
 
