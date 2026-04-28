@@ -13,6 +13,7 @@ import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
+import queueUserInterest from "../../utils/queueUserInterest.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
@@ -330,6 +331,7 @@ const questionResolver = {
       _: any,
       { id }: { id: string },
       {
+        user,
         getRedisCacheClient,
         loaders,
       }: { user: User; getRedisCacheClient: () => Redis; loaders: any },
@@ -350,6 +352,14 @@ const questionResolver = {
           similarQuestionsStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
+
+        if (user?.id) {
+          queueUserInterest({
+            userId: user.id,
+            tags: publicQuestion.tags as string[],
+            action: "VIEW",
+          }).catch(() => {});
+        }
 
         return {
           ...publicQuestion,
@@ -375,7 +385,7 @@ const questionResolver = {
 
       if (!question) return null;
 
-      const user = question.userId
+      const owner = question.userId
         ? await loaders.userLoader.load(question.userId.toString())
         : null;
 
@@ -399,7 +409,7 @@ const questionResolver = {
           question.embeddingStatus === "READY",
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
-        user: user && !(user as any)?.error ? user : null,
+        user: owner && !(owner as any)?.error ? owner : null,
         aiAnswer: aiAnswer
           ? {
               id: aiAnswer._id,
@@ -427,6 +437,14 @@ const questionResolver = {
         topicStatus: question.topicStatus,
         moderationStatus: question.moderationStatus,
       };
+
+      if (user?.id) {
+        queueUserInterest({
+          userId: user.id,
+          tags: result.tags as string[],
+          action: "VIEW",
+        }).catch(() => {});
+      }
 
       await getRedisCacheClient().set(
         `question:${id}`,
