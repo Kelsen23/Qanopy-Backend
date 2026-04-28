@@ -159,11 +159,11 @@ const createAnswerOnQuestion = asyncHandler(
     });
 
     if (foundQuestion.tags?.length) {
-      await queueUserInterest({
+      queueUserInterest({
         userId,
         tags: foundQuestion.tags as string[],
         action: "ANSWER",
-      });
+      }).catch(() => {});
     }
 
     return res
