@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const aiAnswerFeedbackSchema = new Schema(
+const AiAnswerFeedbackSchema = new Schema(
   {
     aiAnswerId: {
       type: Schema.Types.ObjectId,
@@ -46,8 +46,8 @@ const aiAnswerFeedbackSchema = new Schema(
   },
 );
 
-aiAnswerFeedbackSchema.index({ aiAnswerId: 1, createdAt: -1 });
-aiAnswerFeedbackSchema.index(
+AiAnswerFeedbackSchema.index({ aiAnswerId: 1, createdAt: -1 });
+AiAnswerFeedbackSchema.index(
   { aiAnswerId: 1, userId: 1 },
   {
     unique: true,
@@ -57,6 +57,6 @@ aiAnswerFeedbackSchema.index(
 
 export default mongoose.model(
   "AiAnswerFeedback",
-  aiAnswerFeedbackSchema,
+  AiAnswerFeedbackSchema,
   "ai_answer_feedbacks",
 );

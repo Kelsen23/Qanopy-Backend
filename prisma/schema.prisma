@@ -182,7 +182,6 @@ model User {
   profilePictureKey String?
 
   bio              String?       @db.VarChar(150)
-  interests        Interest[]
   reputationPoints Int           @default(0)
   role             Role          @default(USER)
   questionsAsked   Int           @default(0)

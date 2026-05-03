@@ -10,9 +10,13 @@ import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
+import UserInterest from "../../models/userInterest.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
+import queueUserInterest from "../../utils/queueUserInterest.util.js";
+import rotateArray from "../../utils/rotateArray.util.js";
+import getStableOffset from "../../utils/getStableOffset.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
@@ -163,27 +167,52 @@ const questionResolver = {
           ? Number(limitCount)
           : 10;
 
-      const interests = user.interests || [];
-      const sortedInterests = [...interests].sort().join(",");
+      const userInterest = await UserInterest.findOne({
+        userId: user.id,
+      }).lean();
+
+      const rankedInterests = userInterest?.interests?.length
+        ? userInterest.interests
+        : rotateArray(
+            interests.map((tag) => ({ tag, score: 1 })),
+            getStableOffset(user.id, interests.length),
+          );
+
+      const topInterests = [...rankedInterests]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
+      const topTags = topInterests.map((item) => item.tag);
+
+      const sortedTopTagsWithScores = [...topInterests]
+        .sort((a, b) => a.tag.localeCompare(b.tag))
+        .map((item) => `${item.tag}:${item.score}`)
+        .join(",");
+
       const cursorCacheKey = cursor
         ? `${cursor.id}:${cursor.upvoteCount}:${cursor.searchScore}`
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTagsWithScores}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
-      const searchStage = interests.length
+      const searchStage = topTags.length
         ? ({
             $search: {
               index: "recommended_index",
               compound: {
-                should: interests.map((interest) => ({
+                should: topInterests.map((item) => ({
                   text: {
-                    query: interest,
+                    query: item.tag,
                     path: ["title", "body", "tags"],
                     fuzzy: { maxEdits: 1, prefixLength: 2 },
+                    score: {
+                      boost: {
+                        value: item.score ?? 1,
+                      },
+                    },
                   },
                 })),
                 minimumShouldMatch: 1,
@@ -317,7 +346,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTagsWithScores}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 10,
@@ -330,6 +359,7 @@ const questionResolver = {
       _: any,
       { id }: { id: string },
       {
+        user,
         getRedisCacheClient,
         loaders,
       }: { user: User; getRedisCacheClient: () => Redis; loaders: any },
@@ -350,6 +380,14 @@ const questionResolver = {
           similarQuestionsStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
+
+        if (user?.id) {
+          queueUserInterest({
+            userId: user.id,
+            tags: publicQuestion.tags as string[],
+            action: "VIEW",
+          }).catch(() => {});
+        }
 
         return {
           ...publicQuestion,
@@ -375,7 +413,7 @@ const questionResolver = {
 
       if (!question) return null;
 
-      const user = question.userId
+      const owner = question.userId
         ? await loaders.userLoader.load(question.userId.toString())
         : null;
 
@@ -399,7 +437,7 @@ const questionResolver = {
           question.embeddingStatus === "READY",
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
-        user: user && !(user as any)?.error ? user : null,
+        user: owner && !(owner as any)?.error ? owner : null,
         aiAnswer: aiAnswer
           ? {
               id: aiAnswer._id,
@@ -427,6 +465,14 @@ const questionResolver = {
         topicStatus: question.topicStatus,
         moderationStatus: question.moderationStatus,
       };
+
+      if (user?.id) {
+        queueUserInterest({
+          userId: user.id,
+          tags: result.tags as string[],
+          action: "VIEW",
+        }).catch(() => {});
+      }
 
       await getRedisCacheClient().set(
         `question:${id}`,

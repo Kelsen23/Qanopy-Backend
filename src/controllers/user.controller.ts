@@ -169,34 +169,6 @@ const updateProfile = asyncHandler(
   },
 );
 
-const getInterests = asyncHandler(async (req: Request, res: Response) => {
-  return res.status(200).json({ interests });
-});
-
-const saveInterests = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-    const { interests } = req.body;
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { interests },
-    });
-
-    await getRedisCacheClient().set(
-      `user:${updatedUser.id}`,
-      JSON.stringify(sanitizeUser(updatedUser)),
-      "EX",
-      60 * 20,
-    );
-
-    return res.status(200).json({
-      message: "Successfully saved interests",
-      interests: updatedUser.interests,
-    });
-  },
-);
-
 const getNotificationSettings = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
@@ -270,8 +242,6 @@ export {
   updateProfilePicture,
   deleteProfilePicture,
   updateProfile,
-  getInterests,
-  saveInterests,
   getNotificationSettings,
   updateNotificationSettings,
   markNotificationsAsSeen,

@@ -10,6 +10,8 @@ import { makeJobId } from "../utils/makeJobId.util.js";
 
 import HttpError from "../utils/httpError.util.js";
 
+import queueUserInterest from "../utils/queueUserInterest.util.js";
+
 import voteService from "../services/question/vote.service.js";
 import unvoteService from "../services/question/unvote.service.js";
 import deleteContentService from "../services/question/deleteContent.service.js";
@@ -155,6 +157,14 @@ const createAnswerOnQuestion = asyncHandler(
         answerId: (newAnswer._id as string).toString(),
       },
     });
+
+    if (foundQuestion.tags?.length) {
+      queueUserInterest({
+        userId,
+        tags: foundQuestion.tags as string[],
+        action: "ANSWER",
+      }).catch(() => {});
+    }
 
     return res
       .status(201)
