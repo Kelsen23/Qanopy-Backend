@@ -17,6 +17,35 @@ function isUserInterestAction(action: string): action is UserInterestAction {
   return action in actionScores;
 }
 
+async function applyInterestScore(
+  userId: string,
+  tag: string,
+  score: number,
+) {
+  const existingTagResult = await UserInterest.updateOne(
+    { userId, "interests.tag": tag },
+    {
+      $inc: { "interests.$.score": score },
+    },
+  );
+
+  if (existingTagResult.matchedCount > 0) return;
+
+  await UserInterest.updateOne(
+    { userId },
+    {
+      $setOnInsert: { userId },
+      $push: {
+        interests: {
+          tag,
+          score,
+        },
+      },
+    },
+    { upsert: true },
+  );
+}
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
 
@@ -28,23 +57,16 @@ async function startWorker() {
       if (!isUserInterestAction(action))
         throw new Error(`Unsupported user interest action: ${action}`);
 
-      const { userId, tags } = job.data;
+      const { userId, tags } = job.data as {
+        userId: string;
+        tags: string[];
+      };
+      const score = actionScores[action];
+      const uniqueTags = [...new Set(tags)];
 
-      await UserInterest.updateOne(
-        { userId },
-        {
-          $setOnInsert: { userId },
-          $push: {
-            interests: {
-              $each: tags.map((tag: string) => ({
-                tag,
-                score: actionScores[action],
-              })),
-            },
-          },
-        },
-        { upsert: true },
-      );
+      for (const tag of uniqueTags) {
+        await applyInterestScore(userId, tag, score);
+      }
     },
     {
       connection: redisMessagingClientConnection,
