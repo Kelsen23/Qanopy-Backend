@@ -178,28 +178,23 @@ const questionResolver = {
             getStableOffset(user.id, interests.length),
           );
 
-      const tagScoreMap = new Map<string, number>();
+      const topInterests = [...rankedInterests]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
 
-      for (const item of rankedInterests) {
-        tagScoreMap.set(
-          item.tag,
-          (tagScoreMap.get(item.tag) ?? 0) + item.score,
-        );
-      }
+      const topTags = topInterests.map((item) => item.tag);
 
-      const topTags = [...tagScoreMap.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([tag]) => tag);
-
-      const sortedTopTags = [...topTags].sort().join(",") as string;
+      const sortedTopTagsWithScores = [...topInterests]
+        .sort((a, b) => a.tag.localeCompare(b.tag))
+        .map((item) => `${item.tag}:${item.score}`)
+        .join(",");
 
       const cursorCacheKey = cursor
         ? `${cursor.id}:${cursor.upvoteCount}:${cursor.searchScore}`
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `recommendedQuestions:${sortedTopTags}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTagsWithScores}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
@@ -208,14 +203,14 @@ const questionResolver = {
             $search: {
               index: "recommended_index",
               compound: {
-                should: topTags.map((tag: string) => ({
+                should: topInterests.map((item) => ({
                   text: {
-                    query: tag,
+                    query: item.tag,
                     path: ["title", "body", "tags"],
                     fuzzy: { maxEdits: 1, prefixLength: 2 },
                     score: {
                       boost: {
-                        value: tagScoreMap.get(tag) ?? 1,
+                        value: item.score ?? 1,
                       },
                     },
                   },
@@ -351,7 +346,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `recommendedQuestions:${sortedTopTags}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTagsWithScores}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 10,
