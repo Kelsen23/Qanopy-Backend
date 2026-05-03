@@ -17,31 +17,57 @@ function isUserInterestAction(action: string): action is UserInterestAction {
   return action in actionScores;
 }
 
-async function applyInterestScore(
-  userId: string,
-  tag: string,
-  score: number,
-) {
-  const existingTagResult = await UserInterest.updateOne(
-    { userId, "interests.tag": tag },
-    {
-      $inc: { "interests.$.score": score },
-    },
-  );
-
-  if (existingTagResult.matchedCount > 0) return;
-
+async function applyInterestScore(userId: string, tag: string, score: number) {
   await UserInterest.updateOne(
     { userId },
-    {
-      $setOnInsert: { userId },
-      $push: {
-        interests: {
-          tag,
-          score,
+    [
+      {
+        $set: {
+          userId,
+          interests: {
+            $let: {
+              vars: {
+                existingInterests: { $ifNull: ["$interests", []] },
+                existingTags: {
+                  $map: {
+                    input: { $ifNull: ["$interests", []] },
+                    as: "interest",
+                    in: "$$interest.tag",
+                  },
+                },
+              },
+              in: {
+                $cond: [
+                  { $in: [tag, "$$existingTags"] },
+                  {
+                    $map: {
+                      input: "$$existingInterests",
+                      as: "interest",
+                      in: {
+                        $cond: [
+                          { $eq: ["$$interest.tag", tag] },
+                          {
+                            tag: "$$interest.tag",
+                            score: { $add: ["$$interest.score", score] },
+                          },
+                          "$$interest",
+                        ],
+                      },
+                    },
+                  },
+                  {
+                    $concatArrays: [
+                      "$$existingInterests",
+                      [{ tag, score }],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
         },
       },
-    },
+    ],
     { upsert: true },
   );
 }
