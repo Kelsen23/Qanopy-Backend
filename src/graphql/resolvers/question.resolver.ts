@@ -10,10 +10,13 @@ import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
+import UserInterest from "../../models/userInterest.model.js";
 
 import HttpError from "../../utils/httpError.util.js";
 import interests from "../../utils/interests.util.js";
 import queueUserInterest from "../../utils/queueUserInterest.util.js";
+import rotateArray from "../../utils/rotateArray.util.js";
+import getStableOffset from "../../utils/getStableOffset.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
@@ -164,27 +167,57 @@ const questionResolver = {
           ? Number(limitCount)
           : 10;
 
-      const interests = user.interests || [];
-      const sortedInterests = [...interests].sort().join(",");
+      const userInterest = await UserInterest.findOne({
+        userId: user.id,
+      }).lean();
+
+      const rankedInterests = userInterest?.interests?.length
+        ? userInterest.interests
+        : rotateArray(
+            interests.map((tag) => ({ tag, score: 1 })),
+            getStableOffset(user.id, interests.length),
+          );
+
+      const tagScoreMap = new Map<string, number>();
+
+      for (const item of rankedInterests) {
+        tagScoreMap.set(
+          item.tag,
+          (tagScoreMap.get(item.tag) ?? 0) + item.score,
+        );
+      }
+
+      const topTags = [...tagScoreMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([tag]) => tag);
+
+      const sortedTopTags = [...topTags].sort().join(",") as string;
+
       const cursorCacheKey = cursor
         ? `${cursor.id}:${cursor.upvoteCount}:${cursor.searchScore}`
         : "initial";
 
       const cachedQuestions = await getRedisCacheClient().get(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTags}:${cursorCacheKey}:${normalizedLimitCount}`,
       );
       if (cachedQuestions) return JSON.parse(cachedQuestions);
 
-      const searchStage = interests.length
+      const searchStage = topTags.length
         ? ({
             $search: {
               index: "recommended_index",
               compound: {
-                should: interests.map((interest) => ({
+                should: topTags.map((tag: string) => ({
                   text: {
-                    query: interest,
+                    query: tag,
                     path: ["title", "body", "tags"],
                     fuzzy: { maxEdits: 1, prefixLength: 2 },
+                    score: {
+                      boost: {
+                        value: tagScoreMap.get(tag) ?? 1,
+                      },
+                    },
                   },
                 })),
                 minimumShouldMatch: 1,
@@ -318,7 +351,7 @@ const questionResolver = {
       };
 
       await getRedisCacheClient().set(
-        `recommendedQuestions:${sortedInterests}:${cursorCacheKey}:${normalizedLimitCount}`,
+        `recommendedQuestions:${sortedTopTags}:${cursorCacheKey}:${normalizedLimitCount}`,
         JSON.stringify(result),
         "EX",
         60 * 10,
