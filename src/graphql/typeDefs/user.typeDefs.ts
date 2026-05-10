@@ -12,6 +12,7 @@ const userTypeDefs = gql`
   type User {
     id: String!
     username: String!
+    displayName: String
     email: String!
     profilePictureKey: String
     profilePictureUrl: String
