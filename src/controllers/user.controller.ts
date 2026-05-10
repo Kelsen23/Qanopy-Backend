@@ -130,7 +130,7 @@ const deleteProfilePicture = asyncHandler(
 const updateProfile = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
-    const { username, bio } = req.body;
+    const { displayName, bio } = req.body;
 
     const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
@@ -139,20 +139,19 @@ const updateProfile = asyncHandler(
 
     if (!foundUser) throw new HttpError("User not found", 404);
 
-    if (username === foundUser.username) {
-      if (bio === foundUser.bio)
-        throw new HttpError("Username and bio already used", 400);
-    } else {
-      const usernameExists = await prisma.user.findUnique({
-        where: { username },
-      });
+    const data: { displayName?: string | null; bio?: string } = {};
 
-      if (usernameExists) throw new HttpError("Username is already taken", 400);
-    }
+    if (displayName !== undefined && displayName !== foundUser.displayName)
+      data.displayName = displayName;
+
+    if (bio !== undefined && bio !== foundUser.bio) data.bio = bio;
+
+    if (Object.keys(data).length === 0)
+      throw new HttpError("Profile already up to date", 400);
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { username, bio },
+      data,
     });
 
     await getRedisCacheClient().set(
