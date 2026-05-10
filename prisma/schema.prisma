@@ -173,10 +173,11 @@ enum AuthProvider {
 }
 
 model User {
-  id       String  @id @default(uuid())
-  username String  @unique @db.VarChar(20)
-  email    String  @unique @db.VarChar(345)
-  password String? @db.VarChar(60)
+  id          String  @id @default(uuid())
+  username    String  @unique @db.VarChar(20)
+  displayName String? @db.VarChar(20)
+  email       String  @unique @db.VarChar(345)
+  password    String? @db.VarChar(60)
 
   profilePictureUrl String?
   profilePictureKey String?
