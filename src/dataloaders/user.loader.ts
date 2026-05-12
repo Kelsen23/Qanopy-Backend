@@ -7,7 +7,8 @@ const batchUsers = async (userIds: readonly string[]) => {
     where: { id: { in: [...userIds] } },
   });
 
-  const userMap: Record<string, any> = {};
+  const userMap: Record<string, unknown> = {};
+
   users.forEach((user) => {
     userMap[user.id] = user;
   });
