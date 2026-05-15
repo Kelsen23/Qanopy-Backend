@@ -65,6 +65,13 @@ const register = asyncHandler(async (req: Request, res: Response) => {
 
   generateToken(res, newUser.id, newUser.tokenVersion);
 
+  await getRedisCacheClient().set(
+    `user:${newUser.id}`,
+    JSON.stringify(sanitizeUser(newUser)),
+    "EX",
+    60 * 20,
+  );
+
   const deviceInfo = getDeviceInfo(req);
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = verificationHtml(
@@ -120,7 +127,6 @@ const login = asyncHandler(async (req: Request, res: Response) => {
   if (!isPasswordCorrect) throw new HttpError("Invalid password", 401);
 
   generateToken(res, foundUser.id, foundUser.tokenVersion);
-
   await getRedisCacheClient().set(
     `user:${foundUser.id}`,
     JSON.stringify(sanitizeUser(foundUser)),
@@ -172,6 +178,13 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
       });
       generateToken(res, newUser.id, newUser.tokenVersion);
 
+      await getRedisCacheClient().set(
+        `user:${newUser.id}`,
+        JSON.stringify(sanitizeUser(newUser)),
+        "EX",
+        60 * 20,
+      );
+
       return res.status(200).json({
         message: "Successfully registered",
         user: {
@@ -187,6 +200,13 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
         );
 
       generateToken(res, foundUser.id, foundUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${foundUser.id}`,
+        JSON.stringify(sanitizeUser(foundUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully logged in",
@@ -231,6 +251,13 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
 
       generateToken(res, newUser.id, newUser.tokenVersion);
 
+      await getRedisCacheClient().set(
+        `user:${newUser.id}`,
+        JSON.stringify(sanitizeUser(newUser)),
+        "EX",
+        60 * 20,
+      );
+
       return res.status(200).json({
         message: "Successfully registered",
         user: { username: newUser.username, email: newUser.email },
@@ -243,6 +270,13 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
         );
 
       generateToken(res, foundUser.id, foundUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${foundUser.id}`,
+        JSON.stringify(sanitizeUser(foundUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully logged in",
@@ -312,6 +346,8 @@ const verifyEmail = asyncHandler(
       "EX",
       60 * 20,
     );
+    
+    await getRedisCacheClient().del(`auth:user:${verifiedUser.id}`);
 
     await getRedisCacheClient().del(
       `auth:verify-email:attempts:${foundUser.id}`,
@@ -661,7 +697,9 @@ const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(
+      `user:${userId}`,
+    );
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });
