@@ -194,9 +194,12 @@ model User {
   credits               Int       @default(20)
   creditsLastRedeemedAt DateTime?
 
-  status    Status    @default(ACTIVE)
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
+  status Status @default(ACTIVE)
+
+  isDeleted                  Boolean   @default(false)
+  deletedAt                  DateTime?
+  accountDeletionRequestedAt DateTime?
+  accountDeletionCompletedAt DateTime?
 
   moderationStrikes ModerationStrike[]
   warnings          Warning[]
