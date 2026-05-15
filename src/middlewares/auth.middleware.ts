@@ -59,7 +59,7 @@ const isAuthenticated = asyncHandler(
     if (Number(user.tokenVersion ?? 0) !== Number(decoded.tokenVersion ?? 0))
       throw new HttpError("User token expired", 401);
 
-    if (user.isDeleted || user.status !== "ACTIVE")
+    if (user.isDeleted)
       throw new HttpError("User not active", 403);
 
     if (!cachedUser) {
@@ -83,10 +83,10 @@ const isVerified = asyncHandler(
   },
 );
 
-const requireActiveUser = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.user?.status !== "ACTIVE" || req.user?.isDeleted)
-      throw new HttpError("User not active", 403);
+  const requireActiveUser = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      if (req.user?.status !== "ACTIVE")
+        throw new HttpError("User not active", 403);
 
     next();
   },
