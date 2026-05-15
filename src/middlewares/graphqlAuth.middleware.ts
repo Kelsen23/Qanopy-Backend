@@ -17,6 +17,7 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
       userId: string;
+      tokenVersion?: number;
     };
   } catch (err) {
     throw new HttpError("Not authenticated, token failed", 401);
@@ -32,13 +33,21 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
     if (!cachedUserObj.isVerified)
       throw new HttpError("User not verified", 403);
 
-    if (cachedUserObj.status !== "ACTIVE")
+    if (
+      Number(cachedUserObj.tokenVersion ?? 0) !==
+      Number(decoded.tokenVersion ?? 0)
+    )
+      throw new HttpError("User token expired", 401);
+
+    if (cachedUserObj.status !== "ACTIVE" || cachedUserObj.isDeleted)
       throw new HttpError("User not active", 403);
 
     return cachedUserObj;
   }
 
-  const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+  const foundUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
   if (!foundUser) throw new HttpError("User not found", 404);
 
   await getRedisCacheClient().set(
@@ -49,7 +58,9 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
   );
 
   if (!foundUser.isVerified) throw new HttpError("User not verified", 403);
-  if (foundUser.status !== "ACTIVE")
+  if (Number(foundUser.tokenVersion ?? 0) !== Number(decoded.tokenVersion ?? 0))
+    throw new HttpError("User token expired", 401);
+  if (foundUser.status !== "ACTIVE" || foundUser.isDeleted)
     throw new HttpError("User not active", 403);
 
   return sanitizeUser(foundUser);
