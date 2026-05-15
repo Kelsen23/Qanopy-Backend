@@ -6,6 +6,17 @@ const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
 
 const normalize = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
+const isDeletedEmail = (email: string) =>
+  email.toLowerCase().endsWith("@deleted.local");
+
+const activeEmailSchema = z
+  .string()
+  .email("Invalid email address")
+  .min(5, "Email must be at least 5 characters")
+  .max(345, "Email must be at most 345 characters")
+  .refine((email) => !isDeletedEmail(email), {
+    message: "This email address is reserved",
+  });
 
 const registerSchema = z.object({
   username: z
@@ -22,11 +33,7 @@ const registerSchema = z.object({
     .refine((username) => !leoProfanity.check(normalize(username)), {
       message: "Username contains inappropriate language",
     }),
-  email: z
-    .string()
-    .email("Invalid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(345, "Email must be at most 345 characters"),
+  email: activeEmailSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -40,11 +47,7 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z
-    .string()
-    .email("Invalid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(345, "Email must be at most 345 characters"),
+  email: activeEmailSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -75,19 +78,11 @@ const verifyEmailSchema = z.object({
 });
 
 const sendResetPasswordEmailSchema = z.object({
-  email: z
-    .string()
-    .email("Invalid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(345, "Email must be at most 345 characters"),
+  email: activeEmailSchema,
 });
 
 const verifyResetPasswordOtpSchema = z.object({
-  email: z
-    .string()
-    .email("Invalid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(345, "Email must be at most 345 characters"),
+  email: activeEmailSchema,
   otp: z
     .string()
     .max(6, "OTP should be exactly 6 characters")
@@ -95,11 +90,7 @@ const verifyResetPasswordOtpSchema = z.object({
 });
 
 const resetPasswordSchema = z.object({
-  email: z
-    .string()
-    .email("Invalid email address")
-    .min(5, "Email must be at least 5 characters")
-    .max(345, "Email must be at most 345 characters"),
+  email: activeEmailSchema,
   newPassword: z
     .string()
     .min(8, "Password must be at least 8 characters")

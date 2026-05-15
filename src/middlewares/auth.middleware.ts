@@ -5,6 +5,7 @@ import asyncHandler from "./asyncHandler.middleware.js";
 import { NextFunction, Request, Response } from "express";
 
 import HttpError from "../utils/httpError.util.js";
+import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -29,23 +30,46 @@ const isAuthenticated = asyncHandler(
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
         userId: string;
+        tokenVersion?: number;
       };
     } catch (error) {
       throw new HttpError("Not authenticated, token failed", 401);
     }
 
     const cachedUser = await getRedisCacheClient().get(
-      `user:${decoded.userId}`,
+      `auth:user:${decoded.userId}`,
     );
 
     const user = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({
           where: { id: decoded.userId },
-          select: { id: true, status: true, isVerified: true, role: true },
+          select: {
+            id: true,
+            tokenVersion: true,
+            status: true,
+            isVerified: true,
+            role: true,
+            isDeleted: true,
+          },
         });
 
     if (!user) throw new HttpError("User not found", 404);
+
+    if (Number(user.tokenVersion ?? 0) !== Number(decoded.tokenVersion ?? 0))
+      throw new HttpError("User token expired", 401);
+
+    if (user.isDeleted)
+      throw new HttpError("User not active", 403);
+
+    if (!cachedUser) {
+      await getRedisCacheClient().set(
+        `auth:user:${user.id}`,
+        JSON.stringify(sanitizeUserForAuth(user)),
+        "EX",
+        60 * 20,
+      );
+    }
 
     req.user = user;
     next();
@@ -59,10 +83,10 @@ const isVerified = asyncHandler(
   },
 );
 
-const requireActiveUser = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.user?.status !== "ACTIVE")
-      throw new HttpError("User not active", 403);
+  const requireActiveUser = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      if (req.user?.status !== "ACTIVE")
+        throw new HttpError("User not active", 403);
 
     next();
   },

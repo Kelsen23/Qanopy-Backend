@@ -190,10 +190,16 @@ model User {
   acceptedAnswers  Int           @default(0)
   bestAnswers      Int           @default(0)
   achievements     Achievement[]
-  status           Status        @default(ACTIVE)
 
   credits               Int       @default(20)
   creditsLastRedeemedAt DateTime?
+
+  status Status @default(ACTIVE)
+
+  isDeleted                  Boolean   @default(false)
+  deletedAt                  DateTime?
+  accountDeletionRequestedAt DateTime?
+  accountDeletionCompletedAt DateTime?
 
   moderationStrikes ModerationStrike[]
   warnings          Warning[]
@@ -212,6 +218,8 @@ model User {
   resetPasswordOtpExpireAt          DateTime?
   isVerified                        Boolean      @default(false)
   authProvider                      AuthProvider @default(LOCAL)
+
+  tokenVersion Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

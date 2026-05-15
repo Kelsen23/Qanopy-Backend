@@ -42,8 +42,10 @@ async function startWorker() {
               select: {
                 id: true,
                 username: true,
+                displayName: true,
                 profilePictureKey: true,
                 profilePictureUrl: true,
+                isDeleted: true,
               },
             });
           }

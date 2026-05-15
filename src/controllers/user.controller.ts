@@ -5,7 +5,7 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
 import HttpError from "../utils/httpError.util.js";
-import interests from "../utils/interests.util.js";
+import buildDeletedUserData from "../utils/buildDeletedUserData.util.js";
 import sanitizeUser from "../utils/sanitizeUser.util.js";
 
 import { makeJobId } from "../utils/makeJobId.util.js";
@@ -13,6 +13,7 @@ import { makeJobId } from "../utils/makeJobId.util.js";
 import { clearNotificationCache } from "../utils/clearCache.util.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
+import { getRedisPub } from "../redis/redis.pubsub.js";
 
 import mongoose from "mongoose";
 
@@ -22,6 +23,7 @@ import prisma from "../config/prisma.config.js";
 
 import imageModerationQueue from "../queues/imageModeration.queue.js";
 import imageDeletionQueue from "../queues/imageDeletion.queue.js";
+import accountDeletionQueue from "../queues/accountDeletion.queue.js";
 
 const updateProfilePicture = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -72,7 +74,9 @@ const deleteProfilePicture = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(
+      `user:${userId}`,
+    );
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({
@@ -132,7 +136,9 @@ const updateProfile = asyncHandler(
     const userId = req.user.id;
     const { displayName, bio } = req.body;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(
+      `user:${userId}`,
+    );
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });
@@ -164,6 +170,86 @@ const updateProfile = asyncHandler(
     return res.status(200).json({
       message: "Successfully updated profile",
       user: sanitizeUser(updatedUser),
+    });
+  },
+);
+
+const deleteAccount = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+
+    const foundUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        tokenVersion: true,
+        status: true,
+        isDeleted: true,
+        accountDeletionRequestedAt: true,
+        accountDeletionCompletedAt: true,
+        profilePictureKey: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!foundUser) throw new HttpError("User not found", 404);
+
+    if (foundUser.isDeleted && foundUser.accountDeletionCompletedAt)
+      throw new HttpError("User already deleted", 409);
+
+    const deletedAt = foundUser.deletedAt ?? new Date();
+    const deletedUserData = await buildDeletedUserData(
+      userId,
+      deletedAt,
+      async (username) =>
+        !(await prisma.user.findUnique({
+          where: { username },
+          select: { id: true },
+        })),
+    );
+
+    const updatedUser = foundUser.isDeleted
+      ? await prisma.user.update({
+          where: { id: userId },
+          data: {
+            accountDeletionRequestedAt:
+              foundUser.accountDeletionRequestedAt ?? deletedAt,
+          },
+        })
+      : await prisma.user.update({
+          where: { id: userId },
+          data: {
+            ...deletedUserData,
+            accountDeletionRequestedAt: deletedAt,
+            tokenVersion: { increment: 1 },
+          },
+        });
+
+    await getRedisCacheClient().set(
+      `user:${userId}`,
+      JSON.stringify(sanitizeUser(updatedUser)),
+      "EX",
+      60 * 20,
+    );
+    await getRedisCacheClient().del(`auth:user:${userId}`);
+    await clearNotificationCache(userId);
+    await getRedisPub().publish("socket:disconnect", JSON.stringify(userId));
+
+    await accountDeletionQueue.add(
+      "DELETE_ACCOUNT",
+      {
+        userId,
+        profilePictureKey: foundUser.profilePictureKey,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeJobId("accountDeletion", "DELETE_ACCOUNT", userId),
+      },
+    );
+
+    return res.status(202).json({
+      message: "Account deletion queued",
     });
   },
 );
@@ -241,6 +327,7 @@ export {
   updateProfilePicture,
   deleteProfilePicture,
   updateProfile,
+  deleteAccount,
   getNotificationSettings,
   updateNotificationSettings,
   markNotificationsAsSeen,

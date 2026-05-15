@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   deleteProfilePicture,
+  deleteAccount,
   updateProfile,
   updateProfilePicture,
   getNotificationSettings,
@@ -43,6 +44,10 @@ router
 router
   .route("/profile/picture")
   .delete(isAuthenticated, isVerified, requireActiveUser, deleteProfilePicture);
+
+router
+  .route("/account")
+  .delete(isAuthenticated, isVerified, deleteAccount);
 
 router
   .route("/update/profile")

@@ -27,6 +27,7 @@
     "dev:imageDeletion-worker": "tsx src/workers/imageDeletion.worker.ts",
     "dev:moderationMetrics-worker": "tsx src/workers/moderationMetrics.worker.ts",
     "dev:deleteContent-worker": "tsx src/workers/deleteContent.worker.ts",
+    "dev:accountDeletion-worker": "tsx src/workers/accountDeletion.worker.ts",
     "dev:moderationAudit-worker": "tsx src/workers/moderationAudit.worker.ts",
     "dev:notification-worker": "tsx src/workers/notification.worker.ts",
     "dev:topicDetermination-worker": "tsx src/workers/topicDetermination.worker.ts",
@@ -35,7 +36,7 @@
     "dev:aiSuggestion-worker": "tsx src/workers/aiSuggestion.worker.ts",
     "dev:similarQuestions-worker": "tsx src/workers/similarQuestions.worker.ts",
     "dev:userInterest-worker": "tsx src/workers/userInterest.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\" \"npm run dev:userInterest-worker\"",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:accountDeletion-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\" \"npm run dev:userInterest-worker\"",
     "build": "tsc",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"

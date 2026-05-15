@@ -31,7 +31,9 @@ import emailQueue from "../queues/email.queue.js";
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
-  const emailExists = await prisma.user.findUnique({ where: { email } });
+  const emailExists = await prisma.user.findFirst({
+    where: { email, isDeleted: false },
+  });
   if (emailExists) throw new HttpError("Email is already in use", 400);
 
   const usernameExists = await prisma.user.findUnique({ where: { username } });
@@ -61,7 +63,14 @@ const register = asyncHandler(async (req: Request, res: Response) => {
     return createdUser;
   });
 
-  generateToken(res, newUser.id);
+  generateToken(res, newUser.id, newUser.tokenVersion);
+
+  await getRedisCacheClient().set(
+    `user:${newUser.id}`,
+    JSON.stringify(sanitizeUser(newUser)),
+    "EX",
+    60 * 20,
+  );
 
   const deviceInfo = getDeviceInfo(req);
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
@@ -106,7 +115,9 @@ const register = asyncHandler(async (req: Request, res: Response) => {
 const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const foundUser = await prisma.user.findUnique({ where: { email } });
+  const foundUser = await prisma.user.findFirst({
+    where: { email, isDeleted: false },
+  });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 400);
 
@@ -115,8 +126,7 @@ const login = asyncHandler(async (req: Request, res: Response) => {
   const isPasswordCorrect = await bcrypt.compare(password, foundUser.password);
   if (!isPasswordCorrect) throw new HttpError("Invalid password", 401);
 
-  generateToken(res, foundUser.id);
-
+  generateToken(res, foundUser.id, foundUser.tokenVersion);
   await getRedisCacheClient().set(
     `user:${foundUser.id}`,
     JSON.stringify(sanitizeUser(foundUser)),
@@ -148,7 +158,9 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     if (!email_verified)
       throw new HttpError("Email not verified, couldn't register", 400);
 
-    const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
     if (!foundUser) {
       const uniqueUsername = await generateOAuthUsername(name);
@@ -164,7 +176,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           notificationSettings: { create: {} },
         },
       });
-      generateToken(res, newUser.id);
+      generateToken(res, newUser.id, newUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${newUser.id}`,
+        JSON.stringify(sanitizeUser(newUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully registered",
@@ -180,7 +199,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           400,
         );
 
-      generateToken(res, foundUser.id);
+      generateToken(res, foundUser.id, foundUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${foundUser.id}`,
+        JSON.stringify(sanitizeUser(foundUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully logged in",
@@ -204,7 +230,9 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     if (!email || !name)
       throw new HttpError("Invalid Github access token", 400);
 
-    const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
     if (!foundUser) {
       const uniqueUsername = await generateOAuthUsername(name);
@@ -221,7 +249,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
         },
       });
 
-      generateToken(res, newUser.id);
+      generateToken(res, newUser.id, newUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${newUser.id}`,
+        JSON.stringify(sanitizeUser(newUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully registered",
@@ -234,7 +269,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
           400,
         );
 
-      generateToken(res, foundUser.id);
+      generateToken(res, foundUser.id, foundUser.tokenVersion);
+
+      await getRedisCacheClient().set(
+        `user:${foundUser.id}`,
+        JSON.stringify(sanitizeUser(foundUser)),
+        "EX",
+        60 * 20,
+      );
 
       return res.status(200).json({
         message: "Successfully logged in",
@@ -304,6 +346,8 @@ const verifyEmail = asyncHandler(
       "EX",
       60 * 20,
     );
+    
+    await getRedisCacheClient().del(`auth:user:${verifiedUser.id}`);
 
     await getRedisCacheClient().del(
       `auth:verify-email:attempts:${foundUser.id}`,
@@ -397,7 +441,9 @@ const sendResetPasswordEmail = asyncHandler(
   async (req: Request, res: Response) => {
     const { email } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
     if (!foundUser || foundUser.authProvider !== "LOCAL") {
       return res
@@ -468,7 +514,9 @@ const resendResetPasswordEmail = asyncHandler(
   async (req: Request, res: Response) => {
     const { email } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -547,7 +595,9 @@ const verifyResetPasswordOtp = asyncHandler(
   async (req: Request, res: Response) => {
     const { email, otp } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -604,7 +654,9 @@ const verifyResetPasswordOtp = asyncHandler(
 const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email, newPassword } = req.body;
 
-  const foundUser = await prisma.user.findUnique({ where: { email } });
+    const foundUser = await prisma.user.findFirst({
+      where: { email, isDeleted: false },
+    });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -645,7 +697,9 @@ const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+    const cachedUser = await getRedisCacheClient().get(
+      `user:${userId}`,
+    );
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });

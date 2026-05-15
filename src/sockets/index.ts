@@ -36,8 +36,8 @@ const initSocket = (server: http.Server) => {
 
       if (!token) return next(new Error("Not authenticated: no token"));
 
-      const userId = decodeSocketToken(token);
-      await validateSocketUser(userId);
+      const { userId, tokenVersion } = decodeSocketToken(token);
+      await validateSocketUser(userId, tokenVersion);
 
       socket.data.userId = userId;
 
