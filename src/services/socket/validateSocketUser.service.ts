@@ -10,7 +10,7 @@ type SocketConnectUser = {
 };
 
 const validateSocketUser = async (userId: string, tokenVersion: number) => {
-  const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
+  const cachedUser = await getRedisCacheClient().get(`auth:user:${userId}`);
 
   const user: SocketConnectUser | null = cachedUser
     ? (JSON.parse(cachedUser) as SocketConnectUser)
