@@ -3,6 +3,7 @@ import { User } from "../generated/prisma/index.js";
 const sanitizeUser = (user: User) => {
   const {
     password,
+    tokenVersion,
     otp,
     otpResendAvailableAt,
     otpExpireAt,
