@@ -5,6 +5,7 @@ import asyncHandler from "./asyncHandler.middleware.js";
 import { NextFunction, Request, Response } from "express";
 
 import HttpError from "../utils/httpError.util.js";
+import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
 
 import prisma from "../config/prisma.config.js";
 
@@ -36,7 +37,7 @@ const isAuthenticated = asyncHandler(
     }
 
     const cachedUser = await getRedisCacheClient().get(
-      `user:${decoded.userId}`,
+      `auth:user:${decoded.userId}`,
     );
 
     const user = cachedUser
@@ -60,6 +61,15 @@ const isAuthenticated = asyncHandler(
 
     if (user.isDeleted || user.status !== "ACTIVE")
       throw new HttpError("User not active", 403);
+
+    if (!cachedUser) {
+      await getRedisCacheClient().set(
+        `auth:user:${user.id}`,
+        JSON.stringify(sanitizeUserForAuth(user)),
+        "EX",
+        60 * 20,
+      );
+    }
 
     req.user = user;
     next();
