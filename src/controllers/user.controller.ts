@@ -185,6 +185,8 @@ const deleteAccount = asyncHandler(
         tokenVersion: true,
         status: true,
         isDeleted: true,
+        accountDeletionRequestedAt: true,
+        accountDeletionCompletedAt: true,
         profilePictureKey: true,
         deletedAt: true,
       },
@@ -192,19 +194,36 @@ const deleteAccount = asyncHandler(
 
     if (!foundUser) throw new HttpError("User not found", 404);
 
-    if (foundUser.isDeleted)
+    if (foundUser.isDeleted && foundUser.accountDeletionCompletedAt)
       throw new HttpError("User already deleted", 409);
 
     const deletedAt = foundUser.deletedAt ?? new Date();
-    const deletedUserData = buildDeletedUserData(userId, deletedAt);
+    const deletedUserData = await buildDeletedUserData(
+      userId,
+      deletedAt,
+      async (username) =>
+        !(await prisma.user.findUnique({
+          where: { username },
+          select: { id: true },
+        })),
+    );
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...deletedUserData,
-        tokenVersion: { increment: 1 },
-      },
-    });
+    const updatedUser = foundUser.isDeleted
+      ? await prisma.user.update({
+          where: { id: userId },
+          data: {
+            accountDeletionRequestedAt:
+              foundUser.accountDeletionRequestedAt ?? deletedAt,
+          },
+        })
+      : await prisma.user.update({
+          where: { id: userId },
+          data: {
+            ...deletedUserData,
+            accountDeletionRequestedAt: deletedAt,
+            tokenVersion: { increment: 1 },
+          },
+        });
 
     await getRedisCacheClient().set(
       `user:${userId}`,

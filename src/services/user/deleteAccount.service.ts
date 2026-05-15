@@ -51,17 +51,31 @@ const softDeleteAccount = async (userId: string) => {
       status: true,
       isDeleted: true,
       deletedAt: true,
+      accountDeletionCompletedAt: true,
     },
   });
 
   if (!foundUser) return null;
 
+  if (foundUser.accountDeletionCompletedAt) return foundUser;
+
   const deletedAt = foundUser.deletedAt ?? new Date();
-  const deletedUserData = buildDeletedUserData(userId, deletedAt);
+  const deletedUserData = await buildDeletedUserData(
+    userId,
+    deletedAt,
+    async (username) =>
+      !(await prisma.user.findUnique({
+        where: { username },
+        select: { id: true },
+      })),
+  );
 
   const updatedUser = await prisma.user.update({
     where: { id: userId },
-    data: deletedUserData,
+    data: {
+      ...deletedUserData,
+      accountDeletionCompletedAt: new Date(),
+    },
   });
 
   return updatedUser;
