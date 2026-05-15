@@ -29,6 +29,7 @@ const isAuthenticated = asyncHandler(
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
         userId: string;
+        tokenVersion?: number;
       };
     } catch (error) {
       throw new HttpError("Not authenticated, token failed", 401);
@@ -42,10 +43,23 @@ const isAuthenticated = asyncHandler(
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({
           where: { id: decoded.userId },
-          select: { id: true, status: true, isVerified: true, role: true },
+          select: {
+            id: true,
+            tokenVersion: true,
+            status: true,
+            isVerified: true,
+            role: true,
+            isDeleted: true,
+          },
         });
 
     if (!user) throw new HttpError("User not found", 404);
+
+    if (Number(user.tokenVersion ?? 0) !== Number(decoded.tokenVersion ?? 0))
+      throw new HttpError("User token expired", 401);
+
+    if (user.isDeleted || user.status !== "ACTIVE")
+      throw new HttpError("User not active", 403);
 
     req.user = user;
     next();
@@ -61,7 +75,7 @@ const isVerified = asyncHandler(
 
 const requireActiveUser = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.user?.status !== "ACTIVE")
+    if (req.user?.status !== "ACTIVE" || req.user?.isDeleted)
       throw new HttpError("User not active", 403);
 
     next();
