@@ -18,6 +18,14 @@ const activeEmailSchema = z
     message: "This email address is reserved",
   });
 
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(60, "Password must be at most 60 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[^a-zA-Z]/, "Password must contain at least one non-letter character");
+
 const registerSchema = z.object({
   username: z
     .string()
@@ -34,30 +42,12 @@ const registerSchema = z.object({
       message: "Username contains inappropriate language",
     }),
   email: activeEmailSchema,
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(60, "Password must be at most 60 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(
-      /[^a-zA-Z]/,
-      "Password must contain at least one non-letter character",
-    ),
+  password: passwordSchema,
 });
 
 const loginSchema = z.object({
   email: activeEmailSchema,
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(60, "Password must be at most 60 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(
-      /[^a-zA-Z]/,
-      "Password must contain at least one non-letter character",
-    ),
+  password: passwordSchema,
 });
 
 const googleSchema = z.object({
@@ -91,25 +81,23 @@ const verifyResetPasswordOtpSchema = z.object({
 
 const resetPasswordSchema = z.object({
   email: activeEmailSchema,
-  newPassword: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(60, "Password must be at most 60 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(
-      /[^a-zA-Z]/,
-      "Password must contain at least one non-letter character",
-    ),
+  newPassword: passwordSchema,
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: passwordSchema,
 });
 
 export {
+  passwordSchema,
   registerSchema,
   loginSchema,
   verifyEmailSchema,
   sendResetPasswordEmailSchema,
   verifyResetPasswordOtpSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 };
 export const oauthSchema = z.discriminatedUnion("provider", [
   googleSchema,
