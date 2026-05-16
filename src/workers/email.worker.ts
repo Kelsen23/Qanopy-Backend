@@ -1,12 +1,41 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
+import prisma from "../config/prisma.config.js";
+
 import transporter from "../config/nodemailer.config.js";
+
+import { isExpiredUnverifiedLocalUser } from "../services/user/unverifiedAccountCleanup.service.js";
 
 const worker = new Worker(
   "emailQueue",
   async (job) => {
-    const { email, subject, htmlContent } = job.data;
+    const { email, subject, htmlContent, userId, purpose } = job.data;
+
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+          authProvider: true,
+          isVerified: true,
+          isDeleted: true,
+        },
+      });
+
+      if (!user) return;
+
+      if (user.isDeleted || user.authProvider !== "LOCAL") return;
+
+      if (
+        purpose === "VERIFY_EMAIL" &&
+        (user.isVerified || isExpiredUnverifiedLocalUser(user))
+      ) {
+        return;
+      }
+    }
 
     await transporter.sendMail({
       from: `'Qanopy' <${process.env.QANOPY_EMAIL}>`,
