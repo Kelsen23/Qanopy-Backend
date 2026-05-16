@@ -9,6 +9,7 @@ import {
   resendResetPasswordEmail,
   resendVerificationEmail,
   resetPassword,
+  changePassword,
   sendResetPasswordEmail,
   verifyEmail,
   verifyResetPasswordOtp,
@@ -24,6 +25,7 @@ import {
   sendResetPasswordEmailSchema,
   verifyResetPasswordOtpSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from "../validations/auth.schema.js";
 
 import {
@@ -32,6 +34,7 @@ import {
   registerLimiterMiddleware,
   resendEmailLimiterMiddleware,
   resetPasswordLimiterMiddleware,
+  changePasswordLimiterMiddleware,
   generalLimiterMiddleware,
 } from "../middlewares/rate-limiters/auth.rate-limiters.js";
 
@@ -86,6 +89,15 @@ router
     resetPasswordLimiterMiddleware,
     validate(resetPasswordSchema),
     resetPassword,
+  );
+
+router
+  .route("/password/change")
+  .post(
+    changePasswordLimiterMiddleware,
+    isAuthenticated,
+    validate(changePasswordSchema),
+    changePassword,
   );
 
 router.route("/isAuth").get(generalLimiterMiddleware, isAuthenticated, isAuth);
