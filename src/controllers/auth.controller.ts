@@ -21,10 +21,9 @@ import HttpError from "../utils/httpError.util.js";
 
 import sanitizeUser from "../utils/sanitizeUser.util.js";
 import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
+import publishSocketDisconnect from "../utils/publishSocketDisconnect.util.js";
 
 import { makeUniqueJobId } from "../utils/makeJobId.util.js";
-
-import { getRedisPub } from "../redis/redis.pubsub.js";
 
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
@@ -700,10 +699,7 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
     `auth:reset-password:attempts:${updatedUser.id}`,
   );
 
-  await getRedisPub().publish(
-    "socket:disconnect",
-    JSON.stringify(updatedUser.id),
-  );
+  await publishSocketDisconnect(updatedUser.id);
 
   res.status(200).json({ message: "Successfully updated your password" });
 });
@@ -779,10 +775,7 @@ const changePassword = asyncHandler(
       60 * 20,
     );
 
-    await getRedisPub().publish(
-      "socket:disconnect",
-      JSON.stringify(updatedUser.id),
-    );
+    await publishSocketDisconnect(updatedUser.id);
 
     generateToken(res, updatedUser.id, updatedUser.tokenVersion);
 

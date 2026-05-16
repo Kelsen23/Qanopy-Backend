@@ -16,7 +16,7 @@ import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import deleteContentQueue from "../../queues/deleteContent.queue.js";
 
-import { getRedisPub } from "../../redis/redis.pubsub.js";
+import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
 
 import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
 import routeNotification from "../notification/routeNotification.service.js";
@@ -642,10 +642,7 @@ const adminModerateStrike = async ({
     await runSideEffectWithRetry(
       "redisPub:socket:disconnect",
       async () => {
-        await getRedisPub().publish(
-          "socket:disconnect",
-          JSON.stringify(foundStrike.userId),
-        );
+        await publishSocketDisconnect(foundStrike.userId);
       },
       context,
     );
