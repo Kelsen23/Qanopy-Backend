@@ -28,6 +28,7 @@ import { getRedisPub } from "../redis/redis.pubsub.js";
 
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
+
 import emailQueue from "../queues/email.queue.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
@@ -681,16 +682,28 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { email },
     data: {
       password: hashedPassword,
+      tokenVersion: { increment: 1 },
       resetPasswordOtp: null,
       resetPasswordOtpExpireAt: null,
       resetPasswordOtpResendAvailableAt: null,
       resetPasswordOtpVerified: null,
     },
   });
+
+  await getRedisCacheClient().del(`auth:user:${updatedUser.id}`);
+  await getRedisCacheClient().del(`user:${updatedUser.id}`);
+  await getRedisCacheClient().del(
+    `auth:reset-password:attempts:${updatedUser.id}`,
+  );
+
+  await getRedisPub().publish(
+    "socket:disconnect",
+    JSON.stringify(updatedUser.id),
+  );
 
   res.status(200).json({ message: "Successfully updated your password" });
 });
