@@ -24,6 +24,13 @@ const resetPasswordLimiter = new RateLimiterRedis({
   duration: 60 * 60,
 });
 
+const changePasswordLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "changePassword",
+  points: 5,
+  duration: 60 * 60,
+});
+
 const emailVerificationLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "emailVerification",
@@ -60,6 +67,11 @@ const resetPasswordLimiterMiddleware = createRateLimiterMiddleware(
   "Too many password reset requests from this IP, please try again after an hour",
 );
 
+const changePasswordLimiterMiddleware = createRateLimiterMiddleware(
+  changePasswordLimiter,
+  "Too many password change attempts from this IP, please try again after an hour",
+);
+
 const emailVerificationLimiterMiddleware = createRateLimiterMiddleware(
   emailVerificationLimiter,
   "Too many email verification requests, please try again later",
@@ -79,6 +91,7 @@ export {
   loginLimiterMiddleware,
   registerLimiterMiddleware,
   resetPasswordLimiterMiddleware,
+  changePasswordLimiterMiddleware,
   emailVerificationLimiterMiddleware,
   resendEmailLimiterMiddleware,
   generalLimiterMiddleware,
