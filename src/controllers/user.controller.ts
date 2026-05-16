@@ -7,13 +7,13 @@ import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 import HttpError from "../utils/httpError.util.js";
 import buildDeletedUserData from "../utils/buildDeletedUserData.util.js";
 import sanitizeUser from "../utils/sanitizeUser.util.js";
+import publishSocketDisconnect from "../utils/publishSocketDisconnect.util.js";
 
 import { makeJobId } from "../utils/makeJobId.util.js";
 
 import { clearNotificationCache } from "../utils/clearCache.util.js";
 
 import { getRedisCacheClient } from "../config/redis.config.js";
-import { getRedisPub } from "../redis/redis.pubsub.js";
 
 import mongoose from "mongoose";
 
@@ -233,7 +233,7 @@ const deleteAccount = asyncHandler(
     );
     await getRedisCacheClient().del(`auth:user:${userId}`);
     await clearNotificationCache(userId);
-    await getRedisPub().publish("socket:disconnect", JSON.stringify(userId));
+    await publishSocketDisconnect(userId);
 
     await accountDeletionQueue.add(
       "DELETE_ACCOUNT",

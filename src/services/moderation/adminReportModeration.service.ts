@@ -6,7 +6,7 @@ import Report from "../../models/report.model.js";
 
 import prisma from "../../config/prisma.config.js";
 
-import { getRedisPub } from "../../redis/redis.pubsub.js";
+import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
@@ -332,10 +332,7 @@ const adminModerateReport = async ({
           meta,
         });
 
-        await getRedisPub().publish(
-          "socket:disconnect",
-          JSON.stringify(reportTargetUserId),
-        );
+        await publishSocketDisconnect(reportTargetUserId);
 
         break;
       }
@@ -392,10 +389,7 @@ const adminModerateReport = async ({
           meta,
         });
 
-        await getRedisPub().publish(
-          "socket:disconnect",
-          JSON.stringify(reportTargetUserId),
-        );
+        await publishSocketDisconnect(reportTargetUserId);
 
         break;
       }

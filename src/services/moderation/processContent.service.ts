@@ -10,6 +10,7 @@ import computeRiskScore from "../../utils/computeRiskScore.util.js";
 import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
 
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
+import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -22,8 +23,6 @@ import prisma from "../../config/prisma.config.js";
 import { ContentType } from "../../generated/prisma/index.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import { getRedisPub } from "../../redis/redis.pubsub.js";
 
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
@@ -324,10 +323,7 @@ const processContent = async (
       meta,
     });
 
-    getRedisPub().publish(
-      "socket:disconnect",
-      JSON.stringify(content.userId as string),
-    );
+    await publishSocketDisconnect(content.userId as string);
   } else if (aiDecision === "WARN") {
     const title =
       aiReasons.length > 0 ? `${aiReasons[0]}` : "Community Guideline Warning";

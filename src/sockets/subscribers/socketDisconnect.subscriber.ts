@@ -5,7 +5,12 @@ import { registerSubscriber } from "../../redis/redis.pubsub.js";
 const CHANNEL = "socket:disconnect";
 
 const initSocketDisconnectSubscriber = () => {
-  registerSubscriber(CHANNEL, async ({ userId }) => {
+  registerSubscriber(CHANNEL, async (payload) => {
+    const userId =
+      typeof payload === "string" ? payload : payload?.userId;
+
+    if (!userId) return;
+
     const socketIds = await getUserSockets(userId);
 
     socketIds.forEach((socketId) => {

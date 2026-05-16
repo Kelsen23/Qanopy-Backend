@@ -21,13 +21,13 @@ import HttpError from "../utils/httpError.util.js";
 
 import sanitizeUser from "../utils/sanitizeUser.util.js";
 import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
+import publishSocketDisconnect from "../utils/publishSocketDisconnect.util.js";
 
 import { makeUniqueJobId } from "../utils/makeJobId.util.js";
 
-import { getRedisPub } from "../redis/redis.pubsub.js";
-
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
+
 import emailQueue from "../queues/email.queue.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
@@ -681,16 +681,25 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { email },
     data: {
       password: hashedPassword,
+      tokenVersion: { increment: 1 },
       resetPasswordOtp: null,
       resetPasswordOtpExpireAt: null,
       resetPasswordOtpResendAvailableAt: null,
       resetPasswordOtpVerified: null,
     },
   });
+
+  await getRedisCacheClient().del(`auth:user:${updatedUser.id}`);
+  await getRedisCacheClient().del(`user:${updatedUser.id}`);
+  await getRedisCacheClient().del(
+    `auth:reset-password:attempts:${updatedUser.id}`,
+  );
+
+  await publishSocketDisconnect(updatedUser.id);
 
   res.status(200).json({ message: "Successfully updated your password" });
 });
@@ -766,10 +775,7 @@ const changePassword = asyncHandler(
       60 * 20,
     );
 
-    await getRedisPub().publish(
-      "socket:disconnect",
-      JSON.stringify(updatedUser.id),
-    );
+    await publishSocketDisconnect(updatedUser.id);
 
     generateToken(res, updatedUser.id, updatedUser.tokenVersion);
 
