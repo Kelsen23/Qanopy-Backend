@@ -20,6 +20,7 @@ import {
 import HttpError from "../utils/httpError.util.js";
 
 import sanitizeUser from "../utils/sanitizeUser.util.js";
+import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
 
 import { makeUniqueJobId } from "../utils/makeJobId.util.js";
 
@@ -654,9 +655,9 @@ const verifyResetPasswordOtp = asyncHandler(
 const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email, newPassword } = req.body;
 
-    const foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
-    });
+  const foundUser = await prisma.user.findFirst({
+    where: { email, isDeleted: false },
+  });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -692,6 +693,82 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
 
   res.status(200).json({ message: "Successfully updated your password" });
 });
+
+const changePassword = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    const foundUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        password: true,
+        authProvider: true,
+      },
+    });
+
+    if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+    if (foundUser.authProvider !== "LOCAL")
+      throw new HttpError("Password change not applicable", 400);
+
+    if (!foundUser.password)
+      throw new HttpError("Password change not applicable", 400);
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      foundUser.password,
+    );
+
+    if (!isCurrentPasswordValid)
+      throw new HttpError("Invalid current password", 401);
+
+    const isSamePassword = await bcrypt.compare(newPassword, foundUser.password);
+    if (isSamePassword)
+      throw new HttpError(
+        "New password must be different from the old password",
+        400,
+      );
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        tokenVersion: { increment: 1 },
+        resetPasswordOtp: null,
+        resetPasswordOtpVerified: null,
+        resetPasswordOtpResendAvailableAt: null,
+        resetPasswordOtpExpireAt: null,
+      },
+    });
+
+    await getRedisCacheClient().del(
+      `auth:reset-password:attempts:${updatedUser.id}`,
+    );
+
+    await getRedisCacheClient().set(
+      `auth:user:${updatedUser.id}`,
+      JSON.stringify(sanitizeUserForAuth(updatedUser)),
+      "EX",
+      60 * 20,
+    );
+
+    await getRedisCacheClient().set(
+      `user:${updatedUser.id}`,
+      JSON.stringify(sanitizeUser(updatedUser)),
+      "EX",
+      60 * 20,
+    );
+
+    generateToken(res, updatedUser.id, updatedUser.tokenVersion);
+
+    return res.status(200).json({
+      message: "Successfully changed your password",
+    });
+  },
+);
 
 const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -740,6 +817,7 @@ export {
   resendResetPasswordEmail,
   verifyResetPasswordOtp,
   resetPassword,
+  changePassword,
   isAuth,
   logout,
 };
