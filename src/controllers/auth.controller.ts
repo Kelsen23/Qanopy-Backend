@@ -29,17 +29,38 @@ import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
 
 import emailQueue from "../queues/email.queue.js";
+import {
+  cleanupExpiredUnverifiedUserById,
+  isExpiredUnverifiedLocalUser,
+} from "../services/user/unverifiedAccountCleanup.service.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   const emailExists = await prisma.user.findFirst({
     where: { email, isDeleted: false },
+    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
   });
-  if (emailExists) throw new HttpError("Email is already in use", 400);
+  if (emailExists) {
+    if (isExpiredUnverifiedLocalUser(emailExists)) {
+      await cleanupExpiredUnverifiedUserById(emailExists.id);
+    } else {
+      throw new HttpError("Email is already in use", 400);
+    }
+  }
 
-  const usernameExists = await prisma.user.findUnique({ where: { username } });
-  if (usernameExists) throw new HttpError("Username is taken", 400);
+  const usernameExists = await prisma.user.findUnique({
+    where: { username },
+    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
+  });
+  
+  if (usernameExists) {
+    if (isExpiredUnverifiedLocalUser(usernameExists)) {
+      await cleanupExpiredUnverifiedUserById(usernameExists.id);
+    } else {
+      throw new HttpError("Username is taken", 400);
+    }
+  }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
@@ -87,6 +108,8 @@ const register = asyncHandler(async (req: Request, res: Response) => {
     "SEND_VERIFICATION_EMAIL",
     {
       email: newUser.email,
+      userId: newUser.id,
+      purpose: "VERIFY_EMAIL",
       subject: "Verify Email",
       htmlContent,
     },
@@ -125,6 +148,11 @@ const login = asyncHandler(async (req: Request, res: Response) => {
 
   if (!foundUser.password) throw new HttpError("Invalid credentials", 400);
 
+  if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+    await cleanupExpiredUnverifiedUserById(foundUser.id);
+    throw new HttpError("Email verification expired, please sign up again", 410);
+  }
+
   const isPasswordCorrect = await bcrypt.compare(password, foundUser.password);
   if (!isPasswordCorrect) throw new HttpError("Invalid password", 401);
 
@@ -160,9 +188,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     if (!email_verified)
       throw new HttpError("Email not verified, couldn't register", 400);
 
-    const foundUser = await prisma.user.findFirst({
+    let foundUser = await prisma.user.findFirst({
       where: { email, isDeleted: false },
     });
+
+    if (foundUser && !foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      foundUser = null;
+    }
 
     if (!foundUser) {
       const uniqueUsername = await generateOAuthUsername(name);
@@ -232,9 +265,14 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     if (!email || !name)
       throw new HttpError("Invalid Github access token", 400);
 
-    const foundUser = await prisma.user.findFirst({
+    let foundUser = await prisma.user.findFirst({
       where: { email, isDeleted: false },
     });
+
+    if (foundUser && !foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      foundUser = null;
+    }
 
     if (!foundUser) {
       const uniqueUsername = await generateOAuthUsername(name);
@@ -296,6 +334,11 @@ const verifyEmail = asyncHandler(
     const foundUser = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      throw new HttpError("Email verification expired, please sign up again", 410);
+    }
 
     if (foundUser.authProvider !== "LOCAL")
       throw new HttpError("Email verification not applicable", 400);
@@ -374,6 +417,11 @@ const resendVerificationEmail = asyncHandler(
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
+    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      throw new HttpError("Email verification expired, please sign up again", 410);
+    }
+
     if (foundUser.authProvider !== "LOCAL")
       throw new HttpError("Email verification not applicable", 400);
 
@@ -418,6 +466,8 @@ const resendVerificationEmail = asyncHandler(
       "RESEND_VERIFICATION_EMAIL",
       {
         email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "VERIFY_EMAIL",
         subject: "Verify Email",
         htmlContent,
       },
@@ -445,9 +495,27 @@ const sendResetPasswordEmail = asyncHandler(
 
     const foundUser = await prisma.user.findFirst({
       where: { email, isDeleted: false },
+      select: {
+        id: true,
+        authProvider: true,
+        isVerified: true,
+        createdAt: true,
+        email: true,
+        username: true,
+        resetPasswordOtp: true,
+        resetPasswordOtpExpireAt: true,
+        resetPasswordOtpResendAvailableAt: true,
+      },
     });
 
     if (!foundUser || foundUser.authProvider !== "LOCAL") {
+      return res
+        .status(200)
+        .json({ message: "If account exists, an email was sent" });
+    }
+
+    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
       return res
         .status(200)
         .json({ message: "If account exists, an email was sent" });
@@ -491,6 +559,8 @@ const sendResetPasswordEmail = asyncHandler(
       "SEND_RESET_PASSWORD_EMAIL",
       {
         email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "RESET_PASSWORD",
         subject: "Reset Password Request",
         htmlContent,
       },
@@ -518,9 +588,25 @@ const resendResetPasswordEmail = asyncHandler(
 
     const foundUser = await prisma.user.findFirst({
       where: { email, isDeleted: false },
+      select: {
+        id: true,
+        authProvider: true,
+        isVerified: true,
+        createdAt: true,
+        email: true,
+        username: true,
+        resetPasswordOtp: true,
+        resetPasswordOtpExpireAt: true,
+        resetPasswordOtpResendAvailableAt: true,
+      },
     });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      throw new HttpError("Email verification expired, please sign up again", 410);
+    }
 
     if (foundUser.authProvider !== "LOCAL")
       throw new HttpError("Password reset not applicable", 400);
@@ -572,6 +658,8 @@ const resendResetPasswordEmail = asyncHandler(
       "RESEND_RESET_PASSWORD_EMAIL",
       {
         email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "RESET_PASSWORD",
         subject: "Reset Password Request",
         htmlContent,
       },
@@ -599,9 +687,25 @@ const verifyResetPasswordOtp = asyncHandler(
 
     const foundUser = await prisma.user.findFirst({
       where: { email, isDeleted: false },
+      select: {
+        id: true,
+        authProvider: true,
+        isVerified: true,
+        createdAt: true,
+        email: true,
+        username: true,
+        resetPasswordOtp: true,
+        resetPasswordOtpExpireAt: true,
+        resetPasswordOtpResendAvailableAt: true,
+      },
     });
 
     if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+      await cleanupExpiredUnverifiedUserById(foundUser.id);
+      throw new HttpError("Email verification expired, please sign up again", 410);
+    }
 
     if (foundUser.authProvider !== "LOCAL")
       throw new HttpError("Password reset not applicable", 400);
@@ -658,9 +762,24 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
 
   const foundUser = await prisma.user.findFirst({
     where: { email, isDeleted: false },
+    select: {
+      id: true,
+      password: true,
+      authProvider: true,
+      isVerified: true,
+      createdAt: true,
+      email: true,
+      username: true,
+      resetPasswordOtpVerified: true,
+    },
   });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+  if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
+    await cleanupExpiredUnverifiedUserById(foundUser.id);
+    throw new HttpError("Email verification expired, please sign up again", 410);
+  }
 
   if (foundUser.authProvider !== "LOCAL")
     throw new HttpError("Password reset not applicable", 400);
