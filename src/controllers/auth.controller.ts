@@ -24,9 +24,10 @@ import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
 
 import { makeUniqueJobId } from "../utils/makeJobId.util.js";
 
+import { getRedisPub } from "../redis/redis.pubsub.js";
+
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
-
 import emailQueue from "../queues/email.queue.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
@@ -347,7 +348,7 @@ const verifyEmail = asyncHandler(
       "EX",
       60 * 20,
     );
-    
+
     await getRedisCacheClient().del(`auth:user:${verifiedUser.id}`);
 
     await getRedisCacheClient().del(
@@ -723,7 +724,10 @@ const changePassword = asyncHandler(
     if (!isCurrentPasswordValid)
       throw new HttpError("Invalid current password", 401);
 
-    const isSamePassword = await bcrypt.compare(newPassword, foundUser.password);
+    const isSamePassword = await bcrypt.compare(
+      newPassword,
+      foundUser.password,
+    );
     if (isSamePassword)
       throw new HttpError(
         "New password must be different from the old password",
@@ -762,6 +766,11 @@ const changePassword = asyncHandler(
       60 * 20,
     );
 
+    await getRedisPub().publish(
+      "socket:disconnect",
+      JSON.stringify(updatedUser.id),
+    );
+
     generateToken(res, updatedUser.id, updatedUser.tokenVersion);
 
     return res.status(200).json({
@@ -774,9 +783,7 @@ const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(
-      `user:${userId}`,
-    );
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });
