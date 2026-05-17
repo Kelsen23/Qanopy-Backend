@@ -1,138 +1,48 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 
 import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import bcrypt from "bcrypt";
-
 import generateToken from "../utils/generateToken.util.js";
 import getDeviceInfo from "../utils/getDeviceInfo.util.js";
-import generateOAuthUsername from "../utils/generateOAuthUsername.util.js";
-
-import verifyGoogleToken from "../utils/verifyGoogleToken.util.js";
-
-import {
-  resetPasswordHtml,
-  verificationHtml,
-} from "../utils/renderTemplate.util.js";
-
-import HttpError from "../utils/httpError.util.js";
-
 import sanitizeUser from "../utils/sanitizeUser.util.js";
-import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
-import publishSocketDisconnect from "../utils/publishSocketDisconnect.util.js";
 
-import { makeUniqueJobId } from "../utils/makeJobId.util.js";
-
-import prisma from "../config/prisma.config.js";
-import { getRedisCacheClient } from "../config/redis.config.js";
-
-import emailQueue from "../queues/email.queue.js";
 import {
-  cleanupExpiredUnverifiedUserById,
-  isExpiredUnverifiedLocalUser,
-} from "../services/user/unverifiedAccountCleanup.service.js";
+  changePassword as changePasswordService,
+  isAuth as isAuthService,
+  login as loginService,
+  register as registerService,
+  registerOrLogin as registerOrLoginService,
+  resendResetPasswordEmail as resendResetPasswordEmailService,
+  resendVerificationEmail as resendVerificationEmailService,
+  resetPassword as resetPasswordService,
+  sendResetPasswordEmail as sendResetPasswordEmailService,
+  verifyEmail as verifyEmailService,
+  verifyResetPasswordOtp as verifyResetPasswordOtpService,
+} from "../services/auth/auth.service.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
-
-  const emailExists = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
-  if (emailExists) {
-    if (isExpiredUnverifiedLocalUser(emailExists)) {
-      await cleanupExpiredUnverifiedUserById(emailExists.id);
-    } else {
-      throw new HttpError("Email is already in use", 400);
-    }
-  }
-
-  const usernameExists = await prisma.user.findUnique({
-    where: { username },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
-  
-  if (usernameExists) {
-    if (isExpiredUnverifiedLocalUser(usernameExists)) {
-      await cleanupExpiredUnverifiedUserById(usernameExists.id);
-    } else {
-      throw new HttpError("Username is taken", 400);
-    }
-  }
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
-  const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const hashedOtp = await bcrypt.hash(otp, 6);
-
-  const newUser = await prisma.$transaction(async (tx) => {
-    const createdUser = await tx.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        otp: hashedOtp,
-        otpExpireAt,
-        otpResendAvailableAt,
-        moderationStats: { create: {} },
-        notificationSettings: { create: {} },
-      },
-    });
-
-    return createdUser;
-  });
-
-  generateToken(res, newUser.id, newUser.tokenVersion);
-
-  await getRedisCacheClient().set(
-    `user:${newUser.id}`,
-    JSON.stringify(sanitizeUser(newUser)),
-    "EX",
-    60 * 20,
-  );
-
   const deviceInfo = getDeviceInfo(req);
-  const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
-  const htmlContent = verificationHtml(
-    username,
-    otp,
-    deviceName,
-    deviceInfo.ip || "Unknown IP",
-  );
 
-  await emailQueue.add(
-    "SEND_VERIFICATION_EMAIL",
-    {
-      email: newUser.email,
-      userId: newUser.id,
-      purpose: "VERIFY_EMAIL",
-      subject: "Verify Email",
-      htmlContent,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeUniqueJobId(
-        "email",
-        "SEND_VERIFICATION_EMAIL",
-        newUser.id,
-        newUser.email,
-      ),
-    },
-  );
+  const { user, otpExpireAt, otpResendAvailableAt } = await registerService({
+    username,
+    email,
+    password,
+    deviceInfo,
+  });
+
+  generateToken(res, user.id, user.tokenVersion);
 
   return res.status(200).json({
     message: "Successfully registered",
     user: {
-      username: newUser.username,
-      email: newUser.email,
-      otpExpireAt: newUser.otpExpireAt,
-      otpResendAvailableAt: newUser.otpResendAvailableAt,
-      isVerified: newUser.isVerified,
+      username: user.username,
+      email: user.email,
+      otpExpireAt,
+      otpResendAvailableAt,
+      isVerified: user.isVerified,
     },
   });
 });
@@ -140,38 +50,18 @@ const register = asyncHandler(async (req: Request, res: Response) => {
 const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-  });
+  const { user } = await loginService({ email, password });
 
-  if (!foundUser) throw new HttpError("Invalid credentials", 400);
-
-  if (!foundUser.password) throw new HttpError("Invalid credentials", 400);
-
-  if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-    await cleanupExpiredUnverifiedUserById(foundUser.id);
-    throw new HttpError("Email verification expired, please sign up again", 410);
-  }
-
-  const isPasswordCorrect = await bcrypt.compare(password, foundUser.password);
-  if (!isPasswordCorrect) throw new HttpError("Invalid password", 401);
-
-  generateToken(res, foundUser.id, foundUser.tokenVersion);
-  await getRedisCacheClient().set(
-    `user:${foundUser.id}`,
-    JSON.stringify(sanitizeUser(foundUser)),
-    "EX",
-    60 * 20,
-  );
+  generateToken(res, user.id, user.tokenVersion);
 
   return res.json({
     message: "Successfully logged in",
     user: {
-      username: foundUser.username,
-      email: foundUser.email,
-      otpExpireAt: foundUser.otpExpireAt,
-      otpResendAvailableAt: foundUser.otpResendAvailableAt,
-      isVerified: foundUser.isVerified,
+      username: user.username,
+      email: user.email,
+      otpExpireAt: user.otpExpireAt,
+      otpResendAvailableAt: user.otpResendAvailableAt,
+      isVerified: user.isVerified,
     },
   });
 });
@@ -181,229 +71,54 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
 
   if (provider === "google") {
     const { id_token } = req.body;
-
-    const { email, name, picture, email_verified } =
-      await verifyGoogleToken(id_token);
-
-    if (!email_verified)
-      throw new HttpError("Email not verified, couldn't register", 400);
-
-    let foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
+    const { user, action } = await registerOrLoginService({
+      provider: "google",
+      idToken: id_token,
     });
 
-    if (foundUser && !foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      foundUser = null;
-    }
+    generateToken(res, user.id, user.tokenVersion);
 
-    if (!foundUser) {
-      const uniqueUsername = await generateOAuthUsername(name);
-
-      const newUser = await prisma.user.create({
-        data: {
-          username: uniqueUsername,
-          email,
-          profilePictureUrl: picture,
-          isVerified: true,
-          authProvider: "GOOGLE",
-          moderationStats: { create: {} },
-          notificationSettings: { create: {} },
-        },
-      });
-      generateToken(res, newUser.id, newUser.tokenVersion);
-
-      await getRedisCacheClient().set(
-        `user:${newUser.id}`,
-        JSON.stringify(sanitizeUser(newUser)),
-        "EX",
-        60 * 20,
-      );
-
-      return res.status(200).json({
-        message: "Successfully registered",
-        user: {
-          username: newUser.username,
-          email: newUser.email,
-        },
-      });
-    } else {
-      if (foundUser.authProvider !== "GOOGLE")
-        throw new HttpError(
-          "User is already registered with other method",
-          400,
-        );
-
-      generateToken(res, foundUser.id, foundUser.tokenVersion);
-
-      await getRedisCacheClient().set(
-        `user:${foundUser.id}`,
-        JSON.stringify(sanitizeUser(foundUser)),
-        "EX",
-        60 * 20,
-      );
-
-      return res.status(200).json({
-        message: "Successfully logged in",
-        user: {
-          username: foundUser.username,
-          email: foundUser.email,
-        },
-      });
-    }
+    return res.status(200).json({
+      message: action === "registered" ? "Successfully registered" : "Successfully logged in",
+      user: {
+        username: user.username,
+        email: user.email,
+      },
+    });
   }
 
   if (provider === "github") {
     const { access_token } = req.body;
-
-    const githubRes = await fetch("https://api.github.com/user", {
-      headers: { Authorization: `Bearer ${access_token}` },
+    const { user, action } = await registerOrLoginService({
+      provider: "github",
+      accessToken: access_token,
     });
 
-    const { email, name, avatar_url } = await githubRes.json();
+    generateToken(res, user.id, user.tokenVersion);
 
-    if (!email || !name)
-      throw new HttpError("Invalid Github access token", 400);
-
-    let foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
+    return res.status(200).json({
+      message: action === "registered" ? "Successfully registered" : "Successfully logged in",
+      user: {
+        username: user.username,
+        email: user.email,
+      },
     });
-
-    if (foundUser && !foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      foundUser = null;
-    }
-
-    if (!foundUser) {
-      const uniqueUsername = await generateOAuthUsername(name);
-
-      const newUser = await prisma.user.create({
-        data: {
-          username: uniqueUsername,
-          email,
-          profilePictureUrl: avatar_url,
-          isVerified: true,
-          authProvider: "GITHUB",
-          moderationStats: { create: {} },
-          notificationSettings: { create: {} },
-        },
-      });
-
-      generateToken(res, newUser.id, newUser.tokenVersion);
-
-      await getRedisCacheClient().set(
-        `user:${newUser.id}`,
-        JSON.stringify(sanitizeUser(newUser)),
-        "EX",
-        60 * 20,
-      );
-
-      return res.status(200).json({
-        message: "Successfully registered",
-        user: { username: newUser.username, email: newUser.email },
-      });
-    } else {
-      if (foundUser.authProvider !== "GITHUB")
-        throw new HttpError(
-          "User is already registered with other method",
-          400,
-        );
-
-      generateToken(res, foundUser.id, foundUser.tokenVersion);
-
-      await getRedisCacheClient().set(
-        `user:${foundUser.id}`,
-        JSON.stringify(sanitizeUser(foundUser)),
-        "EX",
-        60 * 20,
-      );
-
-      return res.status(200).json({
-        message: "Successfully logged in",
-        user: { username: foundUser.username, email: foundUser.email },
-      });
-    }
   }
 });
 
 const verifyEmail = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
-    const { otp: inputOtp } = req.body;
+    const { otp } = req.body;
 
-    const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+    const { user } = await verifyEmailService({ userId, otp });
 
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      throw new HttpError("Email verification expired, please sign up again", 410);
-    }
-
-    if (foundUser.authProvider !== "LOCAL")
-      throw new HttpError("Email verification not applicable", 400);
-
-    if (foundUser.isVerified) throw new HttpError("User already verified", 400);
-
-    if (
-      !foundUser.otpExpireAt ||
-      !foundUser.otpResendAvailableAt ||
-      !foundUser.otp
-    ) {
-      throw new HttpError("OTP not set", 400);
-    }
-
-    const attempts = await getRedisCacheClient().get(
-      `auth:verify-email:attempts:${foundUser.id}`,
-    );
-
-    if (attempts && Number(attempts) >= 5)
-      throw new HttpError(`Too many invalid attempts, OTP locked`, 400);
-
-    if (foundUser.otpExpireAt < new Date(Date.now()))
-      throw new HttpError("OTP expired", 400);
-
-    const isValidOtp = await bcrypt.compare(inputOtp, foundUser.otp);
-
-    if (!isValidOtp) {
-      await getRedisCacheClient()
-        .multi()
-        .incr(`auth:verify-email:attempts:${foundUser.id}`)
-        .expire(`auth:verify-email:attempts:${foundUser.id}`, 120)
-        .exec();
-
-      throw new HttpError("Invalid OTP", 400);
-    }
-
-    const verifiedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        isVerified: true,
-        otp: null,
-        otpExpireAt: null,
-        otpResendAvailableAt: null,
-      },
-    });
-
-    await getRedisCacheClient().set(
-      `user:${verifiedUser.id}`,
-      JSON.stringify(sanitizeUser(verifiedUser)),
-      "EX",
-      60 * 20,
-    );
-
-    await getRedisCacheClient().del(`auth:user:${verifiedUser.id}`);
-
-    await getRedisCacheClient().del(
-      `auth:verify-email:attempts:${foundUser.id}`,
-    );
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Successfully verified",
       user: {
-        username: verifiedUser.username,
-        email: verifiedUser.email,
-        isVerified: verifiedUser.isVerified,
+        username: user.username,
+        email: user.email,
+        isVerified: user.isVerified,
       },
     });
   },
@@ -412,76 +127,9 @@ const verifyEmail = asyncHandler(
 const resendVerificationEmail = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
-
-    const foundUser = await prisma.user.findUnique({ where: { id: userId } });
-
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      throw new HttpError("Email verification expired, please sign up again", 410);
-    }
-
-    if (foundUser.authProvider !== "LOCAL")
-      throw new HttpError("Email verification not applicable", 400);
-
-    if (foundUser.isVerified) throw new HttpError("User already verified", 400);
-
-    if (
-      !foundUser.otpExpireAt ||
-      !foundUser.otpResendAvailableAt ||
-      !foundUser.otp
-    )
-      throw new HttpError("OTP not set", 400);
-
-    if (foundUser.otpResendAvailableAt > new Date(Date.now()))
-      throw new HttpError(
-        "OTP resend will soon be available, please wait",
-        400,
-      );
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
-    const otpResendAvailableAt = new Date(Date.now() + 30 * 1000);
-
-    const hashedOtp = await bcrypt.hash(otp, 6);
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { otp: hashedOtp, otpExpireAt, otpResendAvailableAt },
-    });
-
-    if (!updatedUser.otp) throw new HttpError("OTP not set", 400);
-
     const deviceInfo = getDeviceInfo(req);
-    const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
-    const htmlContent = verificationHtml(
-      updatedUser.username,
-      otp,
-      deviceName,
-      deviceInfo.ip || "Unknown IP",
-    );
 
-    await emailQueue.add(
-      "RESEND_VERIFICATION_EMAIL",
-      {
-        email: updatedUser.email,
-        userId: updatedUser.id,
-        purpose: "VERIFY_EMAIL",
-        subject: "Verify Email",
-        htmlContent,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeUniqueJobId(
-          "email",
-          "RESEND_VERIFICATION_EMAIL",
-          updatedUser.id,
-          updatedUser.email,
-        ),
-      },
-    );
+    await resendVerificationEmailService({ userId, deviceInfo });
 
     return res.status(200).json({
       message: "Successfully sent another OTP to your email address",
@@ -492,89 +140,9 @@ const resendVerificationEmail = asyncHandler(
 const sendResetPasswordEmail = asyncHandler(
   async (req: Request, res: Response) => {
     const { email } = req.body;
-
-    const foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
-      select: {
-        id: true,
-        authProvider: true,
-        isVerified: true,
-        createdAt: true,
-        email: true,
-        username: true,
-        resetPasswordOtp: true,
-        resetPasswordOtpExpireAt: true,
-        resetPasswordOtpResendAvailableAt: true,
-      },
-    });
-
-    if (!foundUser || foundUser.authProvider !== "LOCAL") {
-      return res
-        .status(200)
-        .json({ message: "If account exists, an email was sent" });
-    }
-
-    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      return res
-        .status(200)
-        .json({ message: "If account exists, an email was sent" });
-    }
-
-    if (foundUser.resetPasswordOtp && foundUser.resetPasswordOtpExpireAt)
-      if (foundUser.resetPasswordOtpExpireAt > new Date(Date.now()))
-        throw new HttpError("Reset password OTP already sent", 400);
-
-    const resetPasswordOtp = Math.floor(
-      100000 + Math.random() * 900000,
-    ).toString();
-    const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
-    const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
-
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
-
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: {
-        resetPasswordOtp: hashedResetPasswordOtp,
-        resetPasswordOtpExpireAt,
-        resetPasswordOtpResendAvailableAt,
-        resetPasswordOtpVerified: false,
-      },
-    });
-
-    if (!updatedUser.resetPasswordOtp) throw new HttpError("OTP not set", 400);
-
     const deviceInfo = getDeviceInfo(req);
-    const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
 
-    const htmlContent = resetPasswordHtml(
-      updatedUser.username,
-      resetPasswordOtp,
-      deviceName,
-      deviceInfo.ip || "Unknown IP",
-    );
-
-    await emailQueue.add(
-      "SEND_RESET_PASSWORD_EMAIL",
-      {
-        email: updatedUser.email,
-        userId: updatedUser.id,
-        purpose: "RESET_PASSWORD",
-        subject: "Reset Password Request",
-        htmlContent,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeUniqueJobId(
-          "email",
-          "SEND_RESET_PASSWORD_EMAIL",
-          updatedUser.id,
-          updatedUser.email,
-        ),
-      },
-    );
+    await sendResetPasswordEmailService({ email, deviceInfo });
 
     return res
       .status(200)
@@ -585,95 +153,9 @@ const sendResetPasswordEmail = asyncHandler(
 const resendResetPasswordEmail = asyncHandler(
   async (req: Request, res: Response) => {
     const { email } = req.body;
-
-    const foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
-      select: {
-        id: true,
-        authProvider: true,
-        isVerified: true,
-        createdAt: true,
-        email: true,
-        username: true,
-        resetPasswordOtp: true,
-        resetPasswordOtpExpireAt: true,
-        resetPasswordOtpResendAvailableAt: true,
-      },
-    });
-
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      throw new HttpError("Email verification expired, please sign up again", 410);
-    }
-
-    if (foundUser.authProvider !== "LOCAL")
-      throw new HttpError("Password reset not applicable", 400);
-
-    if (
-      !foundUser.resetPasswordOtp ||
-      !foundUser.resetPasswordOtpExpireAt ||
-      !foundUser.resetPasswordOtpResendAvailableAt
-    )
-      throw new HttpError("Reset password OTP not set", 400);
-
-    if (foundUser.resetPasswordOtpResendAvailableAt > new Date(Date.now()))
-      throw new HttpError(
-        "OTP resend will soon be available, please wait",
-        400,
-      );
-
-    const resetPasswordOtp = Math.floor(
-      100000 + Math.random() * 900000,
-    ).toString();
-    const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
-    const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
-
-    const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
-
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: {
-        resetPasswordOtp: hashedResetPasswordOtp,
-        resetPasswordOtpExpireAt,
-        resetPasswordOtpResendAvailableAt,
-        resetPasswordOtpVerified: false,
-      },
-    });
-
-    if (!updatedUser.resetPasswordOtp) throw new HttpError("OTP not set", 400);
-
     const deviceInfo = getDeviceInfo(req);
-    const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
 
-    const htmlContent = resetPasswordHtml(
-      updatedUser.username,
-      resetPasswordOtp,
-      deviceName,
-      deviceInfo.ip || "Unknown IP",
-    );
-
-    await emailQueue.add(
-      "RESEND_RESET_PASSWORD_EMAIL",
-      {
-        email: updatedUser.email,
-        userId: updatedUser.id,
-        purpose: "RESET_PASSWORD",
-        subject: "Reset Password Request",
-        htmlContent,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeUniqueJobId(
-          "email",
-          "RESEND_RESET_PASSWORD_EMAIL",
-          updatedUser.id,
-          updatedUser.email,
-        ),
-      },
-    );
+    await resendResetPasswordEmailService({ email, deviceInfo });
 
     return res
       .status(200)
@@ -685,142 +167,18 @@ const verifyResetPasswordOtp = asyncHandler(
   async (req: Request, res: Response) => {
     const { email, otp } = req.body;
 
-    const foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
-      select: {
-        id: true,
-        authProvider: true,
-        isVerified: true,
-        createdAt: true,
-        email: true,
-        username: true,
-        resetPasswordOtp: true,
-        resetPasswordOtpExpireAt: true,
-        resetPasswordOtpResendAvailableAt: true,
-      },
-    });
+    await verifyResetPasswordOtpService({ email, otp });
 
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-      await cleanupExpiredUnverifiedUserById(foundUser.id);
-      throw new HttpError("Email verification expired, please sign up again", 410);
-    }
-
-    if (foundUser.authProvider !== "LOCAL")
-      throw new HttpError("Password reset not applicable", 400);
-
-    if (
-      !foundUser.resetPasswordOtp ||
-      !foundUser.resetPasswordOtpExpireAt ||
-      !foundUser.resetPasswordOtpResendAvailableAt
-    )
-      throw new HttpError("Reset password OTP not set", 400);
-
-    const attempts = await getRedisCacheClient().get(
-      `auth:reset-password:attempts:${foundUser.id}`,
-    );
-
-    if (attempts && Number(attempts) >= 5)
-      throw new HttpError(`Too many invalid attempts, OTP locked`, 400);
-
-    if (foundUser.resetPasswordOtpExpireAt < new Date(Date.now()))
-      throw new HttpError("Reset password OTP expired", 400);
-
-    const isValidOtp = await bcrypt.compare(otp, foundUser.resetPasswordOtp);
-
-    if (!isValidOtp) {
-      await getRedisCacheClient()
-        .multi()
-        .incr(`auth:reset-password:attempts:${foundUser.id}`)
-        .expire(`auth:reset-password:attempts:${foundUser.id}`, 120)
-        .exec();
-
-      throw new HttpError("Invalid reset password OTP", 400);
-    }
-
-    await prisma.user.update({
-      where: { id: foundUser.id },
-      data: {
-        resetPasswordOtpVerified: true,
-        resetPasswordOtp: null,
-        resetPasswordOtpExpireAt: null,
-        resetPasswordOtpResendAvailableAt: null,
-      },
-    });
-
-    await getRedisCacheClient().del(
-      `auth:reset-password:attempts:${foundUser.id}`,
-    );
-
-    res.status(200).json({ message: "Successfully verified OTP" });
+    return res.status(200).json({ message: "Successfully verified OTP" });
   },
 );
 
 const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email, newPassword } = req.body;
 
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: {
-      id: true,
-      password: true,
-      authProvider: true,
-      isVerified: true,
-      createdAt: true,
-      email: true,
-      username: true,
-      resetPasswordOtpVerified: true,
-    },
-  });
+  await resetPasswordService({ email, newPassword });
 
-  if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-  if (!foundUser.isVerified && isExpiredUnverifiedLocalUser(foundUser)) {
-    await cleanupExpiredUnverifiedUserById(foundUser.id);
-    throw new HttpError("Email verification expired, please sign up again", 410);
-  }
-
-  if (foundUser.authProvider !== "LOCAL")
-    throw new HttpError("Password reset not applicable", 400);
-
-  if (!foundUser.resetPasswordOtpVerified)
-    throw new HttpError("OTP not verified", 400);
-
-  const isSamePassword = await bcrypt.compare(
-    newPassword,
-    foundUser.password as string,
-  );
-
-  if (isSamePassword)
-    throw new HttpError(
-      "New password must be different from the old password",
-      400,
-    );
-
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  const updatedUser = await prisma.user.update({
-    where: { email },
-    data: {
-      password: hashedPassword,
-      tokenVersion: { increment: 1 },
-      resetPasswordOtp: null,
-      resetPasswordOtpExpireAt: null,
-      resetPasswordOtpResendAvailableAt: null,
-      resetPasswordOtpVerified: null,
-    },
-  });
-
-  await getRedisCacheClient().del(`auth:user:${updatedUser.id}`);
-  await getRedisCacheClient().del(`user:${updatedUser.id}`);
-  await getRedisCacheClient().del(
-    `auth:reset-password:attempts:${updatedUser.id}`,
-  );
-
-  await publishSocketDisconnect(updatedUser.id);
-
-  res.status(200).json({ message: "Successfully updated your password" });
+  return res.status(200).json({ message: "Successfully updated your password" });
 });
 
 const changePassword = asyncHandler(
@@ -828,75 +186,13 @@ const changePassword = asyncHandler(
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
 
-    const foundUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        password: true,
-        authProvider: true,
-      },
-    });
-
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    if (foundUser.authProvider !== "LOCAL")
-      throw new HttpError("Password change not applicable", 400);
-
-    if (!foundUser.password)
-      throw new HttpError("Password change not applicable", 400);
-
-    const isCurrentPasswordValid = await bcrypt.compare(
+    const { user } = await changePasswordService({
+      userId,
       currentPassword,
-      foundUser.password,
-    );
-
-    if (!isCurrentPasswordValid)
-      throw new HttpError("Invalid current password", 401);
-
-    const isSamePassword = await bcrypt.compare(
       newPassword,
-      foundUser.password,
-    );
-    if (isSamePassword)
-      throw new HttpError(
-        "New password must be different from the old password",
-        400,
-      );
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        password: hashedPassword,
-        tokenVersion: { increment: 1 },
-        resetPasswordOtp: null,
-        resetPasswordOtpVerified: null,
-        resetPasswordOtpResendAvailableAt: null,
-        resetPasswordOtpExpireAt: null,
-      },
     });
 
-    await getRedisCacheClient().del(
-      `auth:reset-password:attempts:${updatedUser.id}`,
-    );
-
-    await getRedisCacheClient().set(
-      `auth:user:${updatedUser.id}`,
-      JSON.stringify(sanitizeUserForAuth(updatedUser)),
-      "EX",
-      60 * 20,
-    );
-
-    await getRedisCacheClient().set(
-      `user:${updatedUser.id}`,
-      JSON.stringify(sanitizeUser(updatedUser)),
-      "EX",
-      60 * 20,
-    );
-
-    await publishSocketDisconnect(updatedUser.id);
-
-    generateToken(res, updatedUser.id, updatedUser.tokenVersion);
+    generateToken(res, user.id, user.tokenVersion);
 
     return res.status(200).json({
       message: "Successfully changed your password",
@@ -908,28 +204,16 @@ const isAuth = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
-    const foundUser = cachedUser
-      ? JSON.parse(cachedUser)
-      : await prisma.user.findUnique({ where: { id: userId } });
-
-    if (!foundUser) throw new HttpError("Invalid credentials", 404);
-
-    await getRedisCacheClient().set(
-      `user:${foundUser.id}`,
-      JSON.stringify(sanitizeUser(foundUser)),
-      "EX",
-      60 * 20,
-    );
+    const { user } = await isAuthService({ userId });
 
     return res.status(200).json({
       message: "Successfully authenticated",
-      user: sanitizeUser(foundUser),
+      user: sanitizeUser(user),
     });
   },
 );
 
-const logout = asyncHandler(async (req: Request, res: Response) => {
+const logout = asyncHandler(async (_req: Request, res: Response) => {
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
