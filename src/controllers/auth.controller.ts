@@ -79,7 +79,10 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     generateToken(res, user.id, user.tokenVersion);
 
     return res.status(200).json({
-      message: action === "registered" ? "Successfully registered" : "Successfully logged in",
+      message:
+        action === "registered"
+          ? "Successfully registered"
+          : "Successfully logged in",
       user: {
         username: user.username,
         email: user.email,
@@ -97,7 +100,10 @@ const registerOrLogin = asyncHandler(async (req: Request, res: Response) => {
     generateToken(res, user.id, user.tokenVersion);
 
     return res.status(200).json({
-      message: action === "registered" ? "Successfully registered" : "Successfully logged in",
+      message:
+        action === "registered"
+          ? "Successfully registered"
+          : "Successfully logged in",
       user: {
         username: user.username,
         email: user.email,
@@ -178,7 +184,9 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
 
   await resetPasswordService({ email, newPassword });
 
-  return res.status(200).json({ message: "Successfully updated your password" });
+  return res
+    .status(200)
+    .json({ message: "Successfully updated your password" });
 });
 
 const changePassword = asyncHandler(
