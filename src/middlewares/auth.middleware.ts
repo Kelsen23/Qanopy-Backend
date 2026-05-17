@@ -106,10 +106,7 @@ const requireLoggedOut = asyncHandler(
     const user = await resolveAuthenticatedUser(req, false);
 
     if (user) {
-      throw new HttpError(
-        "Password reset is only available when logged out, use change password instead",
-        400,
-      );
+      throw new HttpError("This action is only available when logged out", 400);
     }
 
     next();
@@ -125,7 +122,8 @@ const isVerified = asyncHandler(
 
 const requireActiveUser = asyncHandler(
   async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
-    if (req.user?.status !== "ACTIVE") throw new HttpError("User not active", 403);
+    if (req.user?.status !== "ACTIVE")
+      throw new HttpError("User not active", 403);
 
     next();
   },
