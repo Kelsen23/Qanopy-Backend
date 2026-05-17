@@ -1,0 +1,11 @@
+export { default as register } from "./register.service.js";
+export { default as login } from "./login.service.js";
+export { default as registerOrLogin } from "./registerOrLogin.service.js";
+export { default as verifyEmail } from "./verifyEmail.service.js";
+export { default as resendVerificationEmail } from "./resendVerificationEmail.service.js";
+export { default as sendResetPasswordEmail } from "./sendResetPasswordEmail.service.js";
+export { default as resendResetPasswordEmail } from "./resendResetPasswordEmail.service.js";
+export { default as verifyResetPasswordOtp } from "./verifyResetPasswordOtp.service.js";
+export { default as resetPassword } from "./resetPassword.service.js";
+export { default as changePassword } from "./changePassword.service.js";
+export { default as isAuth } from "./isAuth.service.js";

@@ -5,7 +5,7 @@ import prisma from "../config/prisma.config.js";
 
 import transporter from "../config/nodemailer.config.js";
 
-import { isExpiredUnverifiedLocalUser } from "../services/user/unverifiedAccountCleanup.service.js";
+import { isExpiredUnverifiedLocalUser } from "../services/auth/unverifiedAccountCleanup.service.js";
 
 const worker = new Worker(
   "emailQueue",
