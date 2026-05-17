@@ -15,7 +15,9 @@ import {
   verifyResetPasswordOtp,
 } from "../controllers/auth.controller.js";
 
-import isAuthenticated from "../middlewares/auth.middleware.js";
+import isAuthenticated, {
+  requireLoggedOut,
+} from "../middlewares/auth.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 
 import {
@@ -76,6 +78,7 @@ router
 router
   .route("/password/reset/send")
   .post(
+    requireLoggedOut,
     passwordResetLimiterMiddleware,
     validate(sendResetPasswordEmailSchema),
     sendResetPasswordEmail,
@@ -84,6 +87,7 @@ router
 router
   .route("/password/reset/resend")
   .post(
+    requireLoggedOut,
     resendEmailLimiterMiddleware,
     validate(sendResetPasswordEmailSchema),
     resendResetPasswordEmail,
@@ -92,6 +96,7 @@ router
 router
   .route("/password/reset/verify")
   .post(
+    requireLoggedOut,
     emailVerificationLimiterMiddleware,
     validate(verifyResetPasswordOtpSchema),
     verifyResetPasswordOtp,
@@ -100,6 +105,7 @@ router
 router
   .route("/password/reset")
   .post(
+    requireLoggedOut,
     passwordResetLimiterMiddleware,
     validate(resetPasswordSchema),
     resetPassword,
