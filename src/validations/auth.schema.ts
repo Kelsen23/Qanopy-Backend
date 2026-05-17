@@ -5,7 +5,7 @@ import z from "zod";
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
 
-const normalize = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
+const normalizeText = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
 const isDeletedEmail = (email: string) =>
   email.toLowerCase().endsWith("@deleted.local");
 
@@ -26,21 +26,25 @@ const passwordSchema = z
   .regex(/[a-z]/, "Password must contain at least one lowercase letter")
   .regex(/[^a-zA-Z]/, "Password must contain at least one non-letter character");
 
+const otpSchema = z.string().length(6, "OTP should be exactly 6 characters");
+
+const usernameSchema = z
+  .string()
+  .min(3, "Username must be at least 3 characters")
+  .max(20, "Username must be at most 20 characters")
+  .regex(
+    /^[a-zA-Z0-9_. ]+$/,
+    "Only letters, numbers, spaces, underscores, and dots allowed",
+  )
+  .refine((username) => username.trim().length > 0, {
+    message: "Username cannot be only spaces",
+  })
+  .refine((username) => !leoProfanity.check(normalizeText(username)), {
+    message: "Username contains inappropriate language",
+  });
+
 const registerSchema = z.object({
-  username: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(20, "Username must be at most 20 characters")
-    .regex(
-      /^[a-zA-Z0-9_. ]+$/,
-      "Only letters, numbers, spaces, underscores, and dots allowed",
-    )
-    .refine((username) => username.trim().length > 0, {
-      message: "Username cannot be only spaces",
-    })
-    .refine((username) => !leoProfanity.check(normalize(username)), {
-      message: "Username contains inappropriate language",
-    }),
+  username: usernameSchema,
   email: activeEmailSchema,
   password: passwordSchema,
 });
@@ -50,21 +54,18 @@ const loginSchema = z.object({
   password: passwordSchema,
 });
 
-const googleSchema = z.object({
+const googleOauthSchema = z.object({
   provider: z.literal("google"),
   id_token: z.string(),
 });
 
-const githubSchema = z.object({
+const githubOauthSchema = z.object({
   provider: z.literal("github"),
   access_token: z.string(),
 });
 
 const verifyEmailSchema = z.object({
-  otp: z
-    .string()
-    .max(6, "OTP should be exactly 6 characters")
-    .min(6, "OTP should be exactly 6 characters"),
+  otp: otpSchema,
 });
 
 const sendResetPasswordEmailSchema = z.object({
@@ -73,10 +74,7 @@ const sendResetPasswordEmailSchema = z.object({
 
 const verifyResetPasswordOtpSchema = z.object({
   email: activeEmailSchema,
-  otp: z
-    .string()
-    .max(6, "OTP should be exactly 6 characters")
-    .min(6, "OTP should be exactly 6 characters"),
+  otp: otpSchema,
 });
 
 const resetPasswordSchema = z.object({
@@ -90,7 +88,10 @@ const changePasswordSchema = z.object({
 });
 
 export {
+  activeEmailSchema,
   passwordSchema,
+  otpSchema,
+  usernameSchema,
   registerSchema,
   loginSchema,
   verifyEmailSchema,
@@ -99,7 +100,8 @@ export {
   resetPasswordSchema,
   changePasswordSchema,
 };
+
 export const oauthSchema = z.discriminatedUnion("provider", [
-  googleSchema,
-  githubSchema,
+  googleOauthSchema,
+  githubOauthSchema,
 ]);
