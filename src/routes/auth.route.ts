@@ -25,8 +25,10 @@ import {
   registerLimiterMiddleware,
   resendEmailLimiterMiddleware,
   passwordResetLimiterMiddleware,
-  passwordChangeLimiterMiddleware,
   sessionLimiterMiddleware,
+  userEmailVerificationLimiterMiddleware,
+  userPasswordChangeLimiterMiddleware,
+  userResendEmailLimiterMiddleware,
 } from "../middlewares/rate-limiters/auth.rate-limiters.js";
 
 import {
@@ -57,15 +59,19 @@ router
 router
   .route("/email/verify")
   .post(
-    emailVerificationLimiterMiddleware,
     isAuthenticated,
+    userEmailVerificationLimiterMiddleware,
     validate(verifyEmailSchema),
     verifyEmail,
   );
 
 router
   .route("/email/resend")
-  .post(resendEmailLimiterMiddleware, isAuthenticated, resendVerificationEmail);
+  .post(
+    isAuthenticated,
+    userResendEmailLimiterMiddleware,
+    resendVerificationEmail,
+  );
 
 router
   .route("/password/reset/send")
@@ -102,8 +108,8 @@ router
 router
   .route("/password/change")
   .post(
-    passwordChangeLimiterMiddleware,
     isAuthenticated,
+    userPasswordChangeLimiterMiddleware,
     validate(changePasswordSchema),
     changePassword,
   );
