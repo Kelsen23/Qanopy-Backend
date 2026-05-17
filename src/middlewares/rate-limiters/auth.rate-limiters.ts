@@ -4,10 +4,12 @@ import { getRedisMessagingClient } from "../../config/redis.config.js";
 
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
+import type { Request } from "express";
+
 const loginLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "auth:login",
-  points: 5,
+  points: 10,
   duration: 15 * 60,
 });
 
@@ -21,7 +23,7 @@ const registerLimiter = new RateLimiterRedis({
 const oauthLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "auth:oauth",
-  points: 5,
+  points: 10,
   duration: 30 * 60,
 });
 
@@ -35,8 +37,8 @@ const emailVerificationLimiter = new RateLimiterRedis({
 const resendEmailLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "auth:resend-email",
-  points: 3,
-  duration: 5 * 60,
+  points: 5,
+  duration: 15 * 60,
 });
 
 const passwordResetLimiter = new RateLimiterRedis({
@@ -46,17 +48,31 @@ const passwordResetLimiter = new RateLimiterRedis({
   duration: 60 * 60,
 });
 
-const passwordChangeLimiter = new RateLimiterRedis({
+const userEmailVerificationLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "auth:password-change",
+  keyPrefix: "auth:user:email-verification",
+  points: 10,
+  duration: 60 * 60,
+});
+
+const userResendEmailLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "auth:user:resend-email",
   points: 5,
+  duration: 15 * 60,
+});
+
+const userPasswordChangeLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "auth:user:password-change",
+  points: 8,
   duration: 60 * 60,
 });
 
 const sessionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "auth:session",
-  points: 1000,
+  points: 300,
   duration: 10 * 60,
 });
 
@@ -82,7 +98,7 @@ const emailVerificationLimiterMiddleware = createRateLimiterMiddleware(
 
 const resendEmailLimiterMiddleware = createRateLimiterMiddleware(
   resendEmailLimiter,
-  "Too many email resend requests, please wait before requesting again",
+  "Too many email resend requests from this IP, please wait before requesting again",
 );
 
 const passwordResetLimiterMiddleware = createRateLimiterMiddleware(
@@ -90,14 +106,27 @@ const passwordResetLimiterMiddleware = createRateLimiterMiddleware(
   "Too many password reset requests from this IP, please try again after an hour",
 );
 
-const passwordChangeLimiterMiddleware = createRateLimiterMiddleware(
-  passwordChangeLimiter,
-  "Too many password change attempts from this IP, please try again after an hour",
+const userEmailVerificationLimiterMiddleware = createRateLimiterMiddleware(
+  userEmailVerificationLimiter,
+  "Too many email verification requests from this account, please try again later",
+  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
+);
+
+const userResendEmailLimiterMiddleware = createRateLimiterMiddleware(
+  userResendEmailLimiter,
+  "Too many email resend requests from this account, please wait before requesting again",
+  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
+);
+
+const userPasswordChangeLimiterMiddleware = createRateLimiterMiddleware(
+  userPasswordChangeLimiter,
+  "Too many password change attempts from this account, please try again after an hour",
+  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
 );
 
 const sessionLimiterMiddleware = createRateLimiterMiddleware(
   sessionLimiter,
-  "Too many requests please wait before requesting again",
+  "Too many requests, please wait before requesting again",
 );
 
 export {
@@ -107,6 +136,8 @@ export {
   emailVerificationLimiterMiddleware,
   resendEmailLimiterMiddleware,
   passwordResetLimiterMiddleware,
-  passwordChangeLimiterMiddleware,
+  userEmailVerificationLimiterMiddleware,
+  userResendEmailLimiterMiddleware,
+  userPasswordChangeLimiterMiddleware,
   sessionLimiterMiddleware,
 };
