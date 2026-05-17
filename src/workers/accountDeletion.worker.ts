@@ -3,7 +3,7 @@ import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 import connectMongoDB from "../config/mongodb.config.js";
 
-import deleteAccount from "../services/user/deleteAccount.service.js";
+import deleteAccount from "../services/auth/deleteAccount.service.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
