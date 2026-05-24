@@ -97,7 +97,7 @@ async function startWorker() {
               topicStatus: "VALID",
             },
           },
-          
+
           { $limit: 5 },
         ]);
 

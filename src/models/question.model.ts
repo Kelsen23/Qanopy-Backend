@@ -24,7 +24,7 @@ const QuestionSchema: Schema = new Schema(
     similarQuestionsStatus: {
       type: String,
       enum: ["NONE", "PENDING", "PROCESSING", "READY"],
-      default: "NONE"
+      default: "NONE",
     },
 
     embedding: { type: [Number], default: null, required: false },
@@ -57,7 +57,7 @@ const QuestionSchema: Schema = new Schema(
       versionKey: false,
       transform: (_, ret: any) => {
         ret.id = ret._id;
-        
+
         delete ret._id;
 
         return ret;

@@ -13,4 +13,3 @@ export const makeJobId = (...parts: unknown[]) =>
 
 export const makeUniqueJobId = (...parts: unknown[]) =>
   makeJobId(...parts, crypto.randomUUID());
-

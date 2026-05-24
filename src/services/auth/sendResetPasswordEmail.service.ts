@@ -50,7 +50,9 @@ const sendResetPasswordEmail = async ({
     if (foundUser.resetPasswordOtpExpireAt > new Date(Date.now()))
       throw new HttpError("Reset password OTP already sent", 400);
 
-  const resetPasswordOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  const resetPasswordOtp = Math.floor(
+    100000 + Math.random() * 900000,
+  ).toString();
   const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
   const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 

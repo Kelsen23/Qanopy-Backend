@@ -1,16 +1,17 @@
 import { Worker } from "bullmq";
+import { fileURLToPath } from "node:url";
 
+import { cleanupAllExpiredUnverifiedUsers } from "../services/auth/unverifiedAccountCleanup.service.js";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import unverifiedAccountCleanupQueue from "../queues/unverifiedAccountCleanup.queue.js";
-import {
-  cleanupAllExpiredUnverifiedUsers,
-} from "../services/auth/unverifiedAccountCleanup.service.js";
 
 const CLEANUP_JOB_NAME = "CLEANUP_EXPIRED_UNVERIFIED_ACCOUNTS";
 const CLEANUP_REPEAT_EVERY_MS = 60 * 60 * 1000;
 
-async function startWorker() {
+const workerFilePath = fileURLToPath(import.meta.url);
+
+async function startUnverifiedAccountCleanupWorker() {
   const initialCleanedCount = await cleanupAllExpiredUnverifiedUsers();
   console.log("[unverifiedAccountCleanup:init]", { initialCleanedCount });
 
@@ -61,9 +62,21 @@ async function startWorker() {
   worker.on("error", (err) => {
     console.error("Worker crashed:", err);
   });
+
+  return worker;
 }
 
-startWorker().catch((error) => {
-  console.error("Failed to start unverified account cleanup worker:", error);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === workerFilePath;
+
+if (isDirectRun) {
+  void startUnverifiedAccountCleanupWorker().catch((error) => {
+    console.error("Failed to start unverified account cleanup worker:", error);
+    process.exit(1);
+  });
+}
+
+export {
+  CLEANUP_JOB_NAME,
+  CLEANUP_REPEAT_EVERY_MS,
+  startUnverifiedAccountCleanupWorker,
+};

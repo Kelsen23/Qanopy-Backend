@@ -1,18 +1,23 @@
 import { Worker } from "bullmq";
-
-import { redisMessagingClientConnection } from "../config/redis.config.js";
-import connectMongoDB from "../config/mongodb.config.js";
+import { fileURLToPath } from "node:url";
 
 import deleteAccount from "../services/auth/deleteAccount.service.js";
 
-async function startWorker() {
+import connectMongoDB from "../config/mongodb.config.js";
+import { redisMessagingClientConnection } from "../config/redis.config.js";
+
+const workerFilePath = fileURLToPath(import.meta.url);
+
+async function startAccountDeletionWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting account deletion worker...");
 
   const worker = new Worker(
     "accountDeletionQueue",
     async (job) => {
-      await deleteAccount(job.data as { userId: string; profilePictureKey?: string | null });
+      await deleteAccount(
+        job.data as { userId: string; profilePictureKey?: string | null },
+      );
     },
     {
       connection: redisMessagingClientConnection,
@@ -32,9 +37,17 @@ async function startWorker() {
   worker.on("error", (err) => {
     console.error("Worker crashed:", err);
   });
+
+  return worker;
 }
 
-startWorker().catch((error) => {
-  console.error("Failed to start account deletion worker:", error);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === workerFilePath;
+
+if (isDirectRun) {
+  void startAccountDeletionWorker().catch((error) => {
+    console.error("Failed to start account deletion worker:", error);
+    process.exit(1);
+  });
+}
+
+export { startAccountDeletionWorker };

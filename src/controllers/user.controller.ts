@@ -74,9 +74,7 @@ const deleteProfilePicture = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
 
-    const cachedUser = await getRedisCacheClient().get(
-      `user:${userId}`,
-    );
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({
@@ -136,9 +134,7 @@ const updateProfile = asyncHandler(
     const userId = req.user.id;
     const { displayName, bio } = req.body;
 
-    const cachedUser = await getRedisCacheClient().get(
-      `user:${userId}`,
-    );
+    const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
     const foundUser = cachedUser
       ? JSON.parse(cachedUser)
       : await prisma.user.findUnique({ where: { id: userId } });

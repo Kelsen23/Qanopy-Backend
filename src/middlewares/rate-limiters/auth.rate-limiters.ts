@@ -109,19 +109,28 @@ const passwordResetLimiterMiddleware = createRateLimiterMiddleware(
 const userEmailVerificationLimiterMiddleware = createRateLimiterMiddleware(
   userEmailVerificationLimiter,
   "Too many email verification requests from this account, please try again later",
-  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
+  (req) =>
+    (req as Request & { user?: { id?: string } }).user?.id ||
+    req.ip ||
+    "unknown",
 );
 
 const userResendEmailLimiterMiddleware = createRateLimiterMiddleware(
   userResendEmailLimiter,
   "Too many email resend requests from this account, please wait before requesting again",
-  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
+  (req) =>
+    (req as Request & { user?: { id?: string } }).user?.id ||
+    req.ip ||
+    "unknown",
 );
 
 const userPasswordChangeLimiterMiddleware = createRateLimiterMiddleware(
   userPasswordChangeLimiter,
   "Too many password change attempts from this account, please try again after an hour",
-  (req) => (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown",
+  (req) =>
+    (req as Request & { user?: { id?: string } }).user?.id ||
+    req.ip ||
+    "unknown",
 );
 
 const sessionLimiterMiddleware = createRateLimiterMiddleware(
