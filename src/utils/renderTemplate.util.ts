@@ -12,9 +12,19 @@ export function renderTemplate(
 ) {
   const filePath = path.join(__dirname, "../emails", `${templateName}.mjml`);
   const mjml = fs.readFileSync(filePath, "utf-8");
+
   const { html } = mjml2html(mjml);
 
-  return html.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
+  const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN?.replace(/\/$/, "");
+
+  const logoUrl = cloudfrontDomain
+    ? cloudfrontDomain + "/app/qanopy-transparent-logo.png"
+    : "";
+
+  return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
+    if (key === "logoUrl") return logoUrl;
+    return variables[key] || "";
+  });
 }
 
 const verificationHtml = (
