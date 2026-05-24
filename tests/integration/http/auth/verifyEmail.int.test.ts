@@ -25,8 +25,9 @@ vi.mock("../../../../src/utils/getDeviceInfo.util.js", () =>
   createMockGetDeviceInfoModule(),
 );
 
-vi.mock("../../../../src/middlewares/rate-limiters/auth.rate-limiters.js", () =>
-  mockAuthLimiters,
+vi.mock(
+  "../../../../src/middlewares/rate-limiters/auth.rate-limiters.js",
+  () => mockAuthLimiters,
 );
 
 vi.mock("../../../../src/middlewares/auth.middleware.js", () =>

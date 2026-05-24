@@ -25,8 +25,9 @@ vi.mock("../../../../src/utils/getDeviceInfo.util.js", () =>
   createMockGetDeviceInfoModule(),
 );
 
-vi.mock("../../../../src/middlewares/rate-limiters/auth.rate-limiters.js", () =>
-  mockAuthLimiters,
+vi.mock(
+  "../../../../src/middlewares/rate-limiters/auth.rate-limiters.js",
+  () => mockAuthLimiters,
 );
 
 vi.mock("../../../../src/middlewares/auth.middleware.js", () =>
@@ -46,9 +47,11 @@ describe("POST /api/auth/password/reset/resend", () => {
   it("resends the reset password email successfully", async () => {
     mocks.resendResetPasswordEmailService.mockResolvedValue({ sent: true });
 
-    const response = await request(app).post("/api/auth/password/reset/resend").send({
-      email: "test@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/resend")
+      .send({
+        email: "test@example.com",
+      });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -65,9 +68,11 @@ describe("POST /api/auth/password/reset/resend", () => {
   });
 
   it("rejects invalid payloads", async () => {
-    const response = await request(app).post("/api/auth/password/reset/resend").send({
-      email: "bad-email",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/resend")
+      .send({
+        email: "bad-email",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Validation Failed");
@@ -75,15 +80,19 @@ describe("POST /api/auth/password/reset/resend", () => {
   });
 
   it("returns service errors", async () => {
-    const error = new Error("OTP resend will soon be available, please wait") as Error & {
+    const error = new Error(
+      "OTP resend will soon be available, please wait",
+    ) as Error & {
       statusCode?: number;
     };
     error.statusCode = 400;
     mocks.resendResetPasswordEmailService.mockRejectedValue(error);
 
-    const response = await request(app).post("/api/auth/password/reset/resend").send({
-      email: "test@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/resend")
+      .send({
+        email: "test@example.com",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe(
@@ -94,9 +103,11 @@ describe("POST /api/auth/password/reset/resend", () => {
   it("rejects authenticated requests", async () => {
     mockAuthContextState.authenticated = true;
 
-    const response = await request(app).post("/api/auth/password/reset/resend").send({
-      email: "test@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/resend")
+      .send({
+        email: "test@example.com",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe(

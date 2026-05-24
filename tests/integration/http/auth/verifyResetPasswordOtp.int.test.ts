@@ -20,8 +20,9 @@ vi.mock("../../../../src/services/auth/auth.service.js", () => ({
   }),
 }));
 
-vi.mock("../../../../src/middlewares/rate-limiters/auth.rate-limiters.js", () =>
-  mockAuthLimiters,
+vi.mock(
+  "../../../../src/middlewares/rate-limiters/auth.rate-limiters.js",
+  () => mockAuthLimiters,
 );
 
 vi.mock("../../../../src/middlewares/auth.middleware.js", () =>
@@ -41,10 +42,12 @@ describe("POST /api/auth/password/reset/verify", () => {
   it("verifies the reset password OTP successfully", async () => {
     mocks.verifyResetPasswordOtpService.mockResolvedValue({ verified: true });
 
-    const response = await request(app).post("/api/auth/password/reset/verify").send({
-      email: "test@example.com",
-      otp: "123456",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/verify")
+      .send({
+        email: "test@example.com",
+        otp: "123456",
+      });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -57,10 +60,12 @@ describe("POST /api/auth/password/reset/verify", () => {
   });
 
   it("rejects invalid payloads", async () => {
-    const response = await request(app).post("/api/auth/password/reset/verify").send({
-      email: "bad-email",
-      otp: "123",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/verify")
+      .send({
+        email: "bad-email",
+        otp: "123",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Validation Failed");
@@ -74,10 +79,12 @@ describe("POST /api/auth/password/reset/verify", () => {
     error.statusCode = 400;
     mocks.verifyResetPasswordOtpService.mockRejectedValue(error);
 
-    const response = await request(app).post("/api/auth/password/reset/verify").send({
-      email: "test@example.com",
-      otp: "123456",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/verify")
+      .send({
+        email: "test@example.com",
+        otp: "123456",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Invalid reset password OTP");
@@ -90,10 +97,12 @@ describe("POST /api/auth/password/reset/verify", () => {
     error.statusCode = 400;
     mocks.verifyResetPasswordOtpService.mockRejectedValue(error);
 
-    const response = await request(app).post("/api/auth/password/reset/verify").send({
-      email: "test@example.com",
-      otp: "123456",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/verify")
+      .send({
+        email: "test@example.com",
+        otp: "123456",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Reset password OTP expired");
@@ -102,10 +111,12 @@ describe("POST /api/auth/password/reset/verify", () => {
   it("rejects authenticated requests", async () => {
     mockAuthContextState.authenticated = true;
 
-    const response = await request(app).post("/api/auth/password/reset/verify").send({
-      email: "test@example.com",
-      otp: "123456",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/verify")
+      .send({
+        email: "test@example.com",
+        otp: "123456",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe(

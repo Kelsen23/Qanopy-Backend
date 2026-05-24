@@ -23,8 +23,9 @@ vi.mock("../../../../src/services/auth/auth.service.js", () => ({
   isAuth: vi.fn(),
 }));
 
-vi.mock("../../../../src/middlewares/rate-limiters/auth.rate-limiters.js", () =>
-  mockAuthLimiters,
+vi.mock(
+  "../../../../src/middlewares/rate-limiters/auth.rate-limiters.js",
+  () => mockAuthLimiters,
 );
 
 vi.mock("../../../../src/middlewares/auth.middleware.js", () =>

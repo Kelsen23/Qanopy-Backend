@@ -25,8 +25,9 @@ vi.mock("../../../../src/utils/getDeviceInfo.util.js", () =>
   createMockGetDeviceInfoModule(),
 );
 
-vi.mock("../../../../src/middlewares/rate-limiters/auth.rate-limiters.js", () =>
-  mockAuthLimiters,
+vi.mock(
+  "../../../../src/middlewares/rate-limiters/auth.rate-limiters.js",
+  () => mockAuthLimiters,
 );
 
 vi.mock("../../../../src/middlewares/auth.middleware.js", () =>
@@ -46,9 +47,11 @@ describe("POST /api/auth/password/reset/send", () => {
   it("sends reset password email for existing accounts", async () => {
     mocks.sendResetPasswordEmailService.mockResolvedValue({ sent: true });
 
-    const response = await request(app).post("/api/auth/password/reset/send").send({
-      email: "test@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/send")
+      .send({
+        email: "test@example.com",
+      });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -67,9 +70,11 @@ describe("POST /api/auth/password/reset/send", () => {
   it("also responds safely when the account does not exist", async () => {
     mocks.sendResetPasswordEmailService.mockResolvedValue({ sent: true });
 
-    const response = await request(app).post("/api/auth/password/reset/send").send({
-      email: "missing@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/send")
+      .send({
+        email: "missing@example.com",
+      });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -78,9 +83,11 @@ describe("POST /api/auth/password/reset/send", () => {
   });
 
   it("rejects invalid payloads", async () => {
-    const response = await request(app).post("/api/auth/password/reset/send").send({
-      email: "bad-email",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/send")
+      .send({
+        email: "bad-email",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Validation Failed");
@@ -90,9 +97,11 @@ describe("POST /api/auth/password/reset/send", () => {
   it("rejects authenticated requests", async () => {
     mockAuthContextState.authenticated = true;
 
-    const response = await request(app).post("/api/auth/password/reset/send").send({
-      email: "test@example.com",
-    });
+    const response = await request(app)
+      .post("/api/auth/password/reset/send")
+      .send({
+        email: "test@example.com",
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe(
