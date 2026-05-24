@@ -6,7 +6,10 @@ import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import { handleExpiredUnverifiedUser, removeResetPasswordAttempts } from "./auth.shared.js";
+import {
+  handleExpiredUnverifiedUser,
+  removeResetPasswordAttempts,
+} from "./auth.shared.js";
 
 type ResetPasswordInput = {
   email: string;
@@ -31,7 +34,10 @@ const resetPassword = async ({ email, newPassword }: ResetPasswordInput) => {
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
   if (await handleExpiredUnverifiedUser(foundUser)) {
-    throw new HttpError("Email verification expired, please sign up again", 410);
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
   }
 
   if (foundUser.authProvider !== "LOCAL")
@@ -46,7 +52,10 @@ const resetPassword = async ({ email, newPassword }: ResetPasswordInput) => {
   );
 
   if (isSamePassword)
-    throw new HttpError("New password must be different from the old password", 400);
+    throw new HttpError(
+      "New password must be different from the old password",
+      400,
+    );
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 

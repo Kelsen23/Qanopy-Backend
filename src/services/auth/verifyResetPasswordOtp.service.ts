@@ -5,7 +5,10 @@ import HttpError from "../../utils/httpError.util.js";
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import { handleExpiredUnverifiedUser, removeResetPasswordAttempts } from "./auth.shared.js";
+import {
+  handleExpiredUnverifiedUser,
+  removeResetPasswordAttempts,
+} from "./auth.shared.js";
 
 type VerifyResetPasswordOtpInput = {
   email: string;
@@ -34,7 +37,10 @@ const verifyResetPasswordOtp = async ({
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
   if (await handleExpiredUnverifiedUser(foundUser)) {
-    throw new HttpError("Email verification expired, please sign up again", 410);
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
   }
 
   if (foundUser.authProvider !== "LOCAL")

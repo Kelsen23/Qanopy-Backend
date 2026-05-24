@@ -20,7 +20,10 @@ const login = async ({ email, password }: LoginInput) => {
   if (!foundUser.password) throw new HttpError("Invalid credentials", 400);
 
   if (await handleExpiredUnverifiedUser(foundUser)) {
-    throw new HttpError("Email verification expired, please sign up again", 410);
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
   }
 
   const isPasswordCorrect = await bcrypt.compare(password, foundUser.password);

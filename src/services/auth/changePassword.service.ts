@@ -5,7 +5,11 @@ import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js
 
 import prisma from "../../config/prisma.config.js";
 
-import { cacheAuthUser, cacheUser, removeResetPasswordAttempts } from "./auth.shared.js";
+import {
+  cacheAuthUser,
+  cacheUser,
+  removeResetPasswordAttempts,
+} from "./auth.shared.js";
 
 type ChangePasswordInput = {
   userId: string;
@@ -44,7 +48,10 @@ const changePassword = async ({
 
   const isSamePassword = await bcrypt.compare(newPassword, foundUser.password);
   if (isSamePassword)
-    throw new HttpError("New password must be different from the old password", 400);
+    throw new HttpError(
+      "New password must be different from the old password",
+      400,
+    );
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 

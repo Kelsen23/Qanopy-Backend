@@ -12,7 +12,9 @@ async function startWorker() {
   const worker = new Worker(
     "accountDeletionQueue",
     async (job) => {
-      await deleteAccount(job.data as { userId: string; profilePictureKey?: string | null });
+      await deleteAccount(
+        job.data as { userId: string; profilePictureKey?: string | null },
+      );
     },
     {
       connection: redisMessagingClientConnection,

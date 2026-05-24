@@ -24,7 +24,10 @@ const passwordSchema = z
   .max(60, "Password must be at most 60 characters")
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
   .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[^a-zA-Z]/, "Password must contain at least one non-letter character");
+  .regex(
+    /[^a-zA-Z]/,
+    "Password must contain at least one non-letter character",
+  );
 
 const otpSchema = z.string().length(6, "OTP should be exactly 6 characters");
 

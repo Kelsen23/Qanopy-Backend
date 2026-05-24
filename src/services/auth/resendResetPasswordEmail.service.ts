@@ -41,7 +41,10 @@ const resendResetPasswordEmail = async ({
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
   if (await handleExpiredUnverifiedUser(foundUser)) {
-    throw new HttpError("Email verification expired, please sign up again", 410);
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
   }
 
   if (foundUser.authProvider !== "LOCAL")
@@ -57,7 +60,9 @@ const resendResetPasswordEmail = async ({
   if (foundUser.resetPasswordOtpResendAvailableAt > new Date(Date.now()))
     throw new HttpError("OTP resend will soon be available, please wait", 400);
 
-  const resetPasswordOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  const resetPasswordOtp = Math.floor(
+    100000 + Math.random() * 900000,
+  ).toString();
   const resetPasswordOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
   const resetPasswordOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
 

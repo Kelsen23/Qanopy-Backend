@@ -6,8 +6,7 @@ const CHANNEL = "socket:disconnect";
 
 const initSocketDisconnectSubscriber = () => {
   registerSubscriber(CHANNEL, async (payload) => {
-    const userId =
-      typeof payload === "string" ? payload : payload?.userId;
+    const userId = typeof payload === "string" ? payload : payload?.userId;
 
     if (!userId) return;
 

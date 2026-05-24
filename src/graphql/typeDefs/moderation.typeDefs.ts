@@ -146,7 +146,7 @@ const moderationTypeDefs = gql`
       limitCount: Int
       showReviewed: Boolean
     ): ReportConnection!
-    
+
     strikes(
       filter: StrikeFilter
       cursor: StrikeCursorInput

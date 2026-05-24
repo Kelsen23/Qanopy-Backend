@@ -20,7 +20,7 @@ const VoteSchema = new Schema(
         ret.id = ret._id;
 
         delete ret._id;
-        
+
         return ret;
       },
     },

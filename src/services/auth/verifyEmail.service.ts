@@ -18,7 +18,10 @@ const verifyEmail = async ({ userId, otp: inputOtp }: VerifyEmailInput) => {
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
   if (await handleExpiredUnverifiedUser(foundUser)) {
-    throw new HttpError("Email verification expired, please sign up again", 410);
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
   }
 
   if (foundUser.authProvider !== "LOCAL")
@@ -26,7 +29,11 @@ const verifyEmail = async ({ userId, otp: inputOtp }: VerifyEmailInput) => {
 
   if (foundUser.isVerified) throw new HttpError("User already verified", 400);
 
-  if (!foundUser.otpExpireAt || !foundUser.otpResendAvailableAt || !foundUser.otp)
+  if (
+    !foundUser.otpExpireAt ||
+    !foundUser.otpResendAvailableAt ||
+    !foundUser.otp
+  )
     throw new HttpError("OTP not set", 400);
 
   const attempts = await getRedisCacheClient().get(

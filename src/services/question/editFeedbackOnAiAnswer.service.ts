@@ -55,11 +55,9 @@ const editFeedbackOnAiAnswer = async (
     throw new HttpError("Question version not found", 404);
 
   const hasNoChanges =
-    type === foundFeedback.type &&
-    body === (foundFeedback.body ?? null)
+    type === foundFeedback.type && body === (foundFeedback.body ?? null);
 
-  if (hasNoChanges)
-    throw new HttpError("No changes made to the feedback", 400);
+  if (hasNoChanges) throw new HttpError("No changes made to the feedback", 400);
 
   const editedFeedback = await AiAnswerFeedback.findByIdAndUpdate(
     feedbackId,

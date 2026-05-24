@@ -3,9 +3,7 @@ import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import unverifiedAccountCleanupQueue from "../queues/unverifiedAccountCleanup.queue.js";
-import {
-  cleanupAllExpiredUnverifiedUsers,
-} from "../services/auth/unverifiedAccountCleanup.service.js";
+import { cleanupAllExpiredUnverifiedUsers } from "../services/auth/unverifiedAccountCleanup.service.js";
 
 const CLEANUP_JOB_NAME = "CLEANUP_EXPIRED_UNVERIFIED_ACCOUNTS";
 const CLEANUP_REPEAT_EVERY_MS = 60 * 60 * 1000;

@@ -1,13 +1,7 @@
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-const startEditSession = async (
-  socketId: string,
-  version: number,
-) => {
-  await getRedisCacheClient().sadd(
-    `edit:version:${version}:sockets`,
-    socketId,
-  );
+const startEditSession = async (socketId: string, version: number) => {
+  await getRedisCacheClient().sadd(`edit:version:${version}:sockets`, socketId);
   await getRedisCacheClient().set(`edit:socket:${socketId}`, version);
 };
 
@@ -16,10 +10,7 @@ const endEditSession = async (socketId: string) => {
 
   if (!version) return;
 
-  await getRedisCacheClient().srem(
-    `edit:version:${version}:sockets`,
-    socketId,
-  );
+  await getRedisCacheClient().srem(`edit:version:${version}:sockets`, socketId);
 
   const remaining = await getRedisCacheClient().scard(
     `edit:version:${version}:sockets`,

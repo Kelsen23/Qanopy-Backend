@@ -56,10 +56,7 @@ async function applyInterestScore(userId: string, tag: string, score: number) {
                     },
                   },
                   {
-                    $concatArrays: [
-                      "$$existingInterests",
-                      [{ tag, score }],
-                    ],
+                    $concatArrays: ["$$existingInterests", [{ tag, score }]],
                   },
                 ],
               },

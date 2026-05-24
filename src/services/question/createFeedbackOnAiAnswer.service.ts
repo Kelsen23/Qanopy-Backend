@@ -73,7 +73,11 @@ const createFeedbackOnAiAnswerService = async (
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentModeration", "AI_ANSWER_FEEDBACK", newFeedback._id),
+      jobId: makeJobId(
+        "contentModeration",
+        "AI_ANSWER_FEEDBACK",
+        newFeedback._id,
+      ),
     },
   );
 

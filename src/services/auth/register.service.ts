@@ -23,7 +23,12 @@ type RegisterInput = {
   deviceInfo: DeviceInfo;
 };
 
-const register = async ({ username, email, password, deviceInfo }: RegisterInput) => {
+const register = async ({
+  username,
+  email,
+  password,
+  deviceInfo,
+}: RegisterInput) => {
   const emailExists = await prisma.user.findFirst({
     where: { email, isDeleted: false },
     select: { id: true, createdAt: true, authProvider: true, isVerified: true },
