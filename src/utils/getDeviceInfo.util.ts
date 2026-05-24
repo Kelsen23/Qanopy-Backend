@@ -1,8 +1,24 @@
 import { Request } from "express";
 
+const normalizeIp = (ip?: string | null) => {
+  if (!ip) return "Unknown IP";
+
+  const normalizedIp = ip.trim();
+
+  if (
+    normalizedIp === "::1" ||
+    normalizedIp === "127.0.0.1" ||
+    normalizedIp === "::ffff:127.0.0.1"
+  ) {
+    return "localhost";
+  }
+
+  return normalizedIp;
+};
+
 const getDeviceInfo = (req: Request) => {
   const userAgent = req.get("User-Agent") || "";
-  const ip = req.ip || req.connection.remoteAddress;
+  const ip = normalizeIp(req.ip || req.connection.remoteAddress || null);
 
   let browser = "Unknown Browser";
   if (/Chrome/.test(userAgent)) browser = "Chrome";
