@@ -1,30 +1,39 @@
 import bcrypt from "bcrypt";
 
 import HttpError from "../../utils/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import { securityNoticeHtml } from "../../utils/renderTemplate.util.js";
 import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
-
-import prisma from "../../config/prisma.config.js";
 
 import {
   cacheAuthUser,
   cacheUser,
+  getDeviceIp,
   removeResetPasswordAttempts,
+  type DeviceInfo,
 } from "./auth.shared.js";
+
+import prisma from "../../config/prisma.config.js";
+import emailQueue from "../../queues/email.queue.js";
 
 type ChangePasswordInput = {
   userId: string;
   currentPassword: string;
   newPassword: string;
+  deviceInfo: DeviceInfo;
 };
 
 const changePassword = async ({
   userId,
   currentPassword,
   newPassword,
+  deviceInfo,
 }: ChangePasswordInput) => {
   const foundUser = await prisma.user.findUnique({
     where: { id: userId },
     select: {
+      email: true,
+      username: true,
       password: true,
       authProvider: true,
     },
@@ -71,6 +80,36 @@ const changePassword = async ({
   await cacheAuthUser(updatedUser);
   await cacheUser(updatedUser);
   await publishSocketDisconnect(updatedUser.id);
+
+  const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
+  const htmlContent = securityNoticeHtml(
+    foundUser.username,
+    "Password changed",
+    "Your password has been changed successfully.",
+    deviceName,
+    getDeviceIp(deviceInfo),
+  );
+
+  await emailQueue.add(
+    "SEND_PASSWORD_CHANGED_EMAIL",
+    {
+      email: updatedUser.email,
+      userId: updatedUser.id,
+      purpose: "PASSWORD_CHANGED",
+      subject: "Password Changed",
+      htmlContent,
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeUniqueJobId(
+        "email",
+        "SEND_PASSWORD_CHANGED_EMAIL",
+        updatedUser.id,
+        updatedUser.email,
+      ),
+    },
+  );
 
   return { user: updatedUser };
 };
