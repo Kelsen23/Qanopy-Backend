@@ -8,7 +8,6 @@ import {
 } from "../../redis/aiAnswerSession.service.js";
 
 import publishSocketEvent from "../../../utils/publishSocketEvent.util.js";
-import HttpError from "../../../utils/httpError.util.js";
 
 import AiAnswer from "../../../models/aiAnswer.model.js";
 
@@ -183,7 +182,7 @@ const fullAnswer = async (
     const delimiterStart = raw.indexOf(confidenceDelimiter);
 
     if (delimiterStart === -1)
-      throw new HttpError("Missing <AI_CONFIDENCE_JSON> delimiter", 500);
+      throw new Error("Missing <AI_CONFIDENCE_JSON> delimiter");
 
     const answerBody = raw.slice(0, delimiterStart).trim();
     const rawConfidence = raw
@@ -245,7 +244,7 @@ const fullAnswer = async (
   } catch (error) {
     console.error("Invalid AI full answer response:", error);
     console.error("Raw AI response:", fullBody);
-    throw new HttpError("Invalid AI full answer returned by Claude", 500);
+    throw new Error("Invalid AI full answer returned by Claude");
   }
 };
 

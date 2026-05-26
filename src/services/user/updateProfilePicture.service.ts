@@ -2,7 +2,6 @@ import { cloudfrontDomain } from "../../config/s3.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
 import moveS3Object from "../../utils/moveS3Object.util.js";
 import sanitizeUser from "../../utils/sanitizeUser.util.js";
 
@@ -16,7 +15,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
     ? JSON.parse(cachedUser)
     : await prisma.user.findUnique({ where: { id: userId } });
 
-  if (!foundUser) throw new HttpError("User not found", 404);
+  if (!foundUser) throw new Error("User not found");
 
   await moderateFileService(userId, objectKey);
 

@@ -11,8 +11,6 @@ import {
   Rekognition,
 } from "@aws-sdk/client-rekognition";
 
-import HttpError from "../../utils/httpError.util.js";
-
 import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
 
 import dotenv from "dotenv";
@@ -44,14 +42,13 @@ const moderateFile = async (userId: string, objectKey: string) => {
     try {
       await getS3().send(deleteCommand);
     } catch (error) {
-      throw new HttpError(`Couldn't delete an object: ${error}`, 500);
+      throw new Error(`Couldn't delete an object: ${error}`);
     }
 
     await publishSocketEvent(userId, `unsafeFileDeleted`, { objectKey });
 
-    throw new HttpError(
+    throw new Error(
       `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
-      400,
     );
   }
 
