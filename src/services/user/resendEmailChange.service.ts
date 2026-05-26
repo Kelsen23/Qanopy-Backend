@@ -103,8 +103,6 @@ const resendEmailChange = async ({
         ),
       },
     );
-
-    await removeEmailChangeAttempts(updatedUser.id);
   } catch (error) {
     await prisma.user.update({
       where: { id: userId },
@@ -123,6 +121,15 @@ const resendEmailChange = async ({
     });
 
     throw new HttpError("Failed to send email change OTP", 503);
+  }
+
+  try {
+    await removeEmailChangeAttempts(updatedUser.id);
+  } catch (error) {
+    console.error("[resendEmailChange] Failed to clear OTP attempts", {
+      userId,
+      error,
+    });
   }
 
   return {

@@ -163,7 +163,15 @@ const sendEmailChange = async ({
     throw new HttpError("Failed to send email change OTP", 503);
   }
 
-  await removeEmailChangeAttempts(updatedUser.id);
+  try {
+    await removeEmailChangeAttempts(updatedUser.id);
+  } catch (error) {
+    console.error("[sendEmailChange] Failed to clear OTP attempts", {
+      userId,
+      newEmail,
+      error,
+    });
+  }
 
   return {
     emailChangeOtpExpireAt: updatedUser.emailChangeOtpExpireAt,

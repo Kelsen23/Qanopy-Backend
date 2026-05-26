@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 
-import { User } from "../../../generated/prisma/client.js";
+import { User } from "../../../generated/prisma/index.js";
 
 import { getUserNotifications } from "./user.notifications.helper.js";
 

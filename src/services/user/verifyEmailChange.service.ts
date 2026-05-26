@@ -141,10 +141,41 @@ const verifyEmailChange = async ({
     throw error;
   }
 
-  await cacheUser(updatedUser);
-  await cacheAuthUser(updatedUser);
-  await removeEmailChangeAttempts(foundUser.id);
-  await publishSocketDisconnect(updatedUser.id);
+  try {
+    await cacheUser(updatedUser);
+  } catch (error) {
+    console.error("[verifyEmailChange] Failed to refresh user cache", {
+      userId: updatedUser.id,
+      error,
+    });
+  }
+
+  try {
+    await cacheAuthUser(updatedUser);
+  } catch (error) {
+    console.error("[verifyEmailChange] Failed to refresh auth cache", {
+      userId: updatedUser.id,
+      error,
+    });
+  }
+
+  try {
+    await removeEmailChangeAttempts(foundUser.id);
+  } catch (error) {
+    console.error("[verifyEmailChange] Failed to clear OTP attempts", {
+      userId: updatedUser.id,
+      error,
+    });
+  }
+
+  try {
+    await publishSocketDisconnect(updatedUser.id);
+  } catch (error) {
+    console.error("[verifyEmailChange] Failed to disconnect sessions", {
+      userId: updatedUser.id,
+      error,
+    });
+  }
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = securityNoticeHtml(
