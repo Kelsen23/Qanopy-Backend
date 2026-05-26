@@ -2,6 +2,8 @@ import { createRequire } from "module";
 
 import z from "zod";
 
+import { activeEmailSchema, otpSchema } from "./auth.schema.js";
+
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
 
@@ -29,7 +31,9 @@ const bioSchema = z
     message: "Bio contains inappropriate language",
   });
 
-const profilePictureObjectKeySchema = z.string().nonempty("objectKey is required");
+const profilePictureObjectKeySchema = z
+  .string()
+  .nonempty("objectKey is required");
 
 const notificationSettingsSchema = z
   .object({
@@ -54,6 +58,10 @@ const updateProfilePictureSchema = z.object({
   objectKey: profilePictureObjectKeySchema,
 });
 
+const sendEmailChangeSchema = z.object({
+  newEmail: activeEmailSchema,
+});
+
 const updateProfileSchema = z
   .object({
     displayName: displayNameSchema.nullable().optional(),
@@ -73,11 +81,17 @@ const markNotificationsAsSeenSchema = z.object({
   notificationIds: notificationIdsSchema,
 });
 
+const verifyEmailChangeSchema = z.object({
+  otp: otpSchema,
+});
+
 export {
   updateProfilePictureSchema,
+  sendEmailChangeSchema,
   updateProfileSchema,
   updateNotificationSettingsSchema,
   markNotificationsAsSeenSchema,
+  verifyEmailChangeSchema,
   displayNameSchema,
   bioSchema,
   profilePictureObjectKeySchema,
