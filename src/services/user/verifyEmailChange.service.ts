@@ -43,6 +43,8 @@ const verifyEmailChange = async ({
       username: true,
       isVerified: true,
       tokenVersion: true,
+      authProvider: true,
+      createdAt: true,
       emailChangePendingEmail: true,
       emailChangeOtp: true,
       emailChangeOtpExpireAt: true,
@@ -51,6 +53,13 @@ const verifyEmailChange = async ({
   });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+  if (await handleExpiredUnverifiedUser(foundUser)) {
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
+  }
 
   const previousEmail = foundUser.email;
 

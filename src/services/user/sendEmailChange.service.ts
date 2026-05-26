@@ -46,6 +46,17 @@ const sendEmailChange = async ({
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
+  if (await handleExpiredUnverifiedUser(foundUser)) {
+    throw new HttpError(
+      "Email verification expired, please sign up again",
+      410,
+    );
+  }
+
+  if (foundUser.authProvider !== "LOCAL") {
+    throw new HttpError("Email change not applicable", 400);
+  }
+
   if (foundUser.email === newEmail) {
     throw new HttpError("New email must be different from current email", 400);
   }
@@ -90,7 +101,15 @@ const sendEmailChange = async ({
     },
   });
 
-  await removeEmailChangeAttempts(updatedUser.id);
+  try {
+    await removeEmailChangeAttempts(updatedUser.id);
+  } catch (error) {
+    console.error("[sendEmailChange] Failed to clear OTP attempts", {
+      userId,
+      newEmail,
+      error,
+    });
+  }
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = emailChangeHtml(
