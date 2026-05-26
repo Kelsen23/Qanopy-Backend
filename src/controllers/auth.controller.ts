@@ -181,8 +181,9 @@ const verifyResetPasswordOtp = asyncHandler(
 
 const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email, newPassword } = req.body;
+  const deviceInfo = getDeviceInfo(req);
 
-  await resetPasswordService({ email, newPassword });
+  await resetPasswordService({ email, newPassword, deviceInfo });
 
   return res
     .status(200)
@@ -193,11 +194,13 @@ const changePassword = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
+    const deviceInfo = getDeviceInfo(req);
 
     const { user } = await changePasswordService({
       userId,
       currentPassword,
       newPassword,
+      deviceInfo,
     });
 
     generateToken(res, user.id, user.tokenVersion);
