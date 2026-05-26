@@ -18,7 +18,7 @@ const moveS3Object = async (fromKey: string, toKey: string) => {
     console.warn(
       `Potential malicious attempt: user tried to move non-existent image ${fromKey}`,
     );
-    return;
+    return false;
   }
 
   const copyCommand = new CopyObjectCommand({
@@ -35,6 +35,7 @@ const moveS3Object = async (fromKey: string, toKey: string) => {
     await getS3().send(copyCommand);
   } catch (error) {
     console.error(`Failed to move image: ${error}`, 500);
+    return false;
   }
 
   const deleteCommand = new DeleteObjectCommand({
@@ -47,6 +48,8 @@ const moveS3Object = async (fromKey: string, toKey: string) => {
   } catch (error) {
     console.warn(`Warning: temp image not deleted: ${error}`);
   }
+
+  return true;
 };
 
 export default moveS3Object;

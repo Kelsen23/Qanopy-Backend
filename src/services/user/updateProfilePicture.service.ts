@@ -1,19 +1,14 @@
-import { cloudfrontDomain } from "../../config/s3.config.js";
-import { getRedisCacheClient } from "../../config/redis.config.js";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "crypto";
+
+import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
 
 import moveS3Object from "../../utils/moveS3Object.util.js";
-import sanitizeUser from "../../utils/sanitizeUser.util.js";
-
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
-import crypto from "crypto";
-
 const updateProfilePicture = async (userId: string, objectKey: string) => {
-  const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
-  const foundUser = cachedUser
-    ? JSON.parse(cachedUser)
-    : await prisma.user.findUnique({ where: { id: userId } });
+  const foundUser = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!foundUser) throw new Error("User not found");
 
@@ -23,19 +18,40 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
 
   const newObjectKey = `profilePictures/${randomImageName}.png`;
 
-  await moveS3Object(objectKey, newObjectKey);
+  const moved = await moveS3Object(objectKey, newObjectKey);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  if (!moved) {
+    return {
+      message: "Profile picture update skipped",
+      profilePictureUrl: null,
+    };
+  }
+
+  const updatedUser = await prisma.user.updateMany({
+    where: {
+      id: userId,
+      profilePictureKey: objectKey,
+    },
     data: { profilePictureKey: newObjectKey },
   });
 
-  await getRedisCacheClient().set(
-    `user:${updatedUser.id}`,
-    JSON.stringify(sanitizeUser(updatedUser)),
-    "EX",
-    60 * 20,
-  );
+  if (updatedUser.count === 0) {
+    console.warn(
+      `Skipped profile picture finalize for user ${userId}: temp key ${objectKey} no longer matched user state`,
+    );
+
+    await getS3().send(
+      new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: newObjectKey,
+      }),
+    );
+
+    return {
+      message: "Profile picture update skipped",
+      profilePictureUrl: null,
+    };
+  }
 
   const profilePictureUrl = `${cloudfrontDomain}/${newObjectKey}`;
   return {
