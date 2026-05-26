@@ -5,9 +5,12 @@ import {
   deleteProfilePicture,
   getNotificationSettings,
   markNotificationsAsSeen,
+  resendEmailChange,
+  sendEmailChange,
   updateProfile,
   updateProfilePicture,
   updateNotificationSettings,
+  verifyEmailChange,
 } from "../controllers/user.controller.js";
 
 import isAuthenticated, {
@@ -17,6 +20,9 @@ import isAuthenticated, {
 import validate from "../middlewares/validate.middleware.js";
 
 import {
+  userEmailChangeResendLimiterMiddleware,
+  userEmailChangeSendLimiterMiddleware,
+  userEmailChangeVerifyLimiterMiddleware,
   userAccountDeletionLimiterMiddleware,
   userNotificationSettingsLimiterMiddleware,
   userNotificationsSeenLimiterMiddleware,
@@ -27,9 +33,11 @@ import {
 
 import {
   markNotificationsAsSeenSchema,
+  sendEmailChangeSchema,
   updateNotificationSettingsSchema,
   updateProfilePictureSchema,
   updateProfileSchema,
+  verifyEmailChangeSchema,
 } from "../validations/user.schema.js";
 
 const router = express.Router();
@@ -64,13 +72,37 @@ router
   );
 
 router
-  .route("/account")
-  .delete(
+  .route("/email/change/send")
+  .post(
     isAuthenticated,
-    isVerified,
-    userAccountDeletionLimiterMiddleware,
-    deleteAccount,
+    requireActiveUser,
+    userEmailChangeSendLimiterMiddleware,
+    validate(sendEmailChangeSchema),
+    sendEmailChange,
   );
+
+router
+  .route("/email/change/resend")
+  .post(
+    isAuthenticated,
+    requireActiveUser,
+    userEmailChangeResendLimiterMiddleware,
+    resendEmailChange,
+  );
+
+router
+  .route("/email/change/verify")
+  .post(
+    isAuthenticated,
+    requireActiveUser,
+    userEmailChangeVerifyLimiterMiddleware,
+    validate(verifyEmailChangeSchema),
+    verifyEmailChange,
+  );
+
+router
+  .route("/account")
+  .delete(isAuthenticated, userAccountDeletionLimiterMiddleware, deleteAccount);
 
 router
   .route("/notifications/settings")
