@@ -8,7 +8,6 @@ import HttpError from "../utils/httpError.util.js";
 import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
 
 import prisma from "../config/prisma.config.js";
-
 import { getRedisCacheClient } from "../config/redis.config.js";
 
 type AuthenticatedUser = {
