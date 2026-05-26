@@ -2,8 +2,6 @@ import mongoose from "mongoose";
 
 import { Redis } from "ioredis";
 
-import { GraphQLScalarType, Kind } from "graphql";
-
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
@@ -108,40 +106,7 @@ interface SearchQuestionStage {
 const isInterest = (tag: string): tag is Interest =>
   interests.includes(tag as Interest);
 
-const parseJsonLiteral = (ast: any): any => {
-  switch (ast.kind) {
-    case Kind.STRING:
-    case Kind.BOOLEAN:
-      return ast.value;
-    case Kind.INT:
-    case Kind.FLOAT:
-      return Number(ast.value);
-    case Kind.OBJECT: {
-      const value: Record<string, any> = {};
-      for (const field of ast.fields) {
-        value[field.name.value] = parseJsonLiteral(field.value);
-      }
-      return value;
-    }
-    case Kind.LIST:
-      return ast.values.map(parseJsonLiteral);
-    case Kind.NULL:
-      return null;
-    default:
-      return null;
-  }
-};
-
-const jsonScalar = new GraphQLScalarType({
-  name: "JSON",
-  description: "Arbitrary JSON value",
-  serialize: (value) => value,
-  parseValue: (value) => value,
-  parseLiteral: parseJsonLiteral,
-});
-
 const questionResolver = {
-  JSON: jsonScalar,
   Query: {
     recommendedQuestions: async (
       _: any,
