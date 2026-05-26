@@ -1,11 +1,13 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import crypto from "crypto";
 
 import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
 
 import moveS3Object from "../../utils/moveS3Object.util.js";
+
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
+
+import crypto from "crypto";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
   const foundUser = await prisma.user.findUnique({ where: { id: userId } });
