@@ -1,7 +1,7 @@
 import { clearNotificationCache } from "../../utils/clearCache.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 import HttpError from "../../utils/httpError.util.js";
 import buildDeletedUserData from "../../utils/buildDeletedUserData.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
 import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
 import sanitizeUser from "../../utils/sanitizeUser.util.js";
 
