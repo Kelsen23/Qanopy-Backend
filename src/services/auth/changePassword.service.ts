@@ -90,26 +90,34 @@ const changePassword = async ({
     getDeviceIp(deviceInfo),
   );
 
-  await emailQueue.add(
-    "SEND_PASSWORD_CHANGED_EMAIL",
-    {
-      email: updatedUser.email,
+  try {
+    await emailQueue.add(
+      "SEND_PASSWORD_CHANGED_EMAIL",
+      {
+        email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "PASSWORD_CHANGED",
+        subject: "Password Changed",
+        htmlContent,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_PASSWORD_CHANGED_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
+    );
+  } catch (error) {
+    console.error("[changePassword] Failed to enqueue security notice", {
       userId: updatedUser.id,
-      purpose: "PASSWORD_CHANGED",
-      subject: "Password Changed",
-      htmlContent,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeUniqueJobId(
-        "email",
-        "SEND_PASSWORD_CHANGED_EMAIL",
-        updatedUser.id,
-        updatedUser.email,
-      ),
-    },
-  );
+      email: updatedUser.email,
+      error,
+    });
+  }
 
   return { user: updatedUser };
 };

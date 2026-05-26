@@ -130,26 +130,34 @@ const verifyEmailChange = async ({
     getDeviceIp(deviceInfo),
   );
 
-  await emailQueue.add(
-    "SEND_EMAIL_CHANGED_EMAIL",
-    {
-      email: previousEmail,
+  try {
+    await emailQueue.add(
+      "SEND_EMAIL_CHANGED_EMAIL",
+      {
+        email: previousEmail,
+        userId: updatedUser.id,
+        purpose: "EMAIL_CHANGED",
+        subject: "Email Changed",
+        htmlContent,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_EMAIL_CHANGED_EMAIL",
+          updatedUser.id,
+          previousEmail,
+        ),
+      },
+    );
+  } catch (error) {
+    console.error("[verifyEmailChange] Failed to enqueue security notice", {
       userId: updatedUser.id,
-      purpose: "EMAIL_CHANGED",
-      subject: "Email Changed",
-      htmlContent,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeUniqueJobId(
-        "email",
-        "SEND_EMAIL_CHANGED_EMAIL",
-        updatedUser.id,
-        previousEmail,
-      ),
-    },
-  );
+      email: previousEmail,
+      error,
+    });
+  }
 
   return { user: sanitizeUser(updatedUser) };
 };

@@ -5,11 +5,11 @@ import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
 import { emailChangeHtml } from "../../utils/renderTemplate.util.js";
 
 import prisma from "../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import emailQueue from "../../queues/email.queue.js";
 
 import {
-  cacheUser,
   getDeviceIp,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
@@ -38,6 +38,7 @@ const sendEmailChange = async ({
       isVerified: true,
       createdAt: true,
       emailChangePendingEmail: true,
+      emailChangeOtp: true,
       emailChangeOtpExpireAt: true,
       emailChangeOtpResendAvailableAt: true,
     },
@@ -71,6 +72,11 @@ const sendEmailChange = async ({
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const emailChangeOtpExpireAt = new Date(Date.now() + 2 * 60 * 1000);
   const emailChangeOtpResendAvailableAt = new Date(Date.now() + 30 * 1000);
+  const previousPendingEmail = foundUser.emailChangePendingEmail;
+  const previousOtp = foundUser.emailChangeOtp;
+  const previousOtpExpireAt = foundUser.emailChangeOtpExpireAt;
+  const previousOtpResendAvailableAt =
+    foundUser.emailChangeOtpResendAvailableAt;
 
   const hashedOtp = await bcrypt.hash(otp, 6);
 
@@ -85,7 +91,6 @@ const sendEmailChange = async ({
   });
 
   await removeEmailChangeAttempts(updatedUser.id);
-  await cacheUser(updatedUser);
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = emailChangeHtml(
@@ -95,27 +100,49 @@ const sendEmailChange = async ({
     getDeviceIp(deviceInfo),
   );
 
-  await emailQueue.add(
-    "SEND_EMAIL_CHANGE",
-    {
-      email: updatedUser.emailChangePendingEmail,
-      userId: updatedUser.id,
-      purpose: "CHANGE_EMAIL",
-      subject: "Change Email Request",
-      htmlContent,
-      otp,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeUniqueJobId(
-        "email",
-        "SEND_EMAIL_CHANGE",
-        updatedUser.id,
-        updatedUser.emailChangePendingEmail,
-      ),
-    },
-  );
+  try {
+    await emailQueue.add(
+      "SEND_EMAIL_CHANGE",
+      {
+        email: updatedUser.emailChangePendingEmail,
+        userId: updatedUser.id,
+        purpose: "CHANGE_EMAIL",
+        subject: "Change Email Request",
+        htmlContent,
+        otp,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_EMAIL_CHANGE",
+          updatedUser.id,
+          updatedUser.emailChangePendingEmail,
+        ),
+      },
+    );
+  } catch (error) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailChangePendingEmail: previousPendingEmail,
+        emailChangeOtp: previousOtp,
+        emailChangeOtpExpireAt: previousOtpExpireAt,
+        emailChangeOtpResendAvailableAt: previousOtpResendAvailableAt,
+      },
+    });
+
+    await getRedisCacheClient().del(`user:${userId}`);
+
+    console.error("[sendEmailChange] Failed to enqueue email change OTP", {
+      userId,
+      newEmail,
+      error,
+    });
+
+    throw new HttpError("Failed to send email change OTP", 503);
+  }
 
   return {
     emailChangeOtpExpireAt: updatedUser.emailChangeOtpExpireAt,

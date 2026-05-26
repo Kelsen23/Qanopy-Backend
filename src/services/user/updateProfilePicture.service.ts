@@ -1,9 +1,11 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
 
 import moveS3Object from "../../utils/moveS3Object.util.js";
+import { cacheUser } from "../auth/auth.shared.js";
 
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
@@ -53,6 +55,15 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
       message: "Profile picture update skipped",
       profilePictureUrl: null,
     };
+  }
+
+  const refreshedUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (refreshedUser) {
+    await cacheUser(refreshedUser);
+    await getRedisCacheClient().del(`auth:user:${userId}`);
   }
 
   const profilePictureUrl = `${cloudfrontDomain}/${newObjectKey}`;

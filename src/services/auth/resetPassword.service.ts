@@ -96,26 +96,34 @@ const resetPassword = async ({
     getDeviceIp(deviceInfo),
   );
 
-  await emailQueue.add(
-    "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
-    {
-      email: updatedUser.email,
+  try {
+    await emailQueue.add(
+      "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
+      {
+        email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "PASSWORD_RESET_COMPLETED",
+        subject: "Password Reset Completed",
+        htmlContent,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
+    );
+  } catch (error) {
+    console.error("[resetPassword] Failed to enqueue security notice", {
       userId: updatedUser.id,
-      purpose: "PASSWORD_RESET_COMPLETED",
-      subject: "Password Reset Completed",
-      htmlContent,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeUniqueJobId(
-        "email",
-        "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
-        updatedUser.id,
-        updatedUser.email,
-      ),
-    },
-  );
+      email: updatedUser.email,
+      error,
+    });
+  }
 
   return { user: updatedUser };
 };

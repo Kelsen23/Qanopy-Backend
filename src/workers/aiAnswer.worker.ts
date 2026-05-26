@@ -11,6 +11,7 @@ import Question from "../models/question.model.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 import prisma from "../config/prisma.config.js";
+import HttpError from "../utils/httpError.util.js";
 
 import fullAnswerService from "../services/question/aiAnswers/fullAnswer.service.js";
 import contextualAnswerService from "../services/question/aiAnswers/contextualAnswer.service.js";
@@ -34,13 +35,13 @@ async function startWorker() {
           )
           .lean();
 
-        if (!foundQuestion) throw new Error("Question not found");
+        if (!foundQuestion) throw new HttpError("Question not found", 404);
 
         if (!foundQuestion.isActive || foundQuestion.isDeleted)
-          throw new Error("Question not active");
+          throw new HttpError("Question not active", 410);
 
         if (foundQuestion.currentVersion !== version) {
-          throw new Error("Not current version");
+          throw new HttpError("Not current version", 409);
         }
 
         if (
@@ -49,18 +50,18 @@ async function startWorker() {
           ) ||
           foundQuestion.topicStatus !== "VALID"
         ) {
-          throw new Error("Question is not eligible for AI answer");
+          throw new HttpError("Question is not eligible for AI answer", 400);
         }
 
         if (
           !Array.isArray(foundQuestion.embedding) ||
           foundQuestion.embedding.length === 0
         ) {
-          throw new Error("Question does not have embedding");
+          throw new HttpError("Question does not have embedding", 400);
         }
 
         if (foundQuestion.embeddingStatus !== "READY") {
-          throw new Error("Embedding not ready");
+          throw new HttpError("Embedding not ready", 409);
         }
 
         const questionObjectId = new mongoose.Types.ObjectId(questionId);
