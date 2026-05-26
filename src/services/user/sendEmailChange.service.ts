@@ -128,7 +128,7 @@ const sendEmailChange = async ({
         purpose: "CHANGE_EMAIL",
         subject: "Change Email Request",
         htmlContent,
-        otp,
+        otpHash: hashedOtp,
       },
       {
         removeOnComplete: true,
@@ -162,6 +162,8 @@ const sendEmailChange = async ({
 
     throw new HttpError("Failed to send email change OTP", 503);
   }
+
+  await removeEmailChangeAttempts(updatedUser.id);
 
   return {
     emailChangeOtpExpireAt: updatedUser.emailChangeOtpExpireAt,

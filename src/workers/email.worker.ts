@@ -1,4 +1,3 @@
-import bcrypt from "bcrypt";
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
@@ -24,7 +23,7 @@ type EmailJobData = {
   htmlContent: string;
   userId?: string;
   purpose?: EmailJobPurpose;
-  otp?: string;
+  otpHash?: string;
 };
 
 type EmailWorkerUser = {
@@ -45,7 +44,7 @@ const shouldSkipForPurpose = async (
   user: EmailWorkerUser,
   purpose?: EmailJobPurpose,
   email?: string,
-  otp?: string,
+  otpHash?: string,
 ) => {
   if (user.isDeleted) return true;
 
@@ -94,14 +93,7 @@ const shouldSkipForPurpose = async (
       return true;
     }
 
-    if (!otp) return true;
-
-    const matchesCurrentOtp = await bcrypt.compare(
-      String(otp),
-      user.emailChangeOtp,
-    );
-
-    return !matchesCurrentOtp;
+    return otpHash !== user.emailChangeOtp;
   }
 
   return false;
@@ -111,7 +103,7 @@ async function startEmailWorker() {
   const worker = new Worker(
     "emailQueue",
     async (job) => {
-      const { email, subject, htmlContent, userId, purpose, otp } =
+      const { email, subject, htmlContent, userId, purpose, otpHash } =
         job.data as EmailJobData;
 
       if (userId) {
@@ -134,7 +126,7 @@ async function startEmailWorker() {
 
         if (!user) return;
 
-        if (await shouldSkipForPurpose(user, purpose, email, otp)) return;
+        if (await shouldSkipForPurpose(user, purpose, email, otpHash)) return;
       }
 
       await transporter.sendMail({

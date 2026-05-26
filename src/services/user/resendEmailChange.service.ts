@@ -73,8 +73,6 @@ const resendEmailChange = async ({
     },
   });
 
-  await removeEmailChangeAttempts(updatedUser.id);
-
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = emailChangeHtml(
     updatedUser.username,
@@ -92,7 +90,7 @@ const resendEmailChange = async ({
         purpose: "CHANGE_EMAIL",
         subject: "Change Email Request",
         htmlContent,
-        otp,
+        otpHash: hashedOtp,
       },
       {
         removeOnComplete: true,
@@ -105,6 +103,8 @@ const resendEmailChange = async ({
         ),
       },
     );
+
+    await removeEmailChangeAttempts(updatedUser.id);
   } catch (error) {
     await prisma.user.update({
       where: { id: userId },

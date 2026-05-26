@@ -20,8 +20,11 @@ import {
   removeEmailChangeAttempts,
 } from "./emailChange.shared.js";
 
+import { Prisma } from "../../generated/prisma/index.js";
+
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
+
 import emailQueue from "../../queues/email.queue.js";
 
 type VerifyEmailChangeInput = {
@@ -105,25 +108,38 @@ const verifyEmailChange = async ({
     }
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: foundUser.id },
-    data: {
-      email: foundUser.emailChangePendingEmail,
-      isVerified: true,
-      otp: null,
-      otpExpireAt: null,
-      otpResendAvailableAt: null,
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpExpireAt: null,
-      emailChangeOtpResendAvailableAt: null,
-      resetPasswordOtp: null,
-      resetPasswordOtpVerified: null,
-      resetPasswordOtpExpireAt: null,
-      resetPasswordOtpResendAvailableAt: null,
-      tokenVersion: { increment: 1 },
-    },
-  });
+  let updatedUser;
+
+  try {
+    updatedUser = await prisma.user.update({
+      where: { id: foundUser.id },
+      data: {
+        email: foundUser.emailChangePendingEmail,
+        isVerified: true,
+        otp: null,
+        otpExpireAt: null,
+        otpResendAvailableAt: null,
+        emailChangePendingEmail: null,
+        emailChangeOtp: null,
+        emailChangeOtpExpireAt: null,
+        emailChangeOtpResendAvailableAt: null,
+        resetPasswordOtp: null,
+        resetPasswordOtpVerified: null,
+        resetPasswordOtpExpireAt: null,
+        resetPasswordOtpResendAvailableAt: null,
+        tokenVersion: { increment: 1 },
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new HttpError("Email is already in use", 400);
+    }
+
+    throw error;
+  }
 
   await cacheUser(updatedUser);
   await cacheAuthUser(updatedUser);
