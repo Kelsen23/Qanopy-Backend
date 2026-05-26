@@ -1,0 +1,155 @@
+import bcrypt from "bcrypt";
+
+import HttpError from "../../utils/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import { securityNoticeHtml } from "../../utils/renderTemplate.util.js";
+import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
+import sanitizeUser from "../../utils/sanitizeUser.util.js";
+
+import {
+  cacheAuthUser,
+  cacheUser,
+  getDeviceIp,
+  handleExpiredUnverifiedUser,
+  type DeviceInfo,
+} from "../auth/auth.shared.js";
+
+import {
+  EMAIL_CHANGE_OTP_ATTEMPTS_TTL_SECONDS,
+  getEmailChangeAttemptsKey,
+  removeEmailChangeAttempts,
+} from "./emailChange.shared.js";
+
+import prisma from "../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+import emailQueue from "../../queues/email.queue.js";
+
+type VerifyEmailChangeInput = {
+  userId: string;
+  otp: string;
+  deviceInfo: DeviceInfo;
+};
+
+const verifyEmailChange = async ({
+  userId,
+  otp,
+  deviceInfo,
+}: VerifyEmailChangeInput) => {
+  const foundUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      tokenVersion: true,
+      emailChangePendingEmail: true,
+      emailChangeOtp: true,
+      emailChangeOtpExpireAt: true,
+      emailChangeOtpResendAvailableAt: true,
+    },
+  });
+
+  if (!foundUser) throw new HttpError("Invalid credentials", 404);
+
+  const previousEmail = foundUser.email;
+
+  if (
+    !foundUser.emailChangePendingEmail ||
+    !foundUser.emailChangeOtp ||
+    !foundUser.emailChangeOtpExpireAt ||
+    !foundUser.emailChangeOtpResendAvailableAt
+  ) {
+    throw new HttpError("Email change OTP not set", 400);
+  }
+
+  const attemptsKey = getEmailChangeAttemptsKey(foundUser.id);
+  const attempts = await getRedisCacheClient().get(attemptsKey);
+
+  if (attempts && Number(attempts) >= 5)
+    throw new HttpError(`Too many invalid attempts, OTP locked`, 400);
+
+  if (foundUser.emailChangeOtpExpireAt < new Date(Date.now())) {
+    throw new HttpError("Email change OTP expired", 400);
+  }
+
+  const isValidOtp = await bcrypt.compare(otp, foundUser.emailChangeOtp);
+
+  if (!isValidOtp) {
+    await getRedisCacheClient()
+      .multi()
+      .incr(attemptsKey)
+      .expire(attemptsKey, EMAIL_CHANGE_OTP_ATTEMPTS_TTL_SECONDS)
+      .exec();
+
+    throw new HttpError("Invalid email change OTP", 400);
+  }
+
+  const conflictingUser = await prisma.user.findFirst({
+    where: { email: foundUser.emailChangePendingEmail, isDeleted: false },
+    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
+  });
+
+  if (conflictingUser && conflictingUser.id !== foundUser.id) {
+    if (!(await handleExpiredUnverifiedUser(conflictingUser))) {
+      throw new HttpError("Email is already in use", 400);
+    }
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: foundUser.id },
+    data: {
+      email: foundUser.emailChangePendingEmail,
+      emailChangePendingEmail: null,
+      emailChangeOtp: null,
+      emailChangeOtpExpireAt: null,
+      emailChangeOtpResendAvailableAt: null,
+      otp: null,
+      otpExpireAt: null,
+      otpResendAvailableAt: null,
+      resetPasswordOtp: null,
+      resetPasswordOtpVerified: null,
+      resetPasswordOtpExpireAt: null,
+      resetPasswordOtpResendAvailableAt: null,
+      tokenVersion: { increment: 1 },
+    },
+  });
+
+  await cacheUser(updatedUser);
+  await cacheAuthUser(updatedUser);
+  await removeEmailChangeAttempts(foundUser.id);
+  await publishSocketDisconnect(updatedUser.id);
+
+  const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
+  const htmlContent = securityNoticeHtml(
+    foundUser.username,
+    "Email changed",
+    "Your account email has been changed successfully.",
+    deviceName,
+    getDeviceIp(deviceInfo),
+  );
+
+  await emailQueue.add(
+    "SEND_EMAIL_CHANGED_EMAIL",
+    {
+      email: previousEmail,
+      userId: updatedUser.id,
+      purpose: "EMAIL_CHANGED",
+      subject: "Email Changed",
+      htmlContent,
+    },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeUniqueJobId(
+        "email",
+        "SEND_EMAIL_CHANGED_EMAIL",
+        updatedUser.id,
+        previousEmail,
+      ),
+    },
+  );
+
+  return { user: sanitizeUser(updatedUser) };
+};
+
+export default verifyEmailChange;
