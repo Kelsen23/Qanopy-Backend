@@ -55,4 +55,39 @@ const resetPasswordHtml = (
   });
 };
 
-export { verificationHtml, resetPasswordHtml };
+const securityNoticeHtml = (
+  username: string,
+  title: string,
+  body: string,
+  deviceName: string,
+  deviceIp: string,
+) => {
+  return renderTemplate("securityNotice", {
+    username,
+    title,
+    body,
+    deviceName,
+    ip: deviceIp,
+  });
+};
+
+const emailChangeHtml = (
+  username: string,
+  otp: string,
+  deviceName: string,
+  deviceIp: string,
+) => {
+  return renderTemplate("emailChange", {
+    username,
+    otp,
+    deviceName,
+    ip: deviceIp,
+  });
+};
+
+export {
+  verificationHtml,
+  resetPasswordHtml,
+  securityNoticeHtml,
+  emailChangeHtml,
+};
