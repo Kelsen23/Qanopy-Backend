@@ -1,9 +1,9 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
-
-import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
+import type { Request } from "express";
 
 import { getRedisMessagingClient } from "../../config/redis.config.js";
-import type { Request } from "express";
+
+import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
 const userKeyResolver = (req: Request) =>
   (req as Request & { user?: { id?: string } }).user?.id || "unknown-user";
@@ -40,6 +40,27 @@ const notificationSettingsLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "user:notifications:settings",
   points: 12,
+  duration: 60 * 60,
+});
+
+const emailChangeSendLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "user:email-change:send",
+  points: 5,
+  duration: 60 * 60,
+});
+
+const emailChangeResendLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "user:email-change:resend",
+  points: 5,
+  duration: 15 * 60,
+});
+
+const emailChangeVerifyLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "user:email-change:verify",
+  points: 10,
   duration: 60 * 60,
 });
 
@@ -80,6 +101,24 @@ const userNotificationSettingsLimiterMiddleware = createRateLimiterMiddleware(
   userKeyResolver,
 );
 
+const userEmailChangeSendLimiterMiddleware = createRateLimiterMiddleware(
+  emailChangeSendLimiter,
+  "Too many email change requests from this account, please try again later",
+  userKeyResolver,
+);
+
+const userEmailChangeResendLimiterMiddleware = createRateLimiterMiddleware(
+  emailChangeResendLimiter,
+  "Too many email change resend requests from this account, please wait before requesting again",
+  userKeyResolver,
+);
+
+const userEmailChangeVerifyLimiterMiddleware = createRateLimiterMiddleware(
+  emailChangeVerifyLimiter,
+  "Too many email change verification attempts from this account, please try again later",
+  userKeyResolver,
+);
+
 const userNotificationsSeenLimiterMiddleware = createRateLimiterMiddleware(
   notificationsSeenLimiter,
   "Too many notification read requests from this account, please try again later",
@@ -92,5 +131,8 @@ export {
   userProfileUpdateLimiterMiddleware,
   userAccountDeletionLimiterMiddleware,
   userNotificationSettingsLimiterMiddleware,
+  userEmailChangeSendLimiterMiddleware,
+  userEmailChangeResendLimiterMiddleware,
+  userEmailChangeVerifyLimiterMiddleware,
   userNotificationsSeenLimiterMiddleware,
 };
