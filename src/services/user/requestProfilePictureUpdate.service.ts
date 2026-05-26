@@ -49,7 +49,7 @@ const requestProfilePictureUpdate = async ({
     },
   );
 
-  return { message: "Profile picture update queued for moderation" };
+  return { message: "Profile picture update submitted" };
 };
 
 export default requestProfilePictureUpdate;

@@ -86,7 +86,7 @@ const deleteAccount = async ({ userId }: DeleteAccountInput) => {
     },
   );
 
-  return { message: "Account deletion queued" };
+  return { message: "Account deletion submitted" };
 };
 
 export default deleteAccount;
