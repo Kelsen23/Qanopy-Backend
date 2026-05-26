@@ -4,8 +4,6 @@ import {
   redisMessagingClientConnection,
 } from "../config/redis.config.js";
 
-import HttpError from "../utils/httpError.util.js";
-
 import updateUserStats from "../utils/updateUserStats.util.js";
 
 import Question from "../models/question.model.js";
@@ -260,7 +258,7 @@ async function startWorker() {
       const { userId, action, mongoTargetId } = job.data;
       const stats = actionMap[action];
 
-      if (!stats) throw new HttpError(`Unknown action: ${action}`, 400);
+      if (!stats) throw new Error(`Unknown action: ${action}`);
 
       if (stats.prisma) {
         const { data } = stats.prisma;
@@ -275,7 +273,7 @@ async function startWorker() {
 
         const mongoModel = modelMap[model];
         const id = mongoTargetId || job.data[idKey];
-        if (!id) throw new HttpError("Mongo target ID missing for action", 400);
+        if (!id) throw new Error("Mongo target ID missing for action");
 
         await mongoModel.findByIdAndUpdate(id, update);
 

@@ -8,8 +8,6 @@ import connectMongoDB from "../config/mongodb.config.js";
 
 import { cloudfrontDomain } from "../config/s3.config.js";
 
-import HttpError from "../utils/httpError.util.js";
-
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import { makeJobId } from "../utils/makeJobId.util.js";
@@ -41,10 +39,10 @@ async function startWorker() {
       } else if (entityType === "ANSWER") {
         entity = await Answer.findById(entityId).select("body");
       } else {
-        throw new HttpError("Invalid job type", 500);
+        throw new Error("Invalid job type");
       }
 
-      if (!entity) throw new HttpError("Content not found", 404);
+      if (!entity) throw new Error("Content not found");
 
       let newBody = entity.body as string;
 

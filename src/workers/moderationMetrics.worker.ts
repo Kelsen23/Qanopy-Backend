@@ -3,8 +3,6 @@ import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import prisma from "../config/prisma.config.js";
 
-import HttpError from "../utils/httpError.util.js";
-
 const worker = new Worker(
   "moderationMetricsQueue",
   async (job) => {
@@ -15,7 +13,7 @@ const worker = new Worker(
         const stats = await prisma.moderationStats.findUnique({
           where: { userId },
         });
-        if (!stats) throw new HttpError("Moderation stats not found", 404);
+        if (!stats) throw new Error("Moderation stats not found");
 
         const newTrust = Math.max(0, Math.min(1, stats.trustScore - 0.25));
 
@@ -34,7 +32,7 @@ const worker = new Worker(
         const stats = await prisma.moderationStats.findUnique({
           where: { userId },
         });
-        if (!stats) throw new HttpError("Moderation stats not found", 404);
+        if (!stats) throw new Error("Moderation stats not found");
 
         const newTrust = Math.max(0, Math.min(1, stats.trustScore - 0.1));
 
@@ -54,7 +52,7 @@ const worker = new Worker(
         const stats = await prisma.moderationStats.findUnique({
           where: { userId },
         });
-        if (!stats) throw new HttpError("Moderation stats not found", 404);
+        if (!stats) throw new Error("Moderation stats not found");
 
         const newTrust = Math.max(0, Math.min(1, stats.trustScore - 0.03));
 
@@ -74,7 +72,7 @@ const worker = new Worker(
         const stats = await prisma.moderationStats.findUnique({
           where: { userId },
         });
-        if (!stats) throw new HttpError("Moderation stats not found", 404);
+        if (!stats) throw new Error("Moderation stats not found");
 
         const newTrust = Math.min(1, stats.trustScore + 0.01);
 

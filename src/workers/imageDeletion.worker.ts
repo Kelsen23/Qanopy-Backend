@@ -1,8 +1,6 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-import HttpError from "../utils/httpError.util.js";
-
 import deleteSingleImage from "../services/media/deleteSingleImage.service.js";
 import deleteImagesFromBody from "../services/media/deleteImageFromBody.service.js";
 
@@ -17,7 +15,7 @@ const worker = new Worker(
         await deleteImagesFromBody(job.data);
         break;
       default:
-        throw new HttpError("Invalid job type", 500);
+        throw new Error("Invalid job type");
     }
   },
   {
