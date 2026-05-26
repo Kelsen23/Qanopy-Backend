@@ -209,15 +209,22 @@ model User {
 
   notificationSettings NotificationSettings?
 
-  otp                               String?
-  otpResendAvailableAt              DateTime?
-  otpExpireAt                       DateTime?
+  otp                  String?
+  otpResendAvailableAt DateTime?
+  otpExpireAt          DateTime?
+
   resetPasswordOtp                  String?
   resetPasswordOtpVerified          Boolean?
   resetPasswordOtpResendAvailableAt DateTime?
   resetPasswordOtpExpireAt          DateTime?
-  isVerified                        Boolean      @default(false)
-  authProvider                      AuthProvider @default(LOCAL)
+
+  emailChangePendingEmail         String?
+  emailChangeOtp                  String?
+  emailChangeOtpResendAvailableAt DateTime?
+  emailChangeOtpExpireAt          DateTime?
+
+  isVerified   Boolean      @default(false)
+  authProvider AuthProvider @default(LOCAL)
 
   tokenVersion Int @default(0)
 
