@@ -19,7 +19,6 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "postbuild": "node scripts/copy-generated-prisma.mjs",
-
     "dev:email-worker": "tsx src/workers/email.worker.ts",
     "dev:contentModeration-worker": "tsx src/workers/contentModeration.worker.ts",
     "dev:questionVersioning-worker": "tsx src/workers/questionVersioning.worker.ts",
@@ -40,9 +39,7 @@
     "dev:similarQuestions-worker": "tsx src/workers/similarQuestions.worker.ts",
     "dev:userInterest-worker": "tsx src/workers/userInterest.worker.ts",
     "dev:unverifiedAccountCleanup-worker": "tsx src/workers/unverifiedAccountCleanup.worker.ts",
-
     "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:accountDeletion-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:topicDetermination-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\" \"npm run dev:userInterest-worker\" \"npm run dev:unverifiedAccountCleanup-worker\"",
-    
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
   },
@@ -71,7 +68,7 @@
     "leo-profanity": "^1.8.0",
     "mime-types": "^3.0.2",
     "mongodb": "^6.19.0",
-    "mongoose": "^8.18.0",
+    "mongoose": "^9.6.2",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
     "openai": "^6.9.1",
