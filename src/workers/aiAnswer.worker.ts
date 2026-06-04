@@ -3,8 +3,6 @@ import {
   redisMessagingClientConnection,
   getRedisCacheClient,
 } from "../config/redis.config.js";
-
-import HttpError from "../utils/httpError.util.js";
 import publishSocketEvent from "../utils/publishSocketEvent.util.js";
 
 import mongoose from "mongoose";
@@ -13,6 +11,7 @@ import Question from "../models/question.model.js";
 
 import connectMongoDB from "../config/mongodb.config.js";
 import prisma from "../config/prisma.config.js";
+import HttpError from "../utils/httpError.util.js";
 
 import fullAnswerService from "../services/question/aiAnswers/fullAnswer.service.js";
 import contextualAnswerService from "../services/question/aiAnswers/contextualAnswer.service.js";
@@ -39,10 +38,10 @@ async function startWorker() {
         if (!foundQuestion) throw new HttpError("Question not found", 404);
 
         if (!foundQuestion.isActive || foundQuestion.isDeleted)
-          throw new HttpError("Question not active", 400);
+          throw new HttpError("Question not active", 410);
 
         if (foundQuestion.currentVersion !== version) {
-          throw new HttpError("Not current version", 400);
+          throw new HttpError("Not current version", 409);
         }
 
         if (
@@ -62,7 +61,7 @@ async function startWorker() {
         }
 
         if (foundQuestion.embeddingStatus !== "READY") {
-          throw new HttpError("Embedding not ready", 400);
+          throw new HttpError("Embedding not ready", 409);
         }
 
         const questionObjectId = new mongoose.Types.ObjectId(questionId);

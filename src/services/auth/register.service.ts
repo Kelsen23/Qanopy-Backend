@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 
 import HttpError from "../../utils/httpError.util.js";
-import generateOAuthUsername from "../../utils/generateOAuthUsername.util.js";
 import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
 import { verificationHtml } from "../../utils/renderTemplate.util.js";
 

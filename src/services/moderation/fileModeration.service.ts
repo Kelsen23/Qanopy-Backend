@@ -11,12 +11,12 @@ import {
   Rekognition,
 } from "@aws-sdk/client-rekognition";
 
-import HttpError from "../../utils/httpError.util.js";
-
-import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
+import routeNotification from "../notification/routeNotification.service.js";
 
 import dotenv from "dotenv";
 dotenv.config();
+
+type ModeratedContentType = "PROFILE_PICTURE" | "CONTENT_IMAGE";
 
 const rekognition = new Rekognition({
   region: bucketRegion as string,
@@ -26,7 +26,11 @@ const rekognition = new Rekognition({
   },
 });
 
-const moderateFile = async (userId: string, objectKey: string) => {
+const moderateFile = async (
+  userId: string,
+  objectKey: string,
+  contentType: ModeratedContentType,
+) => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
     Image: { S3Object: { Bucket: bucketName, Name: objectKey } },
     MinConfidence: 70,
@@ -44,14 +48,24 @@ const moderateFile = async (userId: string, objectKey: string) => {
     try {
       await getS3().send(deleteCommand);
     } catch (error) {
-      throw new HttpError(`Couldn't delete an object: ${error}`, 500);
+      throw new Error(`Couldn't delete an object: ${error}`);
     }
 
-    await publishSocketEvent(userId, `unsafeFileDeleted`, { objectKey });
+    await routeNotification({
+      recipientId: userId,
+      event: "REMOVE_CONTENT",
+      target: {
+        entityType: "USER",
+        entityId: userId,
+      },
+      meta: {
+        objectKey,
+        contentType,
+      },
+    });
 
-    throw new HttpError(
+    throw new Error(
       `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
-      400,
     );
   }
 

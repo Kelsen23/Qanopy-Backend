@@ -1,73 +1,117 @@
 import express from "express";
 
 import {
-  deleteProfilePicture,
   deleteAccount,
+  deleteProfilePicture,
+  getNotificationSettings,
+  markNotificationsAsSeen,
+  resendEmailChange,
+  sendEmailChange,
   updateProfile,
   updateProfilePicture,
-  getNotificationSettings,
   updateNotificationSettings,
-  markNotificationsAsSeen,
+  verifyEmailChange,
 } from "../controllers/user.controller.js";
 
 import isAuthenticated, {
-  requireActiveUser,
   isVerified,
+  requireActiveUser,
 } from "../middlewares/auth.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 
 import {
-  updateProfilePictureSchema,
-  updateProfileSchema,
-  updateNotificationSettingsSchema,
-  markNotificationsAsSeenSchema,
-} from "../validations/user.schema.js";
+  userEmailChangeResendLimiterMiddleware,
+  userEmailChangeSendLimiterMiddleware,
+  userEmailChangeVerifyLimiterMiddleware,
+  userAccountDeletionLimiterMiddleware,
+  userNotificationSettingsLimiterMiddleware,
+  userNotificationsSeenLimiterMiddleware,
+  userProfilePictureDeleteLimiterMiddleware,
+  userProfilePictureUpdateLimiterMiddleware,
+  userProfileUpdateLimiterMiddleware,
+} from "../middlewares/rate-limiters/user.rate-limiters.js";
 
 import {
-  updateProfileLimiterMiddleware,
-  updateProfilePictureLimiterMiddleware,
-} from "../middlewares/rate-limiters/user.rate-limiters.js";
+  markNotificationsAsSeenSchema,
+  sendEmailChangeSchema,
+  updateNotificationSettingsSchema,
+  updateProfilePictureSchema,
+  updateProfileSchema,
+  verifyEmailChangeSchema,
+} from "../validations/user.schema.js";
 
 const router = express.Router();
 
 router
-  .route("/update/profile/picture")
+  .route("/picture")
   .put(
-    updateProfilePictureLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    userProfilePictureUpdateLimiterMiddleware,
     validate(updateProfilePictureSchema),
     updateProfilePicture,
+  )
+  .delete(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    userProfilePictureDeleteLimiterMiddleware,
+    deleteProfilePicture,
   );
 
 router
-  .route("/profile/picture")
-  .delete(isAuthenticated, isVerified, requireActiveUser, deleteProfilePicture);
-
-router.route("/account").delete(isAuthenticated, isVerified, deleteAccount);
-
-router
-  .route("/update/profile")
+  .route("/profile")
   .patch(
-    updateProfileLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    userProfileUpdateLimiterMiddleware,
     validate(updateProfileSchema),
     updateProfile,
   );
 
 router
-  .route("/settings/notifications")
-  .get(isAuthenticated, isVerified, requireActiveUser, getNotificationSettings);
+  .route("/email/change/send")
+  .post(
+    isAuthenticated,
+    requireActiveUser,
+    userEmailChangeSendLimiterMiddleware,
+    validate(sendEmailChangeSchema),
+    sendEmailChange,
+  );
 
 router
-  .route("/settings/notifications")
+  .route("/email/change/resend")
+  .post(
+    isAuthenticated,
+    requireActiveUser,
+    userEmailChangeResendLimiterMiddleware,
+    resendEmailChange,
+  );
+
+router
+  .route("/email/change/verify")
+  .post(
+    isAuthenticated,
+    requireActiveUser,
+    userEmailChangeVerifyLimiterMiddleware,
+    validate(verifyEmailChangeSchema),
+    verifyEmailChange,
+  );
+
+router
+  .route("/account")
+  .delete(isAuthenticated, userAccountDeletionLimiterMiddleware, deleteAccount);
+
+router
+  .route("/notifications/settings")
+  .get(isAuthenticated, isVerified, requireActiveUser, getNotificationSettings)
   .put(
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    userNotificationSettingsLimiterMiddleware,
     validate(updateNotificationSettingsSchema),
     updateNotificationSettings,
   );
@@ -78,6 +122,7 @@ router
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    userNotificationsSeenLimiterMiddleware,
     validate(markNotificationsAsSeenSchema),
     markNotificationsAsSeen,
   );

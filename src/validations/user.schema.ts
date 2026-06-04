@@ -2,10 +2,12 @@ import { createRequire } from "module";
 
 import z from "zod";
 
+import { activeEmailSchema, otpSchema } from "./auth.schema.js";
+
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
 
-const normalize = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
+const normalizeText = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
 
 const displayNameSchema = z
   .string()
@@ -18,34 +20,22 @@ const displayNameSchema = z
   .refine((displayName) => displayName.trim().length > 0, {
     message: "Display name cannot be only spaces",
   })
-  .refine((displayName) => !leoProfanity.check(normalize(displayName)), {
+  .refine((displayName) => !leoProfanity.check(normalizeText(displayName)), {
     message: "Display name contains inappropriate language",
   });
 
-const updateProfilePictureSchema = z.object({
-  objectKey: z.string().nonempty("objectKey is required"),
-});
+const bioSchema = z
+  .string()
+  .max(200, "Bio must be at most 200 characters")
+  .refine((bio) => (bio ? !leoProfanity.check(bio) : true), {
+    message: "Bio contains inappropriate language",
+  });
 
-const updateProfileSchema = z
-  .object({
-    displayName: displayNameSchema.nullable().optional(),
-    bio: z
-      .string()
-      .max(200, "Bio must be at most 200 characters")
-      .refine((bio) => (bio ? !leoProfanity.check(bio) : true), {
-        message: "Bio contains inappropriate language",
-      })
-      .optional(),
-  })
-  .strict()
-  .refine(
-    ({ displayName, bio }) => displayName !== undefined || bio !== undefined,
-    {
-      message: "At least one of displayName or bio is required",
-    },
-  );
+const profilePictureObjectKeySchema = z
+  .string()
+  .nonempty("objectKey is required");
 
-const updateNotificationSettingsSchema = z
+const notificationSettingsSchema = z
   .object({
     upvote: z.boolean(),
     downvote: z.boolean(),
@@ -59,16 +49,52 @@ const updateNotificationSettingsSchema = z
   })
   .strict();
 
+const notificationIdsSchema = z
+  .array(z.string("Only strings allowed as notification ids"))
+  .max(100, "Max of 100 notification allowed to be passed")
+  .nonempty({ message: "There must be at least one notification" });
+
+const updateProfilePictureSchema = z.object({
+  objectKey: profilePictureObjectKeySchema,
+});
+
+const sendEmailChangeSchema = z.object({
+  newEmail: activeEmailSchema,
+});
+
+const updateProfileSchema = z
+  .object({
+    displayName: displayNameSchema.nullable().optional(),
+    bio: bioSchema.optional(),
+  })
+  .strict()
+  .refine(
+    ({ displayName, bio }) => displayName !== undefined || bio !== undefined,
+    {
+      message: "At least one of displayName or bio is required",
+    },
+  );
+
+const updateNotificationSettingsSchema = notificationSettingsSchema;
+
 const markNotificationsAsSeenSchema = z.object({
-  notificationIds: z
-    .array(z.string("Only strings allowed as notification ids"))
-    .max(100, "Max of 100 notification allowed to be passed")
-    .nonempty({ message: "There must be at least one notification" }),
+  notificationIds: notificationIdsSchema,
+});
+
+const verifyEmailChangeSchema = z.object({
+  otp: otpSchema,
 });
 
 export {
   updateProfilePictureSchema,
+  sendEmailChangeSchema,
   updateProfileSchema,
   updateNotificationSettingsSchema,
   markNotificationsAsSeenSchema,
+  verifyEmailChangeSchema,
+  displayNameSchema,
+  bioSchema,
+  profilePictureObjectKeySchema,
+  notificationSettingsSchema,
+  notificationIdsSchema,
 };

@@ -1,22 +1,32 @@
 import bcrypt from "bcrypt";
 
 import HttpError from "../../utils/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import { securityNoticeHtml } from "../../utils/renderTemplate.util.js";
 import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
+
+import {
+  getDeviceIp,
+  handleExpiredUnverifiedUser,
+  type DeviceInfo,
+  removeResetPasswordAttempts,
+} from "./auth.shared.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import {
-  handleExpiredUnverifiedUser,
-  removeResetPasswordAttempts,
-} from "./auth.shared.js";
+import emailQueue from "../../queues/email.queue.js";
 
 type ResetPasswordInput = {
   email: string;
   newPassword: string;
+  deviceInfo: DeviceInfo;
 };
 
-const resetPassword = async ({ email, newPassword }: ResetPasswordInput) => {
+const resetPassword = async ({
+  email,
+  newPassword,
+  deviceInfo,
+}: ResetPasswordInput) => {
   const foundUser = await prisma.user.findFirst({
     where: { email, isDeleted: false },
     select: {
@@ -76,6 +86,44 @@ const resetPassword = async ({ email, newPassword }: ResetPasswordInput) => {
   await removeResetPasswordAttempts(updatedUser.id);
 
   await publishSocketDisconnect(updatedUser.id);
+
+  const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
+  const htmlContent = securityNoticeHtml(
+    updatedUser.username,
+    "Password reset completed",
+    "Your password reset has been completed successfully.",
+    deviceName,
+    getDeviceIp(deviceInfo),
+  );
+
+  try {
+    await emailQueue.add(
+      "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
+      {
+        email: updatedUser.email,
+        userId: updatedUser.id,
+        purpose: "PASSWORD_RESET_COMPLETED",
+        subject: "Password Reset Completed",
+        htmlContent,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: makeUniqueJobId(
+          "email",
+          "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
+          updatedUser.id,
+          updatedUser.email,
+        ),
+      },
+    );
+  } catch (error) {
+    console.error("[resetPassword] Failed to enqueue security notice", {
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      error,
+    });
+  }
 
   return { user: updatedUser };
 };

@@ -1,8 +1,6 @@
 import { gql } from "graphql-tag";
 
 const questionTypeDefs = gql`
-  scalar JSON
-
   type Question {
     id: String!
     userId: String!

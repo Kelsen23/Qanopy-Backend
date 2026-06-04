@@ -21,7 +21,14 @@ const purgeAccountData = async ({
   profilePictureKey,
 }: DeleteAccountJobData) => {
   if (profilePictureKey) {
-    await deleteSingleImageService({ objectKey: profilePictureKey });
+    try {
+      await deleteSingleImageService({ objectKey: profilePictureKey });
+    } catch (error) {
+      console.warn(
+        `Could not delete profile picture for account ${userId}`,
+        error,
+      );
+    }
   }
 
   await Promise.all([

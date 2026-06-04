@@ -1,19 +1,17 @@
 import { Worker } from "bullmq";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-import HttpError from "../utils/httpError.util.js";
-
 import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
 import processContentImage from "../services/moderation/processContentImage.service.js";
 
 const worker = new Worker(
   "imageModerationQueue",
   async (job) => {
-    const { userId, objectKey } = job.data;
+    const { userId, objectKey, uploadFingerprint } = job.data;
 
     switch (job.name) {
       case "PROFILE_PICTURE":
-        await updateProfilePictureService(userId, objectKey);
+        await updateProfilePictureService(userId, objectKey, uploadFingerprint);
         break;
 
       case "CONTENT":
@@ -21,7 +19,7 @@ const worker = new Worker(
         break;
 
       default:
-        throw new HttpError("Invalid job type", 500);
+        throw new Error("Invalid job type");
     }
   },
 
