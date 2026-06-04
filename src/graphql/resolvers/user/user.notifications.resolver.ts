@@ -2,7 +2,11 @@ import { Redis } from "ioredis";
 
 import { User } from "../../../generated/prisma/index.js";
 
-import { getUserNotifications } from "./user.notifications.helper.js";
+import {
+  type NotificationCursor,
+  type NotificationPage,
+  getUserNotifications,
+} from "./user.notifications.helper.js";
 
 const userNotificationsResolver = {
   Query: {
@@ -12,7 +16,7 @@ const userNotificationsResolver = {
         cursor,
         limitCount = 10,
       }: {
-        cursor?: { id: string; createdAt: string };
+        cursor?: NotificationCursor;
         limitCount: number;
       },
       {
@@ -24,7 +28,7 @@ const userNotificationsResolver = {
         getRedisCacheClient: () => Redis;
         loaders: any;
       },
-    ) => {
+    ): Promise<NotificationPage> => {
       return getUserNotifications({
         userId: user.id,
         cursor,

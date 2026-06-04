@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 
-import mongoose from "mongoose";
+import mongoose, { PipelineStage } from "mongoose";
 
 import Notification from "../../../models/notification.model.js";
 
@@ -9,6 +9,54 @@ import HttpError from "../../../utils/httpError.util.js";
 type NotificationCursor = {
   id: string;
   createdAt: string;
+};
+
+type NotificationTarget = {
+  entityType:
+    | "QUESTION"
+    | "ANSWER"
+    | "REPLY"
+    | "AI_ANSWER_FEEDBACK"
+    | "REPORT"
+    | "USER";
+  entityId: string;
+  parentId?: string | null;
+  questionVersion?: number | null;
+};
+
+type NotificationRecord = {
+  id: string;
+  recipientId: string;
+  actorId: string | null;
+  event: string;
+  target: NotificationTarget;
+  meta: Record<string, unknown>;
+  seen: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type NotificationActor = {
+  id: string;
+  [key: string]: unknown;
+};
+
+type NotificationWithActor = NotificationRecord & {
+  actor: NotificationActor | null;
+};
+
+type CachedNotificationPage = {
+  notifications: NotificationRecord[];
+  nextCursor: NotificationCursor | null;
+  hasMore: boolean;
+  unreadCount: number;
+};
+
+type NotificationPage = {
+  notifications: NotificationWithActor[];
+  nextCursor: NotificationCursor | null;
+  hasMore: boolean;
+  unreadCount: number;
 };
 
 type UserNotificationsContext = {
@@ -23,8 +71,18 @@ type UserNotificationsContext = {
   };
 };
 
+type NotificationMatchStage = {
+  recipientId: string;
+  $or?: Array<
+    | { createdAt: { $lt: Date } }
+    | { createdAt: Date; _id: { $lt: mongoose.Types.ObjectId } }
+  >;
+};
+
 const normalizeLimitCount = (limitCount: number) =>
-  Number.isInteger(limitCount) && Number(limitCount) > 0 ? Number(limitCount) : 10;
+  Number.isInteger(limitCount) && Number(limitCount) > 0
+    ? Number(limitCount)
+    : 10;
 
 const buildNotificationsCacheKey = (
   userId: string,
@@ -47,6 +105,85 @@ const validateCursor = (cursor: NotificationCursor) => {
   }
 };
 
+const normalizeNotification = (notification: {
+  id: unknown;
+  recipientId: unknown;
+  actorId: unknown;
+  event: unknown;
+  target: NotificationTarget;
+  meta: unknown;
+  seen: unknown;
+  createdAt: unknown;
+  updatedAt: unknown;
+}): NotificationRecord => ({
+  id: String(notification.id),
+  recipientId: String(notification.recipientId),
+  actorId:
+    notification.actorId === null || notification.actorId === undefined
+      ? null
+      : String(notification.actorId),
+  event: String(notification.event),
+  target: notification.target,
+  meta:
+    notification.meta && typeof notification.meta === "object"
+      ? (notification.meta as Record<string, unknown>)
+      : {},
+  seen: Boolean(notification.seen),
+  createdAt: new Date(notification.createdAt as string).toISOString(),
+  updatedAt: new Date(notification.updatedAt as string).toISOString(),
+});
+
+const parseCachedPage = (cachedNotifications: string): CachedNotificationPage =>
+  JSON.parse(cachedNotifications) as CachedNotificationPage;
+
+const buildActorMap = async (
+  slicedNotifications: NotificationRecord[],
+  loaders: UserNotificationsContext["loaders"],
+) => {
+  const uniqueActorIds = [
+    ...new Set(
+      slicedNotifications
+        .map((notification) => notification.actorId)
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  ];
+
+  const actors = await loaders.userLoader.loadMany(uniqueActorIds);
+
+  return new Map(
+    actors
+      .filter(
+        (actor): actor is NotificationActor =>
+          Boolean(actor) &&
+          typeof actor === "object" &&
+          !Array.isArray(actor) &&
+          (() => {
+            const candidate = actor as Record<string, unknown>;
+            return "id" in candidate && typeof candidate.id === "string";
+          })(),
+      )
+      .map((actor) => [actor.id, actor] as const),
+  );
+};
+
+const hydrateNotifications = async (
+  notifications: NotificationRecord[],
+  loaders: UserNotificationsContext["loaders"],
+) => {
+  const actorMap = await buildActorMap(notifications, loaders);
+
+  return notifications.map<NotificationWithActor>((notification) => {
+    const actor = notification.actorId
+      ? (actorMap.get(notification.actorId) ?? null)
+      : null;
+
+    return {
+      ...notification,
+      actor,
+    };
+  });
+};
+
 const getUserNotifications = async ({
   userId,
   cursor,
@@ -55,6 +192,11 @@ const getUserNotifications = async ({
   loaders,
 }: UserNotificationsContext) => {
   const normalizedLimitCount = normalizeLimitCount(limitCount);
+
+  if (cursor) {
+    validateCursor(cursor);
+  }
+
   const cacheKey = buildNotificationsCacheKey(
     userId,
     cursor,
@@ -62,13 +204,24 @@ const getUserNotifications = async ({
   );
 
   const cachedNotifications = await getRedisCacheClient().get(cacheKey);
-  if (cachedNotifications) return JSON.parse(cachedNotifications);
+  if (cachedNotifications) {
+    const cachedPage = parseCachedPage(cachedNotifications);
+    const notificationsWithActors = await hydrateNotifications(
+      cachedPage.notifications,
+      loaders,
+    );
 
-  const matchStage = { recipientId: userId } as any;
+    return {
+      ...cachedPage,
+      notifications: notificationsWithActors,
+    } satisfies NotificationPage;
+  }
+
+  const matchStage: NotificationMatchStage = {
+    recipientId: userId,
+  };
 
   if (cursor) {
-    validateCursor(cursor);
-
     const cursorObjectId = new mongoose.Types.ObjectId(cursor.id);
     const cursorDate = new Date(cursor.createdAt);
 
@@ -81,7 +234,7 @@ const getUserNotifications = async ({
     ];
   }
 
-  const pipeline: any[] = [
+  const pipeline: PipelineStage[] = [
     { $match: matchStage },
     {
       $sort: {
@@ -106,7 +259,9 @@ const getUserNotifications = async ({
     },
   ];
 
-  const notifications = await Notification.aggregate(pipeline);
+  const notifications = (await Notification.aggregate(pipeline)).map(
+    normalizeNotification,
+  );
 
   const hasMore = notifications.length > normalizedLimitCount;
 
@@ -124,32 +279,13 @@ const getUserNotifications = async ({
     seen: false,
   });
 
-  const uniqueActorIds = [
-    ...new Set(
-      slicedNotifications
-        .map((notification) => notification.actorId)
-        .filter((id): id is string => typeof id === "string"),
-    ),
-  ];
-
-  const actors = await loaders.userLoader.loadMany(uniqueActorIds);
-
-  const actorMap = new Map(
-    actors
-      .filter((actor: any) => actor && !(actor instanceof Error))
-      .map((actor: any) => [actor.id, actor]),
+  const notificationsWithActors = await hydrateNotifications(
+    slicedNotifications,
+    loaders,
   );
 
-  const notificationsWithActors = slicedNotifications.map((notification) => {
-    const actor = notification.actorId
-      ? (actorMap.get(notification.actorId) ?? null)
-      : null;
-
-    return { ...notification, actor };
-  });
-
-  const result = {
-    notifications: notificationsWithActors,
+  const result: CachedNotificationPage = {
+    notifications: slicedNotifications,
     nextCursor:
       hasMore && lastNotification
         ? {
@@ -168,11 +304,19 @@ const getUserNotifications = async ({
     60 * 2,
   );
 
-  return result;
+  return {
+    ...result,
+    notifications: notificationsWithActors,
+  } satisfies NotificationPage;
 };
 
 export {
+  type CachedNotificationPage,
+  type NotificationActor,
   type NotificationCursor,
+  type NotificationPage,
+  type NotificationRecord,
+  type NotificationTarget,
   buildNotificationsCacheKey,
   getUserNotifications,
   normalizeLimitCount,
