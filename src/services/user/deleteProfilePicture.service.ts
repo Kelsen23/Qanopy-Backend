@@ -6,19 +6,11 @@ import prisma from "../../config/prisma.config.js";
 
 import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
 
-type CachedUser = {
-  profilePictureKey?: string | null;
-  profilePictureUrl?: string | null;
-};
-
 const deleteProfilePicture = async (userId: string) => {
-  const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
-  const foundUser: CachedUser | null = cachedUser
-    ? JSON.parse(cachedUser)
-    : await prisma.user.findUnique({
-        where: { id: userId },
-        select: { profilePictureKey: true, profilePictureUrl: true },
-      });
+  const foundUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { profilePictureKey: true, profilePictureUrl: true },
+  });
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
@@ -31,6 +23,7 @@ const deleteProfilePicture = async (userId: string) => {
     });
 
     await getRedisCacheClient().del(`user:${userId}`);
+    await getRedisCacheClient().del(`auth:user:${userId}`);
 
     await imageDeletionQueue.add(
       "DELETE_SINGLE",
@@ -57,6 +50,7 @@ const deleteProfilePicture = async (userId: string) => {
     });
 
     await getRedisCacheClient().del(`user:${userId}`);
+    await getRedisCacheClient().del(`auth:user:${userId}`);
 
     return {
       profilePictureKey: updatedUser.profilePictureKey,

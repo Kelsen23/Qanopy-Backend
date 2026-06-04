@@ -7,11 +7,11 @@ import processContentImage from "../services/moderation/processContentImage.serv
 const worker = new Worker(
   "imageModerationQueue",
   async (job) => {
-    const { userId, objectKey } = job.data;
+    const { userId, objectKey, uploadFingerprint } = job.data;
 
     switch (job.name) {
       case "PROFILE_PICTURE":
-        await updateProfilePictureService(userId, objectKey);
+        await updateProfilePictureService(userId, objectKey, uploadFingerprint);
         break;
 
       case "CONTENT":

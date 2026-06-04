@@ -12,7 +12,7 @@ const deleteSingleImageService = async ({
   try {
     await getS3().send(deleteCommand);
   } catch (error) {
-    console.warn(`Could not delete an ${objectKey}`, error);
+    throw new Error(`Could not delete image ${objectKey}: ${error}`);
   }
 };
 

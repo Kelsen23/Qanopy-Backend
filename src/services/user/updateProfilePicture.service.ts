@@ -1,20 +1,28 @@
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "crypto";
+import { DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
-import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
+import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
+
+import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
 import moveS3Object from "../../utils/moveS3Object.util.js";
 import { cacheUser } from "../auth/auth.shared.js";
 
-import moderateFileService from "../../services/moderation/fileModeration.service.js";
+type UploadFingerprint = {
+  eTag: string | null;
+  contentLength: number | null;
+};
 
-import crypto from "crypto";
-
-const updateProfilePicture = async (userId: string, objectKey: string) => {
+const updateProfilePicture = async (
+  userId: string,
+  objectKey: string,
+  uploadFingerprint?: UploadFingerprint,
+) => {
   const foundUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, profilePictureKey: true },
   });
 
   if (!foundUser) throw new Error("User not found");
@@ -23,16 +31,12 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
 
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      profilePictureKey: true,
-      profilePictureUrl: true,
-    },
+    select: { profilePictureKey: true },
   });
 
   if (
     !currentUser ||
     !currentUser.profilePictureKey ||
-    !currentUser.profilePictureUrl ||
     currentUser.profilePictureKey !== objectKey
   ) {
     console.warn(
@@ -43,6 +47,50 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
       message: "Profile picture update skipped",
       profilePictureUrl: null,
     };
+  }
+
+  if (uploadFingerprint) {
+    let currentObject: {
+      ETag?: string;
+      ContentLength?: number;
+    };
+
+    try {
+      currentObject = await getS3().send(
+        new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey,
+        }),
+      );
+    } catch {
+      console.warn(
+        `Skipped profile picture finalize for user ${userId}: temp key ${objectKey} could not be verified`,
+      );
+
+      return {
+        message: "Profile picture update skipped",
+        profilePictureUrl: null,
+      };
+    }
+
+    const currentFingerprint = {
+      eTag: currentObject.ETag ?? null,
+      contentLength: currentObject.ContentLength ?? null,
+    };
+
+    if (
+      currentFingerprint.eTag !== uploadFingerprint.eTag ||
+      currentFingerprint.contentLength !== uploadFingerprint.contentLength
+    ) {
+      console.warn(
+        `Skipped profile picture finalize for user ${userId}: temp key ${objectKey} no longer matched uploaded content`,
+      );
+
+      return {
+        message: "Profile picture update skipped",
+        profilePictureUrl: null,
+      };
+    }
   }
 
   const randomImageName = crypto.randomUUID();

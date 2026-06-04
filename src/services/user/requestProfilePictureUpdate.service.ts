@@ -1,8 +1,11 @@
-import HttpError from "../../utils/httpError.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import { HeadObjectCommand } from "@aws-sdk/client-s3";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
+import getS3, { bucketName } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
+
+import HttpError from "../../utils/httpError.util.js";
+import { makeJobId } from "../../utils/makeJobId.util.js";
 
 import imageModerationQueue from "../../queues/imageModeration.queue.js";
 
@@ -10,6 +13,11 @@ interface RequestProfilePictureUpdateInput {
   userId: string;
   objectKey: string;
 }
+
+type UploadFingerprint = {
+  eTag: string | null;
+  contentLength: number | null;
+};
 
 const requestProfilePictureUpdate = async ({
   userId,
@@ -24,6 +32,24 @@ const requestProfilePictureUpdate = async ({
     throw new HttpError("Invalid object key", 400);
   }
 
+  let uploadFingerprint: UploadFingerprint;
+
+  try {
+    const headResult = await getS3().send(
+      new HeadObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+      }),
+    );
+
+    uploadFingerprint = {
+      eTag: headResult.ETag ?? null,
+      contentLength: headResult.ContentLength ?? null,
+    };
+  } catch {
+    throw new HttpError("Uploaded image could not be verified", 400);
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: { profilePictureKey: objectKey },
@@ -36,6 +62,7 @@ const requestProfilePictureUpdate = async ({
     {
       userId,
       objectKey,
+      uploadFingerprint,
     },
     {
       removeOnComplete: true,
@@ -45,6 +72,8 @@ const requestProfilePictureUpdate = async ({
         "PROFILE_PICTURE",
         userId,
         objectKey,
+        uploadFingerprint.eTag ?? "no-etag",
+        uploadFingerprint.contentLength ?? "no-size",
       ),
     },
   );
