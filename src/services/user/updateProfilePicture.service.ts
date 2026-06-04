@@ -12,11 +12,38 @@ import moderateFileService from "../../services/moderation/fileModeration.servic
 import crypto from "crypto";
 
 const updateProfilePicture = async (userId: string, objectKey: string) => {
-  const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+  const foundUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
 
   if (!foundUser) throw new Error("User not found");
 
   await moderateFileService(userId, objectKey, "PROFILE_PICTURE");
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      profilePictureKey: true,
+      profilePictureUrl: true,
+    },
+  });
+
+  if (
+    !currentUser ||
+    !currentUser.profilePictureKey ||
+    !currentUser.profilePictureUrl ||
+    currentUser.profilePictureKey !== objectKey
+  ) {
+    console.warn(
+      `Skipped profile picture finalize for user ${userId}: temp key ${objectKey} no longer matched user state`,
+    );
+
+    return {
+      message: "Profile picture update skipped",
+      profilePictureUrl: null,
+    };
+  }
 
   const randomImageName = crypto.randomUUID();
 
