@@ -16,7 +16,7 @@ const updateProfilePicture = async (userId: string, objectKey: string) => {
 
   if (!foundUser) throw new Error("User not found");
 
-  await moderateFileService(userId, objectKey);
+  await moderateFileService(userId, objectKey, "PROFILE_PICTURE");
 
   const randomImageName = crypto.randomUUID();
 
