@@ -1,13 +1,5 @@
 import bcrypt from "bcrypt";
 
-import prisma from "../../config/prisma.config.js";
-
-import emailQueue from "../../queues/email.queue.js";
-
-import HttpError from "../../utils/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import { verificationHtml } from "../../utils/renderTemplate.util.js";
-
 import {
   cacheUser,
   getDeviceIp,
@@ -15,6 +7,16 @@ import {
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "./auth.shared.js";
+
+import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
+
+import prisma from "../../config/prisma.config.js";
+
+import HttpError from "../../utils/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import { verificationHtml } from "../../utils/renderTemplate.util.js";
+
+import emailQueue from "../../queues/email.queue.js";
 
 type RegisterInput = {
   username: string;
@@ -77,6 +79,8 @@ const register = async ({
   });
 
   await cacheUser(newUser);
+
+  await queueBadgeAward({ userId: newUser.id });
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = verificationHtml(

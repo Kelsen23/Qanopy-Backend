@@ -189,13 +189,14 @@ model User {
   profilePictureUrl String?
   profilePictureKey String?
 
-  bio              String? @db.VarChar(150)
-  reputationPoints Int     @default(0)
-  role             Role    @default(USER)
-  questionsAsked   Int     @default(0)
-  answersGiven     Int     @default(0)
-  acceptedAnswers  Int     @default(0)
-  bestAnswers      Int     @default(0)
+  bio              String?     @db.VarChar(150)
+  reputationPoints Int         @default(0)
+  role             Role        @default(USER)
+  questionsAsked   Int         @default(0)
+  answersGiven     Int         @default(0)
+  acceptedAnswers  Int         @default(0)
+  bestAnswers      Int         @default(0)
+  badgeAssignments UserBadge[]
 
   credits               Int       @default(20)
   creditsLastRedeemedAt DateTime?
@@ -238,6 +239,37 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Badge {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  iconKey  String?
+  colorKey String?
+  imageKey String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments UserBadge[]
+}
+
+model UserBadge {
+  userId  String
+  badgeId String
+
+  source    String?
+  awardedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
 }
 
 model NotificationSettings {
