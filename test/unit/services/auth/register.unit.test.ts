@@ -123,7 +123,6 @@ describe("register service", () => {
         otp: "hashed:211110:6",
         otpExpireAt: new Date(1_700_000_120_000),
         otpResendAvailableAt: new Date(1_700_000_030_000),
-        registeredStage: "DEMO",
         moderationStats: { create: {} },
         notificationSettings: { create: {} },
       },

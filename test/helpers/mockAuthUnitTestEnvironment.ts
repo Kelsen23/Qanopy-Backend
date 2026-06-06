@@ -9,7 +9,6 @@ const bcryptCompareResults = new Map<BcryptCompareKey, boolean>();
 
 const prismaUserFindFirst = vi.fn();
 const prismaUserFindUnique = vi.fn();
-const prismaAppConfigFindUnique = vi.fn(async () => null);
 const prismaUserFindMany = vi.fn();
 const prismaUserCreate = vi.fn();
 const prismaUserUpdate = vi.fn();
@@ -89,9 +88,6 @@ const prismaMocks = {
     update: prismaUserUpdate,
     deleteMany: prismaUserDeleteMany,
     delete: prismaUserDelete,
-  },
-  appConfig: {
-    findUnique: prismaAppConfigFindUnique,
   },
   achievement: {
     deleteMany: prismaDeleteManyAchievement,
@@ -184,7 +180,6 @@ export const mockAuthUnitTestEnvironment = {
   bcryptCompareResults,
   prismaUserFindFirst,
   prismaUserFindUnique,
-  prismaAppConfigFindUnique,
   prismaUserFindMany,
   prismaUserCreate,
   prismaUserUpdate,
@@ -229,7 +224,6 @@ export const resetAuthUnitTestEnvironment = () => {
 
   prismaUserFindFirst.mockReset();
   prismaUserFindUnique.mockReset();
-  prismaAppConfigFindUnique.mockReset().mockResolvedValue(null);
   prismaUserFindMany.mockReset();
   prismaUserCreate.mockReset();
   prismaUserUpdate.mockReset();
