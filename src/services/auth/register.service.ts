@@ -1,17 +1,16 @@
 import bcrypt from "bcrypt";
 
-import prisma from "../../config/prisma.config.js";
-
-import emailQueue from "../../queues/email.queue.js";
-
 import HttpError from "../../utils/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
 import { verificationHtml } from "../../utils/renderTemplate.util.js";
 
+import prisma from "../../config/prisma.config.js";
+
+import emailQueue from "../../queues/email.queue.js";
+
 import {
   cacheUser,
   getDeviceIp,
-  getRegisteredStage,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "./auth.shared.js";
@@ -58,8 +57,6 @@ const register = async ({
   const hashedPassword = await bcrypt.hash(password, 10);
   const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const registeredStage = await getRegisteredStage();
-
   const newUser = await prisma.$transaction(async (tx) => {
     return tx.user.create({
       data: {
@@ -69,7 +66,6 @@ const register = async ({
         otp: hashedOtp,
         otpExpireAt,
         otpResendAvailableAt,
-        registeredStage,
         moderationStats: { create: {} },
         notificationSettings: { create: {} },
       },

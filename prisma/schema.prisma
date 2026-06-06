@@ -172,13 +172,6 @@ enum AuthProvider {
   GITHUB
 }
 
-model AppConfig {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  updatedAt DateTime @default(now())
-}
-
 model User {
   id          String  @id @default(uuid())
   username    String  @unique @db.VarChar(20)
@@ -189,13 +182,14 @@ model User {
   profilePictureUrl String?
   profilePictureKey String?
 
-  bio              String? @db.VarChar(150)
-  reputationPoints Int     @default(0)
-  role             Role    @default(USER)
-  questionsAsked   Int     @default(0)
-  answersGiven     Int     @default(0)
-  acceptedAnswers  Int     @default(0)
-  bestAnswers      Int     @default(0)
+  bio              String?       @db.VarChar(150)
+  reputationPoints Int           @default(0)
+  role             Role          @default(USER)
+  questionsAsked   Int           @default(0)
+  answersGiven     Int           @default(0)
+  acceptedAnswers  Int           @default(0)
+  bestAnswers      Int           @default(0)
+  achievements     Achievement[]
 
   credits               Int       @default(20)
   creditsLastRedeemedAt DateTime?
@@ -233,8 +227,6 @@ model User {
   authProvider AuthProvider @default(LOCAL)
 
   tokenVersion Int @default(0)
-
-  registeredStage String @default("DEMO")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -274,6 +266,18 @@ model ModerationStats {
 
   lastStrikeAt DateTime?
   trustScore   Float     @default(1.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Achievement {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  name        String @db.VarChar(15)
+  description String @db.VarChar(100)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
