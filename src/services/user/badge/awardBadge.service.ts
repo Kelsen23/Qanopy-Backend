@@ -3,6 +3,8 @@ import { getBadgeRulesForTrigger } from "./rules/index.js";
 
 import prisma from "../../../config/prisma.config.js";
 
+import { clearUserBadgesCache } from "../../../utils/clearCache.util.js";
+
 type AwardBadgeInput = {
   userId: string;
   trigger: BadgeTrigger;
@@ -69,6 +71,8 @@ const awardBadge = async ({ userId, trigger }: AwardBadgeInput) => {
         source: trigger,
       },
     });
+
+    await clearUserBadgesCache(user.id);
   }
 };
 
