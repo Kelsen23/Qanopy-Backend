@@ -1,14 +1,15 @@
-import HttpError from "../../utils/httpError.util.js";
-import generateOAuthUsername from "../../utils/generateOAuthUsername.util.js";
-import verifyGoogleToken from "../../utils/verifyGoogleToken.util.js";
-
-import prisma from "../../config/prisma.config.js";
-
 import {
   cacheUser,
   getRegisteredStage,
   handleExpiredUnverifiedUser,
 } from "./auth.shared.js";
+import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
+
+import prisma from "../../config/prisma.config.js";
+
+import HttpError from "../../utils/httpError.util.js";
+import generateOAuthUsername from "../../utils/generateOAuthUsername.util.js";
+import verifyGoogleToken from "../../utils/verifyGoogleToken.util.js";
 
 type OAuthInput =
   | {
@@ -56,6 +57,8 @@ const registerOrLogin = async (input: OAuthInput) => {
 
       await cacheUser(newUser);
 
+      await queueBadgeAward({ userId: newUser.id });
+
       return { user: newUser, action: "registered" as const };
     }
 
@@ -101,6 +104,8 @@ const registerOrLogin = async (input: OAuthInput) => {
     });
 
     await cacheUser(newUser);
+
+    await queueBadgeAward({ userId: newUser.id });
 
     return { user: newUser, action: "registered" as const };
   }

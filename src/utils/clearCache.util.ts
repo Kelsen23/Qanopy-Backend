@@ -39,8 +39,13 @@ async function clearNotificationCache(userId: string) {
   await deleteKeysByPattern(`notifications:${userId}:*`);
 }
 
+async function clearUserBadgesCache(userId: string) {
+  await deleteKeysByPattern(`user:badges:${userId}:*`);
+}
+
 export {
   clearAnswerCache,
+  clearUserBadgesCache,
   clearReplyCache,
   clearVersionHistoryCache,
   clearReportsCache,
