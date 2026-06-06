@@ -4,7 +4,11 @@ import verifyGoogleToken from "../../utils/verifyGoogleToken.util.js";
 
 import prisma from "../../config/prisma.config.js";
 
-import { cacheUser, handleExpiredUnverifiedUser } from "./auth.shared.js";
+import {
+  cacheUser,
+  getRegisteredStage,
+  handleExpiredUnverifiedUser,
+} from "./auth.shared.js";
 
 type OAuthInput =
   | {
@@ -35,6 +39,7 @@ const registerOrLogin = async (input: OAuthInput) => {
 
     if (!foundUser) {
       const uniqueUsername = await generateOAuthUsername(name);
+      const registeredStage = await getRegisteredStage();
 
       const newUser = await prisma.user.create({
         data: {
@@ -43,6 +48,7 @@ const registerOrLogin = async (input: OAuthInput) => {
           profilePictureUrl: picture,
           isVerified: true,
           authProvider: "GOOGLE",
+          registeredStage,
           moderationStats: { create: {} },
           notificationSettings: { create: {} },
         },
@@ -61,7 +67,7 @@ const registerOrLogin = async (input: OAuthInput) => {
     return { user: foundUser, action: "loggedIn" as const };
   }
 
-  const githubRes = await fetch("https://api.github.com/user", {
+  const githubRes = await globalThis.fetch("https://api.github.com/user", {
     headers: { Authorization: `Bearer ${input.accessToken}` },
   });
 
@@ -79,6 +85,7 @@ const registerOrLogin = async (input: OAuthInput) => {
 
   if (!foundUser) {
     const uniqueUsername = await generateOAuthUsername(name);
+    const registeredStage = await getRegisteredStage();
 
     const newUser = await prisma.user.create({
       data: {
@@ -87,6 +94,7 @@ const registerOrLogin = async (input: OAuthInput) => {
         profilePictureUrl: avatar_url,
         isVerified: true,
         authProvider: "GITHUB",
+        registeredStage,
         moderationStats: { create: {} },
         notificationSettings: { create: {} },
       },

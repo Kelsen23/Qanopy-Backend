@@ -1,14 +1,6 @@
 import { gql } from "graphql-tag";
 
 const userBaseTypeDefs = gql`
-  type Achievement {
-    id: String!
-    userId: String!
-    name: String!
-    description: String!
-    createdAt: String!
-  }
-
   type User {
     id: String!
     username: String!
@@ -22,7 +14,6 @@ const userBaseTypeDefs = gql`
     questionsAsked: Int!
     answersGiven: Int!
     bestAnswers: Int!
-    achievements: [Achievement!]!
     status: String!
     isVerified: Boolean!
     createdAt: String!
