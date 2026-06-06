@@ -4,6 +4,7 @@ const sanitizeUser = (user: User) => {
   const {
     password,
     tokenVersion,
+    registeredStage,
     otp,
     otpResendAvailableAt,
     otpExpireAt,
