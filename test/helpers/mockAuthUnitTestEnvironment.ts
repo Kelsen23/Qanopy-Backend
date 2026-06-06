@@ -61,6 +61,7 @@ const queueBadgeAward = vi.fn(async () => undefined);
 
 const verifyGoogleToken = vi.fn();
 const generateOAuthUsername = vi.fn();
+const makeJobId = vi.fn((...parts: unknown[]) => parts.join("__"));
 const makeUniqueJobId = vi.fn(() => "unique-job-id");
 const verificationHtml = vi.fn(() => "<verification-email>");
 const resetPasswordHtml = vi.fn(() => "<reset-password-email>");
@@ -157,6 +158,7 @@ export const mockAuthUnitModules = {
     default: generateOAuthUsername,
   },
   makeJobId: {
+    makeJobId,
     makeUniqueJobId,
   },
   renderTemplate: {
@@ -227,6 +229,7 @@ export const mockAuthUnitTestEnvironment = {
   queueBadgeAward,
   verifyGoogleToken,
   generateOAuthUsername,
+  makeJobId,
   makeUniqueJobId,
   verificationHtml,
   resetPasswordHtml,
@@ -292,6 +295,9 @@ export const resetAuthUnitTestEnvironment = () => {
   queueBadgeAward.mockClear();
   verifyGoogleToken.mockReset();
   generateOAuthUsername.mockReset();
+  makeJobId.mockReset().mockImplementation((...parts: unknown[]) =>
+    parts.join("__"),
+  );
   makeUniqueJobId.mockReset();
   verificationHtml.mockReset();
   resetPasswordHtml.mockReset();

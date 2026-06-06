@@ -110,7 +110,7 @@ describe("accountDeletion worker", () => {
 
   it("rejects cleanly when worker construction fails", async () => {
     mockAuthWorkerTestEnvironment.workerConstructor.mockImplementationOnce(
-      () => {
+      function workerConstructorFailure() {
         throw new Error("worker failed");
       },
     );

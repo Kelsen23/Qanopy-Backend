@@ -31,6 +31,10 @@ vi.mock(
   "../../../../src/services/auth/unverifiedAccountCleanup.service.js",
   () => mockAuthUnitModules.unverifiedAccountCleanup,
 );
+vi.mock(
+  "../../../../src/services/user/badge/queueBadgeAward.service.js",
+  () => mockAuthUnitModules.queueBadgeAwardService,
+);
 
 const { default: register } = await import(
   "../../../../src/services/auth/register.service.js"
@@ -152,6 +156,9 @@ describe("register service", () => {
     );
     expect(result.user.id).toBe("user_1");
     expect(result.otpExpireAt).toEqual(new Date(1_700_000_120_000));
+    expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
+      userId: "user_1",
+    });
   });
 
   it("cleans up expired unverified users instead of blocking registration", async () => {
@@ -190,5 +197,8 @@ describe("register service", () => {
     expect(
       authUnitTestEnvironment.cleanupExpiredUnverifiedUserById,
     ).toHaveBeenCalledWith("user_old");
+    expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
+      userId: "user_2",
+    });
   });
 });
