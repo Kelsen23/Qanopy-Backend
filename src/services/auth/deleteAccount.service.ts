@@ -32,7 +32,6 @@ const purgeAccountData = async ({
   }
 
   await Promise.all([
-    prisma.achievement.deleteMany({ where: { userId } }),
     prisma.moderationStrike.deleteMany({ where: { userId } }),
     prisma.warning.deleteMany({ where: { userId } }),
     prisma.ban.deleteMany({ where: { userId } }),
