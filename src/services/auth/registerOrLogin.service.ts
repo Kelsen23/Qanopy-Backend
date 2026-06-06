@@ -2,8 +2,8 @@ import {
   cacheUser,
   getRegisteredStage,
   handleExpiredUnverifiedUser,
+  queueBadgeAwardSafely,
 } from "./auth.shared.js";
-import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -57,7 +57,7 @@ const registerOrLogin = async (input: OAuthInput) => {
 
       await cacheUser(newUser);
 
-      await queueBadgeAward({ userId: newUser.id });
+      await queueBadgeAwardSafely(newUser.id);
 
       return { user: newUser, action: "registered" as const };
     }
@@ -105,7 +105,7 @@ const registerOrLogin = async (input: OAuthInput) => {
 
     await cacheUser(newUser);
 
-    await queueBadgeAward({ userId: newUser.id });
+    await queueBadgeAwardSafely(newUser.id);
 
     return { user: newUser, action: "registered" as const };
   }

@@ -6,6 +6,8 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import sanitizeUser from "../../utils/sanitizeUser.util.js";
 import sanitizeUserForAuth from "../../utils/sanitizeUserForAuth.util.js";
 
+import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
+
 import {
   cleanupExpiredUnverifiedUserById,
   isExpiredUnverifiedLocalUser,
@@ -83,6 +85,14 @@ const handleExpiredUnverifiedUser = async (
   return true;
 };
 
+const queueBadgeAwardSafely = async (userId: string) => {
+  try {
+    await queueBadgeAward({ userId });
+  } catch (error) {
+    console.warn(`Failed to enqueue badge award for user ${userId}`, error);
+  }
+};
+
 export type { DeviceInfo };
 export {
   AUTH_CACHE_TTL_SECONDS,
@@ -92,4 +102,5 @@ export {
   removeResetPasswordAttempts,
   getRegisteredStage,
   handleExpiredUnverifiedUser,
+  queueBadgeAwardSafely,
 };

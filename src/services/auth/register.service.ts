@@ -5,10 +5,9 @@ import {
   getDeviceIp,
   getRegisteredStage,
   handleExpiredUnverifiedUser,
+  queueBadgeAwardSafely,
   type DeviceInfo,
 } from "./auth.shared.js";
-
-import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -80,8 +79,6 @@ const register = async ({
 
   await cacheUser(newUser);
 
-  await queueBadgeAward({ userId: newUser.id });
-
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = verificationHtml(
     username,
@@ -110,6 +107,8 @@ const register = async ({
       ),
     },
   );
+
+  await queueBadgeAwardSafely(newUser.id);
 
   return {
     user: newUser,
