@@ -158,6 +158,11 @@ describe("email worker", () => {
       authProvider: "LOCAL",
       isVerified: true,
       isDeleted: false,
+      otpExpireAt: null,
+      resetPasswordOtpExpireAt: new Date(Date.now() + 60_000),
+      emailChangePendingEmail: null,
+      emailChangeOtpExpireAt: null,
+      emailChangeOtp: null,
     });
     await worker.processor({
       name: "VERIFY",
@@ -208,6 +213,11 @@ describe("email worker", () => {
       authProvider: "LOCAL",
       isVerified: true,
       isDeleted: false,
+      otpExpireAt: null,
+      resetPasswordOtpExpireAt: new Date(Date.now() + 60_000),
+      emailChangePendingEmail: null,
+      emailChangeOtpExpireAt: null,
+      emailChangeOtp: null,
     });
 
     await worker.processor({

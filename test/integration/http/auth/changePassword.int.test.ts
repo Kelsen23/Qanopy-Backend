@@ -69,6 +69,12 @@ describe("POST /api/auth/password/change", () => {
       userId: "user_1",
       currentPassword: "Password1!",
       newPassword: "Password2!",
+      deviceInfo: {
+        browser: "Unknown Browser",
+        os: "Unknown OS",
+        ip: "localhost",
+        userAgent: "",
+      },
     });
   });
 

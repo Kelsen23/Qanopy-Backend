@@ -26,6 +26,10 @@ vi.mock(
   "../../../../src/services/auth/unverifiedAccountCleanup.service.js",
   () => mockAuthUnitModules.unverifiedAccountCleanup,
 );
+vi.mock(
+  "../../../../src/services/user/badge/queueBadgeAward.service.js",
+  () => mockAuthUnitModules.queueBadgeAwardService,
+);
 
 const { default: registerOrLogin } = await import(
   "../../../../src/services/auth/registerOrLogin.service.js"
@@ -99,6 +103,9 @@ describe("registerOrLogin service", () => {
         isVerified: true,
         authProvider: "GOOGLE",
       }),
+    });
+    expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
+      userId: "user_1",
     });
   });
 
@@ -176,6 +183,9 @@ describe("registerOrLogin service", () => {
         isVerified: true,
         authProvider: "GITHUB",
       }),
+    });
+    expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
+      userId: "user_1",
     });
   });
 });

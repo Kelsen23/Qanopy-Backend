@@ -26,6 +26,7 @@ const prismaDeleteManyBan = vi.fn();
 const prismaDeleteManyWarning = vi.fn();
 const prismaDeleteManyModerationStrike = vi.fn();
 const prismaDeleteManyAchievement = vi.fn();
+const prismaDeleteManyUserBadge = vi.fn();
 
 const redisGet = vi.fn(async (key: string) => redisStore.get(key) ?? null);
 const redisSet = vi.fn(async (key: string, value: string) => {
@@ -56,12 +57,15 @@ const bcryptCompare = vi.fn(async (value: string, hashed: string) => {
 const emailQueueAdd = vi.fn(async () => ({
   id: "job-id",
 }));
+const queueBadgeAward = vi.fn(async () => undefined);
 
 const verifyGoogleToken = vi.fn();
 const generateOAuthUsername = vi.fn();
 const makeUniqueJobId = vi.fn(() => "unique-job-id");
 const verificationHtml = vi.fn(() => "<verification-email>");
 const resetPasswordHtml = vi.fn(() => "<reset-password-email>");
+const securityNoticeHtml = vi.fn(() => "<security-notice-email>");
+const emailChangeHtml = vi.fn(() => "<email-change-email>");
 const publishSocketDisconnect = vi.fn(async () => undefined);
 const deleteSingleImageService = vi.fn(async () => undefined);
 const buildDeletedUserData = vi.fn(async () => ({
@@ -69,6 +73,7 @@ const buildDeletedUserData = vi.fn(async () => ({
   isDeleted: true,
 }));
 const clearNotificationCache = vi.fn(async () => undefined);
+const clearUserBadgesCache = vi.fn(async () => undefined);
 const cleanupExpiredUnverifiedUserById = vi.fn(async () => false);
 const isExpiredUnverifiedLocalUser = vi.fn(() => false);
 
@@ -95,6 +100,9 @@ const prismaMocks = {
   },
   achievement: {
     deleteMany: prismaDeleteManyAchievement,
+  },
+  userBadge: {
+    deleteMany: prismaDeleteManyUserBadge,
   },
   moderationStrike: {
     deleteMany: prismaDeleteManyModerationStrike,
@@ -126,6 +134,7 @@ export const mockAuthUnitModules = {
       multi: redisMulti,
       scan: redisScan,
     }),
+    redisMessagingClientConnection: {},
   },
   bcrypt: {
     default: {
@@ -137,6 +146,9 @@ export const mockAuthUnitModules = {
     default: {
       add: emailQueueAdd,
     },
+  },
+  queueBadgeAwardService: {
+    default: queueBadgeAward,
   },
   verifyGoogleToken: {
     default: verifyGoogleToken,
@@ -150,6 +162,8 @@ export const mockAuthUnitModules = {
   renderTemplate: {
     verificationHtml,
     resetPasswordHtml,
+    securityNoticeHtml,
+    emailChangeHtml,
   },
   publishSocketDisconnect: {
     default: publishSocketDisconnect,
@@ -166,6 +180,7 @@ export const mockAuthUnitModules = {
   },
   clearCacheUtil: {
     clearNotificationCache,
+    clearUserBadgesCache,
   },
   notificationModel: {
     default: {
@@ -199,6 +214,7 @@ export const mockAuthUnitTestEnvironment = {
   prismaDeleteManyWarning,
   prismaDeleteManyModerationStrike,
   prismaDeleteManyAchievement,
+  prismaDeleteManyUserBadge,
   redisGet,
   redisSet,
   redisDel,
@@ -208,15 +224,19 @@ export const mockAuthUnitTestEnvironment = {
   bcryptHash,
   bcryptCompare,
   emailQueueAdd,
+  queueBadgeAward,
   verifyGoogleToken,
   generateOAuthUsername,
   makeUniqueJobId,
   verificationHtml,
   resetPasswordHtml,
+  securityNoticeHtml,
+  emailChangeHtml,
   publishSocketDisconnect,
   deleteSingleImageService,
   buildDeletedUserData,
   clearNotificationCache,
+  clearUserBadgesCache,
   cleanupExpiredUnverifiedUserById,
   isExpiredUnverifiedLocalUser,
   notificationDeleteMany,
@@ -244,6 +264,7 @@ export const resetAuthUnitTestEnvironment = () => {
   prismaDeleteManyWarning.mockClear();
   prismaDeleteManyModerationStrike.mockClear();
   prismaDeleteManyAchievement.mockClear();
+  prismaDeleteManyUserBadge.mockClear();
 
   redisGet
     .mockReset()
@@ -268,15 +289,19 @@ export const resetAuthUnitTestEnvironment = () => {
   bcryptCompare.mockClear();
 
   emailQueueAdd.mockClear();
+  queueBadgeAward.mockClear();
   verifyGoogleToken.mockReset();
   generateOAuthUsername.mockReset();
   makeUniqueJobId.mockReset();
   verificationHtml.mockReset();
   resetPasswordHtml.mockReset();
+  securityNoticeHtml.mockReset();
+  emailChangeHtml.mockReset();
   publishSocketDisconnect.mockClear();
   deleteSingleImageService.mockClear();
   buildDeletedUserData.mockClear();
   clearNotificationCache.mockClear();
+  clearUserBadgesCache.mockClear();
   cleanupExpiredUnverifiedUserById.mockClear();
   isExpiredUnverifiedLocalUser.mockClear();
   notificationDeleteMany.mockClear();

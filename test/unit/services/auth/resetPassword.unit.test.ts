@@ -21,6 +21,18 @@ vi.mock(
   () => mockAuthUnitModules.publishSocketDisconnect,
 );
 vi.mock(
+  "../../../../src/queues/email.queue.js",
+  () => mockAuthUnitModules.emailQueue,
+);
+vi.mock(
+  "../../../../src/utils/makeJobId.util.js",
+  () => mockAuthUnitModules.makeJobId,
+);
+vi.mock(
+  "../../../../src/utils/renderTemplate.util.js",
+  () => mockAuthUnitModules.renderTemplate,
+);
+vi.mock(
   "../../../../src/services/auth/unverifiedAccountCleanup.service.js",
   () => mockAuthUnitModules.unverifiedAccountCleanup,
 );
@@ -36,13 +48,21 @@ describe("resetPassword service", () => {
     authUnitTestEnvironment.cleanupExpiredUnverifiedUserById.mockResolvedValue(
       false,
     );
+    authUnitTestEnvironment.makeUniqueJobId.mockReturnValue("job-id");
+    authUnitTestEnvironment.securityNoticeHtml.mockReturnValue(
+      "<security-notice-email>",
+    );
   });
 
   it("rejects missing users", async () => {
     authUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
 
     await expect(
-      resetPassword({ email: "alice@example.com", newPassword: "Password2!" }),
+      resetPassword({
+        email: "alice@example.com",
+        newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
+      }),
     ).rejects.toMatchObject({
       message: "Invalid credentials",
       statusCode: 404,
@@ -62,7 +82,11 @@ describe("resetPassword service", () => {
     });
 
     await expect(
-      resetPassword({ email: "alice@example.com", newPassword: "Password2!" }),
+      resetPassword({
+        email: "alice@example.com",
+        newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
+      }),
     ).rejects.toMatchObject({
       message: "OTP not verified",
       statusCode: 400,
@@ -83,7 +107,11 @@ describe("resetPassword service", () => {
     seedBcryptCompareResult("Password2!", "hashed:Password1!:10", true);
 
     await expect(
-      resetPassword({ email: "alice@example.com", newPassword: "Password2!" }),
+      resetPassword({
+        email: "alice@example.com",
+        newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
+      }),
     ).rejects.toMatchObject({
       message: "New password must be different from the old password",
       statusCode: 400,
@@ -105,12 +133,14 @@ describe("resetPassword service", () => {
     authUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
       id: "user_1",
       email: "alice@example.com",
+      username: "alice",
       password: "hashed:Password2!:10",
     });
 
     const result = await resetPassword({
       email: "alice@example.com",
       newPassword: "Password2!",
+      deviceInfo: { browser: "Chrome", os: "Linux", ip: "127.0.0.1" },
     });
 
     expect(result.user.id).toBe("user_1");
@@ -122,6 +152,19 @@ describe("resetPassword service", () => {
     );
     expect(authUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
       "user:user_1",
+    );
+    expect(authUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
+      "SEND_PASSWORD_RESET_COMPLETED_EMAIL",
+      expect.objectContaining({
+        email: "alice@example.com",
+        userId: "user_1",
+        purpose: "PASSWORD_RESET_COMPLETED",
+        subject: "Password Reset Completed",
+        htmlContent: "<security-notice-email>",
+      }),
+      expect.objectContaining({
+        jobId: "job-id",
+      }),
     );
   });
 });

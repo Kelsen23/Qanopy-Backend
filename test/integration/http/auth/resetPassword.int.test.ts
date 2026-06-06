@@ -56,6 +56,12 @@ describe("POST /api/auth/password/reset", () => {
     expect(mocks.resetPasswordService).toHaveBeenCalledWith({
       email: "test@example.com",
       newPassword: "Password2!",
+      deviceInfo: {
+        browser: "Unknown Browser",
+        os: "Unknown OS",
+        ip: "localhost",
+        userAgent: "",
+      },
     });
   });
 

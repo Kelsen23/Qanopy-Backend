@@ -6,8 +6,6 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import sanitizeUser from "../../utils/sanitizeUser.util.js";
 import sanitizeUserForAuth from "../../utils/sanitizeUserForAuth.util.js";
 
-import queueBadgeAward from "../user/badge/queueBadgeAward.service.js";
-
 import {
   cleanupExpiredUnverifiedUserById,
   isExpiredUnverifiedLocalUser,
@@ -87,6 +85,9 @@ const handleExpiredUnverifiedUser = async (
 
 const queueBadgeAwardSafely = async (userId: string) => {
   try {
+    const { default: queueBadgeAward } = await import(
+      "../user/badge/queueBadgeAward.service.js"
+    );
     await queueBadgeAward({ userId });
   } catch (error) {
     console.warn(`Failed to enqueue badge award for user ${userId}`, error);

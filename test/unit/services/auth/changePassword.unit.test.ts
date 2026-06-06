@@ -20,6 +20,18 @@ vi.mock(
   "../../../../src/utils/publishSocketDisconnect.util.js",
   () => mockAuthUnitModules.publishSocketDisconnect,
 );
+vi.mock(
+  "../../../../src/queues/email.queue.js",
+  () => mockAuthUnitModules.emailQueue,
+);
+vi.mock(
+  "../../../../src/utils/makeJobId.util.js",
+  () => mockAuthUnitModules.makeJobId,
+);
+vi.mock(
+  "../../../../src/utils/renderTemplate.util.js",
+  () => mockAuthUnitModules.renderTemplate,
+);
 
 const { default: changePassword } = await import(
   "../../../../src/services/auth/changePassword.service.js"
@@ -28,6 +40,10 @@ const { default: changePassword } = await import(
 describe("changePassword service", () => {
   beforeEach(() => {
     resetAuthUnitTestEnvironment();
+    authUnitTestEnvironment.makeUniqueJobId.mockReturnValue("job-id");
+    authUnitTestEnvironment.securityNoticeHtml.mockReturnValue(
+      "<security-notice-email>",
+    );
   });
 
   it("rejects missing users", async () => {
@@ -38,6 +54,7 @@ describe("changePassword service", () => {
         userId: "user_1",
         currentPassword: "Password1!",
         newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
       }),
     ).rejects.toMatchObject({
       message: "Invalid credentials",
@@ -47,6 +64,8 @@ describe("changePassword service", () => {
 
   it("rejects invalid current passwords", async () => {
     authUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
+      email: "alice@example.com",
+      username: "alice",
       password: "hashed:Password1!:10",
       authProvider: "LOCAL",
     });
@@ -57,6 +76,7 @@ describe("changePassword service", () => {
         userId: "user_1",
         currentPassword: "Password1!",
         newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
       }),
     ).rejects.toMatchObject({
       message: "Invalid current password",
@@ -66,6 +86,8 @@ describe("changePassword service", () => {
 
   it("rejects reusing the same password", async () => {
     authUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
+      email: "alice@example.com",
+      username: "alice",
       password: "hashed:Password1!:10",
       authProvider: "LOCAL",
     });
@@ -77,6 +99,7 @@ describe("changePassword service", () => {
         userId: "user_1",
         currentPassword: "Password1!",
         newPassword: "Password2!",
+        deviceInfo: { browser: "Chrome", os: "Linux" },
       }),
     ).rejects.toMatchObject({
       message: "New password must be different from the old password",
@@ -86,6 +109,8 @@ describe("changePassword service", () => {
 
   it("updates the password and invalidates auth caches", async () => {
     authUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
+      email: "alice@example.com",
+      username: "alice",
       password: "hashed:Password1!:10",
       authProvider: "LOCAL",
     });
@@ -93,6 +118,8 @@ describe("changePassword service", () => {
     seedBcryptCompareResult("Password2!", "hashed:Password1!:10", false);
     authUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
       id: "user_1",
+      email: "alice@example.com",
+      username: "alice",
       password: "hashed:Password2!:10",
     });
 
@@ -100,6 +127,7 @@ describe("changePassword service", () => {
       userId: "user_1",
       currentPassword: "Password1!",
       newPassword: "Password2!",
+      deviceInfo: { browser: "Chrome", os: "Linux", ip: "127.0.0.1" },
     });
 
     expect(result.user.id).toBe("user_1");
@@ -110,5 +138,18 @@ describe("changePassword service", () => {
       "auth:reset-password:attempts:user_1",
     );
     expect(authUnitTestEnvironment.redisSet).toHaveBeenCalled();
+    expect(authUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
+      "SEND_PASSWORD_CHANGED_EMAIL",
+      expect.objectContaining({
+        email: "alice@example.com",
+        userId: "user_1",
+        purpose: "PASSWORD_CHANGED",
+        subject: "Password Changed",
+        htmlContent: "<security-notice-email>",
+      }),
+      expect.objectContaining({
+        jobId: "job-id",
+      }),
+    );
   });
 });
