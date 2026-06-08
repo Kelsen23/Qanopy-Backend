@@ -2,7 +2,11 @@ import { vi } from "vitest";
 
 type MockWorkerInstance = {
   name: string;
-  processor: (job: { id?: string; name: string; data?: unknown }) => Promise<unknown>;
+  processor: (job: {
+    id?: string;
+    name: string;
+    data?: unknown;
+  }) => Promise<unknown>;
   options: Record<string, unknown>;
   on: ReturnType<typeof vi.fn>;
   events: Map<string, (...args: unknown[]) => unknown>;
@@ -87,16 +91,16 @@ export const mockEmailWorkerTestEnvironment = {
 export const resetEmailWorkerTestEnvironment = () => {
   workerInstances.splice(0, workerInstances.length);
 
-  workerConstructor.mockReset().mockImplementation(
-    function workerConstructorResetImpl(
+  workerConstructor
+    .mockReset()
+    .mockImplementation(function workerConstructorResetImpl(
       this: unknown,
       name: string,
       processor: MockWorkerInstance["processor"],
       options: Record<string, unknown>,
     ) {
       return buildWorkerInstance(name, processor, options);
-    },
-  );
+    });
 
   prismaUserFindUnique.mockReset();
   sendMail.mockReset().mockResolvedValue({ accepted: ["test@example.com"] });
