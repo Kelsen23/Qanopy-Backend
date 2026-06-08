@@ -317,11 +317,3 @@ export const resetAuthUnitTestEnvironment = () => {
 export const seedRedisValue = (key: string, value: unknown) => {
   redisStore.set(key, JSON.stringify(value));
 };
-
-export const seedBcryptCompareResult = (
-  plain: string,
-  hashed: string,
-  result: boolean,
-) => {
-  bcryptCompareResults.set(`${plain}::${hashed}`, result);
-};

@@ -1,8 +1,8 @@
-import createUserLoader from "../../src/dataloaders/user.loader.js";
-import authenticateGraphQLUser from "../../src/middlewares/graphqlAuth.middleware.js";
+import createUserLoader from "../../../src/dataloaders/user.loader.js";
+import authenticateGraphQLUser from "../../../src/middlewares/graphqlAuth.middleware.js";
 
-import prisma from "../../src/config/prisma.config.js";
-import { getRedisCacheClient } from "../../src/config/redis.config.js";
+import prisma from "../../../src/config/prisma.config.js";
+import { getRedisCacheClient } from "../../../src/config/redis.config.js";
 
 const createGraphqlAuthContext = async (req: {
   cookies?: {

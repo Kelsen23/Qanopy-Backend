@@ -2,7 +2,11 @@ import { vi } from "vitest";
 
 type MockWorkerInstance = {
   name: string;
-  processor: (job: { id?: string; name: string; data?: unknown }) => Promise<unknown>;
+  processor: (job: {
+    id?: string;
+    name: string;
+    data?: unknown;
+  }) => Promise<unknown>;
   options: Record<string, unknown>;
   on: ReturnType<typeof vi.fn>;
   events: Map<string, (...args: unknown[]) => unknown>;
@@ -102,5 +106,7 @@ export const resetAuthWorkerTestEnvironment = () => {
   cleanupAllExpiredUnverifiedUsers.mockReset().mockResolvedValue(0);
   deleteAccount.mockReset().mockResolvedValue(undefined);
   connectMongoDB.mockReset().mockResolvedValue(undefined);
-  unverifiedAccountCleanupQueueAdd.mockReset().mockResolvedValue({ id: "job-id" });
+  unverifiedAccountCleanupQueueAdd.mockReset().mockResolvedValue({
+    id: "job-id",
+  });
 };
