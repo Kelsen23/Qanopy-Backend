@@ -24,11 +24,17 @@ vi.mock(
   () => mockEmailWorkerModules.unverifiedAccountCleanupService,
 );
 
-const { startEmailWorker } = await import("../../../../src/workers/email.worker.js");
+const { startEmailWorker } = await import(
+  "../../../../src/workers/email.worker.js"
+);
 
 describe("email worker", () => {
-  const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const consoleLogSpy = vi
+    .spyOn(console, "log")
+    .mockImplementation(() => undefined);
+  const consoleErrorSpy = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => undefined);
   const originalEmail = process.env.QANOPY_EMAIL;
 
   beforeEach(() => {
@@ -90,7 +96,9 @@ describe("email worker", () => {
 
     const worker = mockEmailWorkerTestEnvironment.workerInstances[0];
 
-    mockEmailWorkerTestEnvironment.prismaUserFindUnique.mockResolvedValueOnce(null);
+    mockEmailWorkerTestEnvironment.prismaUserFindUnique.mockResolvedValueOnce(
+      null,
+    );
     await worker.processor({
       name: "VERIFY",
       id: "job-1",

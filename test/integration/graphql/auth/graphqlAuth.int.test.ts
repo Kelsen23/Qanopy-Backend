@@ -6,8 +6,8 @@ import {
   resetAuthMiddlewareEnvironment,
   seedJwtPayload,
   seedRedisAuthUser,
-} from "../../../helpers/mockAuthMiddlewareEnvironment.js";
-import createGraphqlAuthContext from "../../../helpers/createGraphqlAuthContext.js";
+} from "../../../helpers/auth/mockAuthMiddlewareEnvironment.js";
+import createGraphqlAuthContext from "../../../helpers/auth/createGraphqlAuthContext.js";
 
 vi.mock(
   "../../../../src/config/prisma.config.js",

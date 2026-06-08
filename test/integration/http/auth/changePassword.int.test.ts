@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 import { createAuthTestApp } from "../../../helpers/createTestApp.js";
-import { createAuthServiceModuleMock } from "../../../helpers/createAuthServiceModuleMock.js";
-import { mockAuthLimiters } from "../../../helpers/mockAuthLimiters.js";
+import { createAuthServiceModuleMock } from "../../../helpers/auth/createAuthServiceModuleMock.js";
+import { mockAuthLimiters } from "../../../helpers/auth/mockAuthLimiters.js";
 import {
   createMockAuthMiddlewareModule,
   mockAuthContextState,
   resetMockAuthContextState,
-} from "../../../helpers/mockAuthContext.js";
+} from "../../../helpers/auth/mockAuthContext.js";
 
 const mocks = vi.hoisted(() => ({
   changePasswordService: vi.fn(),

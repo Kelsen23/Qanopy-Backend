@@ -9,7 +9,7 @@ import {
   resetAuthMiddlewareEnvironment,
   seedJwtPayload,
   seedRedisAuthUser,
-} from "../../../helpers/mockAuthMiddlewareEnvironment.js";
+} from "../../../helpers/auth/mockAuthMiddlewareEnvironment.js";
 
 vi.mock(
   "../../../../src/config/prisma.config.js",

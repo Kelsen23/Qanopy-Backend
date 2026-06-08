@@ -4,7 +4,7 @@ import {
   mockAuthUnitTestEnvironment as authUnitTestEnvironment,
   mockAuthUnitModules,
   resetAuthUnitTestEnvironment,
-} from "../../../helpers/mockAuthUnitTestEnvironment.js";
+} from "../../../helpers/auth/mockAuthUnitTestEnvironment.js";
 
 vi.mock(
   "../../../../src/config/prisma.config.js",

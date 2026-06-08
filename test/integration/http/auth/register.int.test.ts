@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 import { createAuthTestApp } from "../../../helpers/createTestApp.js";
-import { createAuthServiceModuleMock } from "../../../helpers/createAuthServiceModuleMock.js";
+import { createAuthServiceModuleMock } from "../../../helpers/auth/createAuthServiceModuleMock.js";
 import {
   createMockGetDeviceInfoModule,
   defaultMockDeviceInfo,
 } from "../../../helpers/mockGetDeviceInfo.js";
-import { mockAuthLimiters } from "../../../helpers/mockAuthLimiters.js";
-import { mockAuthMiddlewares } from "../../../helpers/mockAuthMiddlewares.js";
+import { mockAuthLimiters } from "../../../helpers/auth/mockAuthLimiters.js";
+import { mockAuthMiddlewares } from "../../../helpers/auth/mockAuthMiddlewares.js";
 
 const mocks = vi.hoisted(() => ({
   registerService: vi.fn(),

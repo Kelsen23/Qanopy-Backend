@@ -4,7 +4,7 @@ import {
   mockAuthWorkerModules,
   mockAuthWorkerTestEnvironment,
   resetAuthWorkerTestEnvironment,
-} from "../../../helpers/mockAuthWorkerTestEnvironment.js";
+} from "../../../helpers/auth/mockAuthWorkerTestEnvironment.js";
 
 vi.mock("bullmq", () => mockAuthWorkerModules.bullmq);
 vi.mock(

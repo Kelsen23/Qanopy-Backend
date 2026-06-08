@@ -6,7 +6,7 @@ import {
   resetAuthMiddlewareEnvironment,
   seedJwtPayload,
   seedRedisAuthUser,
-} from "../../../helpers/mockAuthMiddlewareEnvironment.js";
+} from "../../../helpers/auth/mockAuthMiddlewareEnvironment.js";
 import {
   mockSocketAuthModules,
   resetSocketAuthEnvironment,
