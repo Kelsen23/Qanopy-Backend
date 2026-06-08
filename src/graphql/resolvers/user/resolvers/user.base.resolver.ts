@@ -1,7 +1,7 @@
 import { Redis } from "ioredis";
 
-import HttpError from "../../../utils/httpError.util.js";
-import sanitizeUser from "../../../utils/sanitizeUser.util.js";
+import HttpError from "../../../../utils/httpError.util.js";
+import sanitizeUser from "../../../../utils/sanitizeUser.util.js";
 
 type SanitizedUser = ReturnType<typeof sanitizeUser>;
 

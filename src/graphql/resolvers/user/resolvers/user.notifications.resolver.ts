@@ -1,12 +1,12 @@
 import { Redis } from "ioredis";
 
-import { User } from "../../../generated/prisma/index.js";
+import { User } from "../../../../generated/prisma/index.js";
 
 import {
   type NotificationCursor,
   type NotificationPage,
   getUserNotifications,
-} from "./user.notifications.helper.js";
+} from "../helpers/user.notifications.helper.js";
 
 const userNotificationsResolver = {
   Query: {

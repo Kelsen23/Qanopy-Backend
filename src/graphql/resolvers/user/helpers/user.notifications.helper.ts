@@ -2,9 +2,9 @@ import { Redis } from "ioredis";
 
 import mongoose, { PipelineStage } from "mongoose";
 
-import Notification from "../../../models/notification.model.js";
+import Notification from "../../../../models/notification.model.js";
 
-import HttpError from "../../../utils/httpError.util.js";
+import HttpError from "../../../../utils/httpError.util.js";
 
 type NotificationCursor = {
   id: string;

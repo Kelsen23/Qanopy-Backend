@@ -1,12 +1,12 @@
 import { Redis } from "ioredis";
 
-import { User } from "../../../generated/prisma/index.js";
+import { User } from "../../../../generated/prisma/index.js";
 
 import {
   type UserBadgeCursor,
   type UserBadgePage,
   getUserBadges,
-} from "./user.badges.helper.js";
+} from "../helpers/user.badges.helper.js";
 
 const userBadgesResolver = {
   Query: {

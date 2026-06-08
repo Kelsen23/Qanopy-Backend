@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 
-import HttpError from "../../../utils/httpError.util.js";
+import HttpError from "../../../../utils/httpError.util.js";
 
 type UserBadgeCursor = {
   awardedAt: string;
