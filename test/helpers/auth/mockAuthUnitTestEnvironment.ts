@@ -295,9 +295,9 @@ export const resetAuthUnitTestEnvironment = () => {
   queueBadgeAward.mockClear();
   verifyGoogleToken.mockReset();
   generateOAuthUsername.mockReset();
-  makeJobId.mockReset().mockImplementation((...parts: unknown[]) =>
-    parts.join("__"),
-  );
+  makeJobId
+    .mockReset()
+    .mockImplementation((...parts: unknown[]) => parts.join("__"));
   makeUniqueJobId.mockReset();
   verificationHtml.mockReset();
   resetPasswordHtml.mockReset();
@@ -316,4 +316,12 @@ export const resetAuthUnitTestEnvironment = () => {
 
 export const seedRedisValue = (key: string, value: unknown) => {
   redisStore.set(key, JSON.stringify(value));
+};
+
+export const seedBcryptCompareResult = (
+  value: string,
+  hashed: string,
+  result: boolean,
+) => {
+  bcryptCompareResults.set(`${value}::${hashed}`, result);
 };
