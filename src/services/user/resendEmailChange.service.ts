@@ -9,14 +9,9 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import emailQueue from "../../queues/email.queue.js";
 
-import {
-  getDeviceIp,
-  type DeviceInfo,
-} from "../auth/auth.shared.js";
+import { getDeviceIp, type DeviceInfo } from "../auth/auth.shared.js";
 
-import {
-  removeEmailChangeAttempts,
-} from "./emailChange.shared.js";
+import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 
 type ResendEmailChangeInput = {
   userId: string;
