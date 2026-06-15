@@ -29,18 +29,18 @@ import validate from "../middlewares/validate.middleware.js";
 const router = express.Router();
 
 router
-  .route("/report/create")
+  .route("/report")
   .post(
-    createReportLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createReportLimiterMiddleware,
     validate(reportSchema),
     createReport,
   );
 
 router
-  .route("/moderate")
+  .route("/review")
   .patch(
     isAuthenticated,
     isVerified,
@@ -50,15 +50,15 @@ router
     moderate,
   );
 
-router.route("/ban").get(isAuthenticated, getBan);
+router.route("/ban/active").get(isAuthenticated, getBan);
 
 router
-  .route("/content/moderate/image")
+  .route("/content/image")
   .post(
-    moderateContentImageLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    moderateContentImageLimiterMiddleware,
     validate(moderateContentImageSchema),
     moderateContentImage,
   );
