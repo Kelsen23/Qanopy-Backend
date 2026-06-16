@@ -26,8 +26,6 @@ const moderationActionTakenSchema = z.enum(
 
 const targetIdSchema = z.string().min(1, "targetId is required");
 
-const targetUserIdSchema = z.string().uuid("Invalid targetUserId");
-
 const optionalReportCommentSchema = z
   .string()
   .trim()
@@ -82,7 +80,6 @@ const contentImageObjectKeySchema = z
 const reportSchema = z
   .object({
     targetId: targetIdSchema,
-    targetUserId: targetUserIdSchema,
     targetType: reportTargetTypeSchema,
     reportReason: reportReasonSchema,
     reportComment: optionalReportCommentSchema,
@@ -154,6 +151,5 @@ export {
   moderationTypeSchema,
   moderationActionTakenSchema,
   targetIdSchema,
-  targetUserIdSchema,
   contentImageObjectKeySchema,
 };

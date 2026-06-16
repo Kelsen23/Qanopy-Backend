@@ -14,13 +14,11 @@ import {
 const createReport = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const { id: reportedBy } = req.user;
-    const { targetId, targetUserId, targetType, reportReason, reportComment } =
-      req.body;
+    const { targetId, targetType, reportReason, reportComment } = req.body;
 
     const { report } = await createReportService({
       reportedBy,
       targetId,
-      targetUserId,
       targetType,
       reportReason,
       reportComment,

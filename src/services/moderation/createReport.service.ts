@@ -19,7 +19,6 @@ type ReportReason =
 interface CreateReportInput {
   reportedBy: string;
   targetId: string;
-  targetUserId: string;
   targetType: ReportTargetType;
   reportReason: ReportReason;
   reportComment?: string;
@@ -50,7 +49,6 @@ const findTargetContent = async (
 const createReport = async ({
   reportedBy,
   targetId,
-  targetUserId,
   targetType,
   reportReason,
   reportComment,
@@ -61,14 +59,10 @@ const createReport = async ({
     throw new HttpError("Target content not found", 404);
   }
 
-  if ((foundContent.userId as string).toString() !== targetUserId) {
-    throw new HttpError("targetUserId does not match content owner", 400);
-  }
-
   const report = await Report.create({
     reportedBy,
     targetId,
-    targetUserId,
+    targetUserId: foundContent.userId,
     targetType,
     reportReason,
     reportComment,
