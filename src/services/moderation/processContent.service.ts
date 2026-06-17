@@ -1,5 +1,5 @@
 import aiModerateContent from "./aiModeration.service.js";
-import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
+import applyContentModerationDecisionService from "./applyContentModerationDecision.service.js";
 import routeNotification from "../notification/routeNotification.service.js";
 
 import HttpError from "../../utils/httpError.util.js";
@@ -251,11 +251,12 @@ const processContent = async (
       return createdBan;
     });
 
-    await applyAiModerationDecisionService(
+    await applyContentModerationDecisionService(
       contentId,
       contentType,
       "REJECTED",
       contentType === "QUESTION" ? (version as number) : undefined,
+      "error",
     );
 
     await removeTargetContent(contentId, contentType);
@@ -340,11 +341,12 @@ const processContent = async (
       },
     });
 
-    await applyAiModerationDecisionService(
+    await applyContentModerationDecisionService(
       contentId,
       contentType,
       "FLAGGED",
       contentType === "QUESTION" ? (version as number) : undefined,
+      "error",
     );
 
     const meta = {
@@ -409,11 +411,12 @@ const processContent = async (
       meta,
     });
   } else if (aiDecision === "IGNORE") {
-    await applyAiModerationDecisionService(
+    await applyContentModerationDecisionService(
       contentId,
       contentType,
       "APPROVED",
       contentType === "QUESTION" ? (version as number) : undefined,
+      "error",
     );
 
     const meta = {
