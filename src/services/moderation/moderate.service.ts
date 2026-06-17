@@ -1,5 +1,5 @@
-import adminModerateReportService from "./adminReportModeration.service.js";
-import adminModerateStrikeService from "./adminStrikeModeration.service.js";
+import adminModerateReportService from "./admin/report/adminReportModeration.service.js";
+import adminModerateStrikeService from "./admin/strike/adminStrikeModeration.service.js";
 import {
   addAdminModPoints,
   checkAdminModPointsLimit,
