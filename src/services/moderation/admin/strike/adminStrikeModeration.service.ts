@@ -1,25 +1,25 @@
 import crypto from "crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import HttpError from "../../utils/httpError.util.js";
-import { clearStrikesCache } from "../../utils/clearCache.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import HttpError from "../../../../utils/httpError.util.js";
+import { clearStrikesCache } from "../../../../utils/clearCache.util.js";
+import { makeJobId } from "../../../../utils/makeJobId.util.js";
 
-import prisma from "../../config/prisma.config.js";
+import prisma from "../../../../config/prisma.config.js";
 
-import Question from "../../models/question.model.js";
-import Answer from "../../models/answer.model.js";
-import Reply from "../../models/reply.model.js";
-import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
+import Question from "../../../../models/question.model.js";
+import Answer from "../../../../models/answer.model.js";
+import Reply from "../../../../models/reply.model.js";
+import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 
-import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
-import deleteContentQueue from "../../queues/deleteContent.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import deleteContentQueue from "../../../../queues/deleteContent.queue.js";
 
-import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
+import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
 
-import applyAiModerationDecisionService from "./applyAiModerationDecision.service.js";
-import routeNotification from "../notification/routeNotification.service.js";
+import applyContentModerationDecisionService from "../../applyContentModerationDecision.service.js";
+import routeNotification from "../../../notification/routeNotification.service.js";
 
 type AdminStrikeActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
 
@@ -399,13 +399,14 @@ const adminModerateStrike = async ({
         : undefined;
 
     await runSideEffectWithRetry(
-      "applyAiModerationDecisionService",
+      "applyContentModerationDecisionService",
       async () => {
-        await applyAiModerationDecisionService(
+        await applyContentModerationDecisionService(
           foundStrike.targetContentId,
           targetType,
           mappedStatus,
           questionVersion,
+          "http",
         );
       },
       context,
@@ -614,7 +615,7 @@ const adminModerateStrike = async ({
 
   if (contentRemovalQueued) {
     await runSideEffectWithRetry(
-      "queueNotification:",
+      "queueNotification:REMOVE_CONTENT",
       async () => {
         await routeNotification({
           recipientId: foundStrike.userId,
