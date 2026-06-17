@@ -358,10 +358,16 @@ model ModerationStrike {
   reviewedBy String?
   reviewedAt DateTime?
 
+  claimedAt      DateTime?
+  claimExpiresAt DateTime?
+  claimToken     String?
+
   expiresAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([reviewedBy, claimExpiresAt])
 }
 
 model Warning {
