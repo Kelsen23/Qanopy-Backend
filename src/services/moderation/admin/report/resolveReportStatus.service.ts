@@ -7,6 +7,7 @@ import { makeJobId } from "../../../../utils/makeJobId.util.js";
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
 
@@ -58,42 +59,54 @@ const resolveReportStatus = async (
     throw new HttpError("Report already resolved", 409);
   }
 
-  await moderationAuditQueue.add(
-    "UPDATE_REPORT_STATUS",
-    {
-      decisionId,
-      targetType: "REPORT",
-      targetId: updatedReport.id,
-      targetUserId: updatedReport.targetUserId,
-      actorType: "ADMIN_MODERATION",
-      adminId: reviewedBy,
-      actionTaken,
-      meta,
+  await runSideEffectWithRetry(
+    "moderationAuditQueue:add:UPDATE_REPORT_STATUS",
+    async () => {
+      await moderationAuditQueue.add(
+        "UPDATE_REPORT_STATUS",
+        {
+          decisionId,
+          targetType: "REPORT",
+          targetId: updatedReport.id,
+          targetUserId: updatedReport.targetUserId,
+          actorType: "ADMIN_MODERATION",
+          adminId: reviewedBy,
+          actionTaken,
+          meta,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("moderationAudit", decisionId, "updateReportStatus"),
+        },
+      );
     },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("moderationAudit", decisionId, "updateReportStatus"),
-    },
+    { reportMongoId, reviewedBy, claimToken, decisionId, reportId },
   );
 
-  await routeNotification({
-    recipientId: reporterUserId,
-    actorId: reviewedBy,
-    event: "REPORT_UPDATE",
-    target: {
-      entityType: "REPORT",
-      entityId: reportId,
+  await runSideEffectWithRetry(
+    "queueNotification:REPORT_UPDATE",
+    async () => {
+      await routeNotification({
+        recipientId: reporterUserId,
+        actorId: reviewedBy,
+        event: "REPORT_UPDATE",
+        target: {
+          entityType: "REPORT",
+          entityId: reportId,
+        },
+        meta: {
+          reportId,
+          status,
+          actionTaken,
+          isRemovingContent: updatedReport.isRemovingContent,
+          targetContentId: reportContentId,
+          targetContentType: targetType,
+        },
+      });
     },
-    meta: {
-      reportId,
-      status,
-      actionTaken,
-      isRemovingContent: updatedReport.isRemovingContent,
-      targetContentId: reportContentId,
-      targetContentType: targetType,
-    },
-  });
+    { reportMongoId, reviewedBy, claimToken, decisionId, reportId },
+  );
 };
 
 export default resolveReportStatus;

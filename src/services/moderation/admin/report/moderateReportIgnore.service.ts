@@ -1,6 +1,7 @@
 import { makeJobId } from "../../../../utils/makeJobId.util.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import type { ReportModerationContext } from "./shared.js";
 
@@ -22,13 +23,25 @@ const moderateReportIgnore = async (
   await helpers.updateReportStatus("DISMISSED", "IGNORE", meta);
   await helpers.applyContentModerationStatus();
 
-  await moderationMetricsQueue.add(
-    "IGNORE",
-    { userId: context.reportTargetUserId },
+  await runSideEffectWithRetry(
+    "moderationMetricsQueue:add",
+    async () => {
+      await moderationMetricsQueue.add(
+        "IGNORE",
+        { userId: context.reportTargetUserId },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("moderationMetrics", context.decisionId, "IGNORE"),
+        },
+      );
+    },
     {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("moderationMetrics", context.decisionId, "IGNORE"),
+      reportId: context.reportId,
+      reportMongoId: context.reportMongoId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+      decisionId: context.decisionId,
     },
   );
 };

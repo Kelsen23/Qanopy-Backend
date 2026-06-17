@@ -9,6 +9,7 @@ import prisma from "../../../../config/prisma.config.js";
 
 import type { AdminReportActionTaken, ReportTargetType } from "../shared.js";
 import type { ReportModerationContext } from "./shared.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
 import resolveReportStatus from "./resolveReportStatus.service.js";
 import queueReportContentRemoval from "./queueReportContentRemoval.service.js";
@@ -101,7 +102,19 @@ const adminModerateReport = async ({
     throw new HttpError("Report already resolved", 409);
   }
 
-  await clearReportsCache();
+  await runSideEffectWithRetry(
+    "clearReportsCache",
+    async () => {
+      await clearReportsCache();
+    },
+    {
+      reportMongoId,
+      reviewedBy,
+      claimToken,
+      actionTaken,
+      targetType,
+    },
+  );
 
   await assertReportClaimIsCurrent({
     reportMongoId,
@@ -215,7 +228,20 @@ const adminModerateReport = async ({
         break;
     }
 
-    await clearReportsCache();
+    await runSideEffectWithRetry(
+      "clearReportsCache",
+      async () => {
+        await clearReportsCache();
+      },
+      {
+        reportMongoId,
+        reviewedBy,
+        claimToken,
+        actionTaken,
+        targetType,
+        phase: "success",
+      },
+    );
   } catch (error) {
     await Report.findOneAndUpdate(
       {
@@ -234,7 +260,20 @@ const adminModerateReport = async ({
       },
     );
 
-    await clearReportsCache();
+    await runSideEffectWithRetry(
+      "clearReportsCache",
+      async () => {
+        await clearReportsCache();
+      },
+      {
+        reportMongoId,
+        reviewedBy,
+        claimToken,
+        actionTaken,
+        targetType,
+        phase: "rollback",
+      },
+    );
 
     throw error;
   }

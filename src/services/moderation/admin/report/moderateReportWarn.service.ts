@@ -3,6 +3,7 @@ import { makeJobId } from "../../../../utils/makeJobId.util.js";
 import prisma from "../../../../config/prisma.config.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import type { ReportModerationContext } from "./shared.js";
 
@@ -46,13 +47,25 @@ const moderateReportWarn = async (
   await helpers.applyContentModerationStatus();
   await helpers.queueDeleteContentIfNeeded(meta);
 
-  await moderationMetricsQueue.add(
-    "WARN",
-    { userId: context.reportTargetUserId },
+  await runSideEffectWithRetry(
+    "moderationMetricsQueue:add",
+    async () => {
+      await moderationMetricsQueue.add(
+        "WARN",
+        { userId: context.reportTargetUserId },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId("moderationMetrics", context.decisionId, "WARN"),
+        },
+      );
+    },
     {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("moderationMetrics", context.decisionId, "WARN"),
+      reportId: context.reportId,
+      reportMongoId: context.reportMongoId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+      decisionId: context.decisionId,
     },
   );
 };
