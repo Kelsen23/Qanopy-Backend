@@ -1,0 +1,329 @@
+import HttpError from "../../../../utils/httpError.util.js";
+import { makeJobId } from "../../../../utils/makeJobId.util.js";
+import { clearStrikesCache } from "../../../../utils/clearCache.util.js";
+
+import prisma from "../../../../config/prisma.config.js";
+
+import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import deleteContentQueue from "../../../../queues/deleteContent.queue.js";
+
+import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
+
+import routeNotification from "../../../notification/routeNotification.service.js";
+import applyContentModerationDecisionService from "../../applyContentModerationDecision.service.js";
+
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import {
+  actionToModerationStatus,
+  buildStrikeModerationBaseMeta,
+  type StrikeModerationContext,
+  type StrikeSideEffectContext,
+  type TargetContentState,
+} from "./shared.js";
+
+const moderateStrikeBanTemp = async (
+  title: string,
+  reasons: string[],
+  banDurationMs: number,
+  context: StrikeModerationContext,
+  targetContentState: TargetContentState,
+) => {
+  const expiresAt = new Date(Date.now() + banDurationMs);
+
+  await prisma.$transaction(async (tx) => {
+    const existingPermBan = await tx.ban.findFirst({
+      where: { userId: context.targetUserId, banType: "PERM" },
+    });
+
+    if (existingPermBan) {
+      throw new HttpError("User already has a permanent ban", 409);
+    }
+
+    const existingTempBan = await tx.ban.findFirst({
+      where: {
+        userId: context.targetUserId,
+        banType: "TEMP",
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (existingTempBan) {
+      throw new HttpError("User already has an active temp ban", 409);
+    }
+
+    await tx.ban.create({
+      data: {
+        userId: context.targetUserId,
+        title,
+        reasons,
+        banType: "TEMP",
+        bannedBy: "ADMIN_MODERATION",
+        expiresAt,
+        durationMs: banDurationMs,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: context.targetUserId },
+      data: { status: "SUSPENDED" },
+    });
+  });
+
+  const sideEffectContext: StrikeSideEffectContext = {
+    decisionId: context.decisionId,
+    strikeId: context.strikeId,
+    actionTaken: "BAN_TEMP",
+    targetUserId: context.targetUserId,
+  };
+
+  const baseMeta = buildStrikeModerationBaseMeta(context);
+  const moderationMeta = {
+    ...baseMeta,
+    actionTaken: "BAN_TEMP",
+    expiresAt,
+    durationMs: banDurationMs,
+    contentRemovalRequested: targetContentState.canRemove,
+    contentRemovalQueued: false,
+    targetContentState,
+  };
+
+  await runSideEffectWithRetry(
+    "moderationMetricsQueue:add",
+    async () => {
+      await moderationMetricsQueue.add(
+        "BAN_TEMP",
+        { userId: context.targetUserId },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId(
+            "moderationMetrics",
+            context.decisionId,
+            "BAN_TEMP",
+          ),
+        },
+      );
+    },
+    sideEffectContext,
+  );
+
+  if (targetContentState.exists && targetContentState.isActive) {
+    const mappedStatus = actionToModerationStatus.BAN_TEMP;
+    const questionVersion =
+      context.targetType === "QUESTION"
+        ? (context.targetContentVersion ?? undefined)
+        : undefined;
+
+    await runSideEffectWithRetry(
+      "applyContentModerationDecisionService",
+      async () => {
+        await applyContentModerationDecisionService(
+          context.targetContentId,
+          context.targetType,
+          mappedStatus,
+          questionVersion,
+          "http",
+        );
+      },
+      sideEffectContext,
+    );
+  }
+
+  let contentRemovalQueued = false;
+
+  if (targetContentState.canRemove) {
+    const contentRemovalQueueResult = await runSideEffectWithRetry(
+      "deleteContentQueue:add",
+      async () => {
+        await deleteContentQueue.add(
+          "REMOVE_MODERATED_CONTENT",
+          {
+            userId: context.targetUserId,
+            targetType: context.targetType,
+            targetId: context.targetContentId,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "deleteContent",
+              context.decisionId,
+              "REMOVE_MODERATED_CONTENT",
+              context.targetType,
+              context.targetContentId,
+            ),
+          },
+        );
+      },
+      sideEffectContext,
+    );
+
+    contentRemovalQueued = contentRemovalQueueResult.success;
+  }
+
+  await runSideEffectWithRetry(
+    "moderationAuditQueue:add:BAN_USER_FROM_STRIKE",
+    async () => {
+      await moderationAuditQueue.add(
+        "BAN_USER_FROM_STRIKE",
+        {
+          decisionId: context.decisionId,
+          targetType: "USER",
+          targetId: context.targetUserId,
+          targetUserId: context.targetUserId,
+          actorType: "ADMIN_MODERATION",
+          adminId: context.reviewedBy,
+          actionTaken: "BAN_TEMP",
+          meta: {
+            ...moderationMeta,
+            contentRemovalQueued,
+            strikeId: context.strikeId,
+          },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId(
+            "moderationAudit",
+            context.decisionId,
+            "banUserFromStrike",
+          ),
+        },
+      );
+    },
+    sideEffectContext,
+  );
+
+  await runSideEffectWithRetry(
+    "moderationAuditQueue:add:UPDATE_STRIKE_STATUS",
+    async () => {
+      await moderationAuditQueue.add(
+        "UPDATE_STRIKE_STATUS",
+        {
+          decisionId: context.decisionId,
+          targetType: "STRIKE",
+          targetId: context.strikeId,
+          targetUserId: context.targetUserId,
+          actorType: "ADMIN_MODERATION",
+          adminId: context.reviewedBy,
+          actionTaken: "BAN_TEMP",
+          meta: {
+            ...moderationMeta,
+            contentRemovalQueued,
+          },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: makeJobId(
+            "moderationAudit",
+            context.decisionId,
+            "updateStrikeStatus",
+          ),
+        },
+      );
+    },
+    sideEffectContext,
+  );
+
+  if (contentRemovalQueued) {
+    await runSideEffectWithRetry(
+      "moderationAuditQueue:add:REMOVE_CONTENT",
+      async () => {
+        await moderationAuditQueue.add(
+          "REMOVE_CONTENT",
+          {
+            decisionId: context.decisionId,
+            targetType: "CONTENT",
+            targetId: context.targetContentId,
+            targetUserId: context.targetUserId,
+            actorType: "ADMIN_MODERATION",
+            adminId: context.reviewedBy,
+            actionTaken: "REMOVE",
+            meta: {
+              actionTaken: "BAN_TEMP",
+              strikeId: context.strikeId,
+              targetType: context.targetType,
+            },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+            jobId: makeJobId(
+              "moderationAudit",
+              context.decisionId,
+              "removeContent",
+              context.targetContentId,
+            ),
+          },
+        );
+      },
+      sideEffectContext,
+    );
+  }
+
+  await runSideEffectWithRetry(
+    "queueNotification:BAN_TEMP",
+    async () => {
+      await routeNotification({
+        recipientId: context.targetUserId,
+        actorId: context.reviewedBy,
+        event: "STRIKE",
+        target: {
+          entityType: "USER",
+          entityId: context.targetUserId,
+        },
+        meta: {
+          actionTaken: "BAN_TEMP",
+          title,
+          reasons,
+          expiresAt,
+          strikeId: context.strikeId,
+        },
+      });
+    },
+    sideEffectContext,
+  );
+
+  if (contentRemovalQueued) {
+    await runSideEffectWithRetry(
+      "queueNotification:REMOVE_CONTENT",
+      async () => {
+        await routeNotification({
+          recipientId: context.targetUserId,
+          actorId: context.reviewedBy,
+          event: "REMOVE_CONTENT",
+          target: {
+            entityType: context.targetType,
+            entityId: context.targetContentId,
+          },
+          meta: {
+            strikeId: context.strikeId,
+            targetType: context.targetType,
+            actionTaken: "BAN_TEMP",
+          },
+        });
+      },
+      sideEffectContext,
+    );
+  }
+
+  await runSideEffectWithRetry(
+    "redisPub:socket:disconnect",
+    async () => {
+      await publishSocketDisconnect(context.targetUserId);
+    },
+    sideEffectContext,
+  );
+
+  await runSideEffectWithRetry(
+    "clearStrikesCache",
+    async () => {
+      await clearStrikesCache();
+    },
+    sideEffectContext,
+  );
+};
+
+export default moderateStrikeBanTemp;
