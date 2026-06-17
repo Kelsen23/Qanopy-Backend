@@ -50,10 +50,6 @@ async function addAdminModPoints(
     MOD_COOLDOWN_SECONDS,
   );
 
-  if (Number(newPoints) > MOD_LIMIT) {
-    throw new HttpError("Slow down. Moderation cooldown active", 429);
-  }
-
   return newPoints;
 }
 
