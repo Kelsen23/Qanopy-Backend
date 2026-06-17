@@ -10,7 +10,7 @@ const MOD_POINTS = {
 } as const;
 
 const MOD_COOLDOWN_SECONDS = 120;
-const MOD_LIMIT = 50;
+const MOD_LIMIT = 30;
 
 async function checkAdminModPointsLimit(userId: string) {
   const current = await getRedisCacheClient().get(`admin:${userId}:mod_points`);
