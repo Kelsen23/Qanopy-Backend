@@ -11,6 +11,7 @@ import type { AdminReportActionTaken, ReportTargetType } from "../shared.js";
 import type { ReportModerationContext } from "./shared.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
+import finalizeReportReview from "./finalizeReportReview.service.js";
 import resolveReportStatus from "./resolveReportStatus.service.js";
 import queueReportContentRemoval from "./queueReportContentRemoval.service.js";
 import applyAdminReportModerationDecision from "./applyAdminReportModerationDecision.service.js";
@@ -227,6 +228,12 @@ const adminModerateReport = async ({
         });
         break;
     }
+
+    await finalizeReportReview({
+      reportMongoId,
+      reviewedBy,
+      claimToken,
+    });
 
     await runSideEffectWithRetry(
       "clearReportsCache",

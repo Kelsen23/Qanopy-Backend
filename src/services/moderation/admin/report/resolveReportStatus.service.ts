@@ -48,9 +48,6 @@ const resolveReportStatus = async (
       status,
       actionTaken,
       isRemovingContent: shouldRemoveContent,
-      claimedAt: null,
-      claimExpiresAt: null,
-      claimToken: null,
     },
     { new: true },
   );
