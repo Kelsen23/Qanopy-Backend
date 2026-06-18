@@ -7,7 +7,7 @@ import Report from "../../../../models/report.model.js";
 
 import prisma from "../../../../config/prisma.config.js";
 
-import type { AdminReportActionTaken, ReportTargetType } from "../shared.js";
+import type { AdminReportActionTaken } from "../shared.js";
 import type { ReportModerationContext } from "./shared.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
@@ -22,7 +22,6 @@ import moderateReportIgnore from "./moderateReportIgnore.service.js";
 
 const adminModerateReport = async ({
   targetId,
-  targetType,
   reviewedBy,
   reviewComment,
   actionTaken,
@@ -32,7 +31,6 @@ const adminModerateReport = async ({
   warningDurationMs,
 }: {
   targetId: string;
-  targetType: ReportTargetType;
   reviewedBy: string;
   reviewComment?: string;
   actionTaken: AdminReportActionTaken;
@@ -43,7 +41,6 @@ const adminModerateReport = async ({
 }) => {
   const foundReport = await Report.findOne({
     _id: targetId,
-    targetType,
     status: "PENDING",
   });
 
@@ -51,26 +48,24 @@ const adminModerateReport = async ({
     throw new HttpError("Report not found", 404);
   }
 
-  if (foundReport.targetUserId === reviewedBy) {
-    throw new HttpError("Self-moderation is not allowed", 403);
-  }
-
   const targetUser = await prisma.user.findUnique({
     where: { id: foundReport.targetUserId as string },
     select: { status: true },
   });
 
-  if (!targetUser) {
-    throw new HttpError("Target user not found", 404);
-  }
+  const targetUserExists = Boolean(targetUser);
 
-  if (actionTaken !== "IGNORE" && targetUser.status === "TERMINATED") {
+  if (actionTaken !== "IGNORE" && targetUser?.status === "TERMINATED") {
     throw new HttpError("Target user account is already terminated", 409);
   }
 
   const resolvedAt = new Date();
   const reportTargetUserId = foundReport.targetUserId as string;
   const reportContentId = String(foundReport.targetId);
+  const reportContentVersion =
+    typeof foundReport.targetContentVersion === "number"
+      ? foundReport.targetContentVersion
+      : null;
   const shouldRemoveContent =
     actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP";
   const decisionId = crypto.randomUUID();
@@ -78,15 +73,14 @@ const adminModerateReport = async ({
   const reporterUserId = foundReport.reportedBy as string;
   const reportMongoId = String(foundReport._id);
   const claimToken = crypto.randomUUID();
+  const targetType =
+    foundReport.targetType as ReportModerationContext["targetType"];
 
   const claimReport = await Report.findOneAndUpdate(
     {
       _id: foundReport._id,
       status: "PENDING",
-      $or: [
-        { reviewedBy: null },
-        { claimExpiresAt: { $lte: resolvedAt } },
-      ],
+      $or: [{ reviewedBy: null }, { claimExpiresAt: { $lte: resolvedAt } }],
     },
     {
       reviewedBy,
@@ -96,7 +90,7 @@ const adminModerateReport = async ({
       claimExpiresAt: new Date(resolvedAt.getTime() + 24 * 60 * 60 * 1000),
       claimToken,
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!claimReport) {
@@ -127,7 +121,9 @@ const adminModerateReport = async ({
     reportId,
     reportMongoId,
     reportTargetUserId,
+    targetUserExists,
     reportContentId,
+    reportContentVersion,
     targetType,
     reviewedBy,
     claimToken,
@@ -148,6 +144,7 @@ const adminModerateReport = async ({
       reportId,
       reportTargetUserId,
       reportContentId,
+      reportContentVersion,
       targetType,
       reporterUserId,
       shouldRemoveContent,
@@ -162,6 +159,7 @@ const adminModerateReport = async ({
       reportId,
       reportTargetUserId,
       reportContentId,
+      reportContentVersion,
       targetType,
       reviewedBy,
       claimToken,
@@ -174,6 +172,7 @@ const adminModerateReport = async ({
     await applyAdminReportModerationDecision({
       reportMongoId,
       reportContentId,
+      reportContentVersion,
       targetType,
       actionTaken,
       reviewedBy,
@@ -265,6 +264,7 @@ const adminModerateReport = async ({
         reviewedAt: null,
         $unset: { reviewComment: 1 },
       },
+      { returnDocument: "after" },
     );
 
     await runSideEffectWithRetry(

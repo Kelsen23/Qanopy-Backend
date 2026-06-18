@@ -34,7 +34,7 @@ const finalizeReportReview = async ({
       claimExpiresAt: null,
       claimToken: null,
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!updatedReport) {

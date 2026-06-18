@@ -1,4 +1,4 @@
-import applyContentModerationDecisionService from "../../applyContentModerationDecision.service.js";
+import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
 
 import {
   actionToModerationStatus,
@@ -11,6 +11,7 @@ import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js"
 type ApplyAdminReportModerationDecisionInput = {
   reportMongoId: string;
   reportContentId: string;
+  reportContentVersion?: number | null;
   targetType: ReportTargetType;
   actionTaken: AdminReportActionTaken;
   reviewedBy: string;
@@ -42,6 +43,7 @@ const buildLogContext = ({
 
 const applyAdminReportModerationDecision = async ({
   reportContentId,
+  reportContentVersion,
   targetType,
   actionTaken,
   reviewedBy,
@@ -59,12 +61,13 @@ const applyAdminReportModerationDecision = async ({
       claimToken,
     });
 
-    await applyContentModerationDecisionService(
+    await applyAdminContentModerationDecisionService(
       reportContentId,
       targetType,
       mappedStatus,
-      undefined,
-      "http",
+      targetType === "QUESTION"
+        ? (reportContentVersion ?? undefined)
+        : undefined,
     );
   } catch (error) {
     console.error(
@@ -81,6 +84,8 @@ const applyAdminReportModerationDecision = async ({
         error,
       },
     );
+
+    throw error;
   }
 };
 
