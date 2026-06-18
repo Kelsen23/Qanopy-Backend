@@ -80,6 +80,7 @@ const moderationResolver = {
             reportedBy: 1,
             targetUserId: 1,
             targetId: { $toString: "$targetId" },
+            targetContentVersion: 1,
             targetType: 1,
             reportReason: 1,
             reportComment: 1,
@@ -230,6 +231,7 @@ const moderationResolver = {
       const strikesWithUsers = foundStrikes.map((s: any) => ({
         ...s,
         expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
+        reviewedAt: s.reviewedAt ? new Date(s.reviewedAt).toISOString() : null,
         createdAt: new Date(s.createdAt).toISOString(),
         updatedAt: new Date(s.updatedAt).toISOString(),
         targetUser: userMap.get(s.userId) || null,
