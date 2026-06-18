@@ -50,13 +50,17 @@ const adminModerateReport = async ({
 
   const targetUser = await prisma.user.findUnique({
     where: { id: foundReport.targetUserId as string },
-    select: { status: true },
+    select: { id: true, status: true },
   });
 
   const targetUserExists = Boolean(targetUser);
 
   if (actionTaken !== "IGNORE" && targetUser?.status === "TERMINATED") {
     throw new HttpError("Target user account is already terminated", 409);
+  }
+
+  if ((targetUser?.id as string).toString() === reviewedBy) {
+    throw new HttpError("Cannot moderate yourself", 403);
   }
 
   const resolvedAt = new Date();

@@ -111,13 +111,17 @@ const adminModerateStrike = async ({
 
     const targetUser = await tx.user.findUnique({
       where: { id: foundStrike.userId },
-      select: { status: true },
+      select: { id: true, status: true },
     });
 
     const targetUserExists = Boolean(targetUser);
 
     if (actionTaken !== "IGNORE" && targetUser?.status === "TERMINATED") {
       throw new HttpError("Target user account is already terminated", 409);
+    }
+
+    if ((targetUser?.id as string).toString() === reviewedBy) {
+      throw new HttpError("Cannot moderate yourself", 403);
     }
 
     return {
