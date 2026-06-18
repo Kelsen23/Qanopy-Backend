@@ -15,7 +15,6 @@ const assertReportClaimIsCurrent = async ({
 }: AssertReportClaimIsCurrentInput) => {
   const foundReport = await Report.findOne({
     _id: reportMongoId,
-    status: "PENDING",
     reviewedBy,
     claimToken,
     claimExpiresAt: { $gt: new Date() },
