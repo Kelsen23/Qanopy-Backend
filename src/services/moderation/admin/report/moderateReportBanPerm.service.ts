@@ -20,25 +20,29 @@ const moderateReportBanPerm = async (
       meta: Record<string, unknown>,
     ) => Promise<void>;
     applyContentModerationStatus: () => Promise<void>;
-    queueDeleteContentIfNeeded: (meta: Record<string, unknown>) => Promise<void>;
+    queueDeleteContentIfNeeded: (
+      meta: Record<string, unknown>,
+    ) => Promise<void>;
   },
 ) => {
-  await prisma.$transaction(async (tx) => {
-    await tx.ban.create({
-      data: {
-        userId: context.reportTargetUserId,
-        title,
-        reasons,
-        banType: "PERM",
-        bannedBy: "ADMIN_MODERATION",
-      },
-    });
+  if (context.targetUserExists) {
+    await prisma.$transaction(async (tx) => {
+      await tx.ban.create({
+        data: {
+          userId: context.reportTargetUserId,
+          title,
+          reasons,
+          banType: "PERM",
+          bannedBy: "ADMIN_MODERATION",
+        },
+      });
 
-    await tx.user.update({
-      where: { id: context.reportTargetUserId },
-      data: { status: "TERMINATED" },
+      await tx.user.update({
+        where: { id: context.reportTargetUserId },
+        data: { status: "TERMINATED" },
+      });
     });
-  });
+  }
 
   const meta = {
     reportId: context.reportId,
@@ -75,19 +79,21 @@ const moderateReportBanPerm = async (
     },
   );
 
-  await runSideEffectWithRetry(
-    "redisPub:socket:disconnect",
-    async () => {
-      await publishSocketDisconnect(context.reportTargetUserId);
-    },
-    {
-      reportId: context.reportId,
-      reportMongoId: context.reportMongoId,
-      reviewedBy: context.reviewedBy,
-      claimToken: context.claimToken,
-      decisionId: context.decisionId,
-    },
-  );
+  if (context.targetUserExists) {
+    await runSideEffectWithRetry(
+      "redisPub:socket:disconnect",
+      async () => {
+        await publishSocketDisconnect(context.reportTargetUserId);
+      },
+      {
+        reportId: context.reportId,
+        reportMongoId: context.reportMongoId,
+        reviewedBy: context.reviewedBy,
+        claimToken: context.claimToken,
+        decisionId: context.decisionId,
+      },
+    );
+  }
 };
 
 export default moderateReportBanPerm;

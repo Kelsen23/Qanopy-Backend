@@ -6,14 +6,15 @@ import prisma from "../../../../config/prisma.config.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-import deleteContentQueue from "../../../../queues/deleteContent.queue.js";
 
 import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
-import applyContentModerationDecisionService from "../../applyContentModerationDecision.service.js";
+import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
+import removeModeratedContent from "../../removeModeratedContent.service.js";
 
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import assertStrikeClaimIsCurrent from "./assertStrikeClaimIsCurrent.service.js";
 import {
   actionToModerationStatus,
   buildStrikeModerationBaseMeta,
@@ -31,44 +32,46 @@ const moderateStrikeBanTemp = async (
 ) => {
   const expiresAt = new Date(Date.now() + banDurationMs);
 
-  await prisma.$transaction(async (tx) => {
-    const existingPermBan = await tx.ban.findFirst({
-      where: { userId: context.targetUserId, banType: "PERM" },
+  if (context.targetUserExists) {
+    await prisma.$transaction(async (tx) => {
+      const existingPermBan = await tx.ban.findFirst({
+        where: { userId: context.targetUserId, banType: "PERM" },
+      });
+
+      if (existingPermBan) {
+        throw new HttpError("User already has a permanent ban", 409);
+      }
+
+      const existingTempBan = await tx.ban.findFirst({
+        where: {
+          userId: context.targetUserId,
+          banType: "TEMP",
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (existingTempBan) {
+        throw new HttpError("User already has an active temp ban", 409);
+      }
+
+      await tx.ban.create({
+        data: {
+          userId: context.targetUserId,
+          title,
+          reasons,
+          banType: "TEMP",
+          bannedBy: "ADMIN_MODERATION",
+          expiresAt,
+          durationMs: banDurationMs,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: context.targetUserId },
+        data: { status: "SUSPENDED" },
+      });
     });
-
-    if (existingPermBan) {
-      throw new HttpError("User already has a permanent ban", 409);
-    }
-
-    const existingTempBan = await tx.ban.findFirst({
-      where: {
-        userId: context.targetUserId,
-        banType: "TEMP",
-        expiresAt: { gt: new Date() },
-      },
-    });
-
-    if (existingTempBan) {
-      throw new HttpError("User already has an active temp ban", 409);
-    }
-
-    await tx.ban.create({
-      data: {
-        userId: context.targetUserId,
-        title,
-        reasons,
-        banType: "TEMP",
-        bannedBy: "ADMIN_MODERATION",
-        expiresAt,
-        durationMs: banDurationMs,
-      },
-    });
-
-    await tx.user.update({
-      where: { id: context.targetUserId },
-      data: { status: "SUSPENDED" },
-    });
-  });
+  }
 
   const sideEffectContext: StrikeSideEffectContext = {
     decisionId: context.decisionId,
@@ -109,57 +112,63 @@ const moderateStrikeBanTemp = async (
   );
 
   if (targetContentState.exists && targetContentState.isActive) {
+    await assertStrikeClaimIsCurrent({
+      strikeMongoId: context.strikeId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+    });
+
     const mappedStatus = actionToModerationStatus.BAN_TEMP;
     const questionVersion =
       context.targetType === "QUESTION"
         ? (context.targetContentVersion ?? undefined)
         : undefined;
 
-    await runSideEffectWithRetry(
-      "applyContentModerationDecisionService",
+    const moderationApplyResult = await runSideEffectWithRetry(
+      "applyAdminContentModerationDecisionService",
       async () => {
-        await applyContentModerationDecisionService(
+        await applyAdminContentModerationDecisionService(
           context.targetContentId,
           context.targetType,
           mappedStatus,
           questionVersion,
-          "http",
         );
       },
       sideEffectContext,
     );
+
+    if (!moderationApplyResult.success) {
+      throw new Error("Failed to apply admin content moderation decision");
+    }
   }
 
   let contentRemovalQueued = false;
 
   if (targetContentState.canRemove) {
+    await assertStrikeClaimIsCurrent({
+      strikeMongoId: context.strikeId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+    });
+
     const contentRemovalQueueResult = await runSideEffectWithRetry(
-      "deleteContentQueue:add",
+      "removeModeratedContent",
       async () => {
-        await deleteContentQueue.add(
-          "REMOVE_MODERATED_CONTENT",
-          {
-            userId: context.targetUserId,
-            targetType: context.targetType,
-            targetId: context.targetContentId,
-          },
-          {
-            removeOnComplete: true,
-            removeOnFail: false,
-            jobId: makeJobId(
-              "deleteContent",
-              context.decisionId,
-              "REMOVE_MODERATED_CONTENT",
-              context.targetType,
-              context.targetContentId,
-            ),
-          },
+        return removeModeratedContent(
+          context.targetType,
+          context.targetContentId,
+          context.targetType === "QUESTION"
+            ? (context.targetContentVersion ?? undefined)
+            : undefined,
         );
       },
       sideEffectContext,
     );
 
-    contentRemovalQueued = contentRemovalQueueResult.success;
+    contentRemovalQueued = Boolean(
+      contentRemovalQueueResult.success &&
+        contentRemovalQueueResult.result?.removed,
+    );
   }
 
   await runSideEffectWithRetry(
@@ -309,13 +318,15 @@ const moderateStrikeBanTemp = async (
     );
   }
 
-  await runSideEffectWithRetry(
-    "redisPub:socket:disconnect",
-    async () => {
-      await publishSocketDisconnect(context.targetUserId);
-    },
-    sideEffectContext,
-  );
+  if (context.targetUserExists) {
+    await runSideEffectWithRetry(
+      "redisPub:socket:disconnect",
+      async () => {
+        await publishSocketDisconnect(context.targetUserId);
+      },
+      sideEffectContext,
+    );
+  }
 
   await runSideEffectWithRetry(
     "clearStrikesCache",

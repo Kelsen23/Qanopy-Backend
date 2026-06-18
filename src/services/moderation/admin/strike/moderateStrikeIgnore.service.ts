@@ -5,9 +5,10 @@ import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.j
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
-import applyContentModerationDecisionService from "../../applyContentModerationDecision.service.js";
+import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
 
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import assertStrikeClaimIsCurrent from "./assertStrikeClaimIsCurrent.service.js";
 import {
   actionToModerationStatus,
   buildStrikeModerationBaseMeta,
@@ -53,25 +54,34 @@ const moderateStrikeIgnore = async (
   );
 
   if (targetContentState.exists && targetContentState.isActive) {
+    await assertStrikeClaimIsCurrent({
+      strikeMongoId: context.strikeId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+    });
+
     const mappedStatus = actionToModerationStatus.IGNORE;
     const questionVersion =
       context.targetType === "QUESTION"
         ? (context.targetContentVersion ?? undefined)
         : undefined;
 
-    await runSideEffectWithRetry(
-      "applyContentModerationDecisionService",
+    const moderationApplyResult = await runSideEffectWithRetry(
+      "applyAdminContentModerationDecisionService",
       async () => {
-        await applyContentModerationDecisionService(
+        await applyAdminContentModerationDecisionService(
           context.targetContentId,
           context.targetType,
           mappedStatus,
           questionVersion,
-          "http",
         );
       },
       sideEffectContext,
     );
+
+    if (!moderationApplyResult.success) {
+      throw new Error("Failed to apply admin content moderation decision");
+    }
   }
 
   await runSideEffectWithRetry(

@@ -19,20 +19,24 @@ const moderateReportWarn = async (
       meta: Record<string, unknown>,
     ) => Promise<void>;
     applyContentModerationStatus: () => Promise<void>;
-    queueDeleteContentIfNeeded: (meta: Record<string, unknown>) => Promise<void>;
+    queueDeleteContentIfNeeded: (
+      meta: Record<string, unknown>,
+    ) => Promise<void>;
   },
 ) => {
   const expiresAt = new Date(Date.now() + warningDurationMs);
 
-  await prisma.warning.create({
-    data: {
-      userId: context.reportTargetUserId,
-      title,
-      reasons,
-      warnedBy: "ADMIN_MODERATION",
-      expiresAt,
-    },
-  });
+  if (context.targetUserExists) {
+    await prisma.warning.create({
+      data: {
+        userId: context.reportTargetUserId,
+        title,
+        reasons,
+        warnedBy: "ADMIN_MODERATION",
+        expiresAt,
+      },
+    });
+  }
 
   const meta = {
     reportId: context.reportId,
