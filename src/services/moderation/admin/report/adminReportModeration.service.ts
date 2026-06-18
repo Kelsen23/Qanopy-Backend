@@ -60,7 +60,7 @@ const adminModerateReport = async ({
   }
 
   if ((targetUser?.id as string).toString() === reviewedBy) {
-    throw new HttpError("Cannot moderate yourself", 403);
+    throw new HttpError("Self-moderation not allowed", 403);
   }
 
   const resolvedAt = new Date();
