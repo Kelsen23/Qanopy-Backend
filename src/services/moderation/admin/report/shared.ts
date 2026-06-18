@@ -7,7 +7,9 @@ type ReportModerationContext = {
   reportId: string;
   reportMongoId: string;
   reportTargetUserId: string;
+  targetUserExists: boolean;
   reportContentId: string;
+  reportContentVersion: number | null;
   targetType: ReportTargetType;
   reviewedBy: string;
   claimToken: string;
@@ -22,6 +24,7 @@ type ReportStatusUpdateInput = {
   reportId: string;
   reportTargetUserId: string;
   reportContentId: string;
+  reportContentVersion?: number | null;
   targetType: ReportTargetType;
   reporterUserId: string;
   shouldRemoveContent: boolean;
@@ -32,7 +35,9 @@ type ReportContentModerationInput = {
   reportMongoId: string;
   reportId: string;
   reportTargetUserId: string;
+  targetUserExists?: boolean;
   reportContentId: string;
+  reportContentVersion?: number | null;
   targetType: ReportTargetType;
   reviewedBy: string;
   claimToken: string;

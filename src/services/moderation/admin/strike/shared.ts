@@ -5,6 +5,7 @@ type StrikeTargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 type StrikeModerationContext = {
   strikeId: string;
   targetUserId: string;
+  targetUserExists: boolean;
   targetContentId: string;
   targetType: StrikeTargetType;
   targetContentVersion: number | null;
