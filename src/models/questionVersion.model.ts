@@ -51,6 +51,8 @@ QuestionVersionSchema.index(
   { unique: true, partialFilterExpression: { isActive: true } },
 );
 
+QuestionVersionSchema.index({ questionId: 1, version: 1 }, { unique: true });
+
 QuestionVersionSchema.index({ questionId: 1, _id: -1 });
 
 export default mongoose.model(
