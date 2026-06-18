@@ -1,137 +1,120 @@
 import mongoose from "mongoose";
 
+import { syncQuestionModerationStatusFromVersions } from "./questionModerationStatus.service.js";
+
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
-
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-const MODERATION_STATUS_ORDER = {
-  PENDING: 0,
-  APPROVED: 1,
-  FLAGGED: 2,
-  REJECTED: 3,
-} as const;
-
-type ModerationStatus = keyof typeof MODERATION_STATUS_ORDER;
-
-type ModerationDecisionErrorMode = "http" | "error";
-
-const createModerationDecisionError = (
-  message: string,
-  statusCode: number,
-  errorMode: ModerationDecisionErrorMode,
-) =>
-  errorMode === "http"
-    ? new HttpError(message, statusCode)
-    : new Error(message);
-
-const shouldAdvanceModerationStatus = (
-  currentStatus: unknown,
-  nextStatus: Exclude<ModerationStatus, "PENDING">,
-) => {
-  if (
-    typeof currentStatus !== "string" ||
-    !(currentStatus in MODERATION_STATUS_ORDER)
-  ) {
-    return false;
-  }
-
-  return (
-    MODERATION_STATUS_ORDER[currentStatus as ModerationStatus] <
-    MODERATION_STATUS_ORDER[nextStatus]
-  );
+type AiModerationDecisionResult = {
+  applied: boolean;
+  reason?: "already_moderated" | "revision_changed" | "missing";
 };
 
 const applyContentModerationDecisionService = async (
   contentId: string,
   contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   moderationStatus: "APPROVED" | "FLAGGED" | "REJECTED",
-  version?: number,
-  errorMode: ModerationDecisionErrorMode = "http",
-) => {
+  versionOrRevision?: number,
+): Promise<AiModerationDecisionResult> => {
   const moderationUpdatedAt = new Date();
   const session = await mongoose.startSession();
 
-  let effectiveVersion: number | undefined = version;
+  let effectiveQuestionVersion: number | undefined =
+    contentType === "QUESTION" ? versionOrRevision : undefined;
 
   try {
-    await session.withTransaction(async () => {
+    const result = await session.withTransaction(async () => {
       if (contentType === "QUESTION") {
-        if (effectiveVersion === undefined) {
+        if (effectiveQuestionVersion === undefined) {
           const questionForVersion = await Question.findById(contentId)
-            .select("version isActive")
+            .select("currentVersion isActive")
             .session(session);
 
-          if (!questionForVersion) {
-            throw createModerationDecisionError(
-              "Question not found",
-              404,
-              errorMode,
-            );
+          if (!questionForVersion || !questionForVersion.isActive) {
+            return { applied: false, reason: "missing" } as const;
           }
 
-          if (!questionForVersion.isActive) {
-            throw createModerationDecisionError(
-              "Question not found",
-              404,
-              errorMode,
-            );
-          }
-
-          effectiveVersion = questionForVersion.version as number;
+          effectiveQuestionVersion =
+            questionForVersion.currentVersion as number;
         }
 
-        const foundQuestionVersion = await QuestionVersion.findOneAndUpdate(
-          { questionId: contentId, version: effectiveVersion },
-          { moderationStatus, moderationUpdatedAt },
-          { new: true, session },
-        );
+        const foundQuestionVersion = await QuestionVersion.findOne({
+          questionId: contentId,
+          version: effectiveQuestionVersion,
+          moderationStatus: "PENDING",
+        })
+          .select("_id")
+          .session(session)
+          .lean();
 
         if (!foundQuestionVersion) {
-          throw createModerationDecisionError(
-            "Question version not found",
-            404,
-            errorMode,
-          );
+          const existingQuestionVersion = await QuestionVersion.findOne({
+            questionId: contentId,
+            version: effectiveQuestionVersion,
+          })
+            .select("_id")
+            .session(session)
+            .lean();
+
+          if (!existingQuestionVersion) {
+            return { applied: false, reason: "missing" } as const;
+          }
+
+          return { applied: false, reason: "already_moderated" } as const;
         }
 
-        const foundQuestion = await Question.findById(contentId)
-          .select("moderationStatus isActive")
-          .session(session);
+        const currentQuestion = await Question.findById(contentId)
+          .select("isActive")
+          .session(session)
+          .lean();
 
-        if (!foundQuestion || !foundQuestion.isActive) {
-          throw createModerationDecisionError(
-            "Question not found",
-            404,
-            errorMode,
-          );
+        if (!currentQuestion || !currentQuestion.isActive) {
+          return { applied: false, reason: "missing" } as const;
         }
 
-        if (
-          shouldAdvanceModerationStatus(
-            foundQuestion.moderationStatus,
-            moderationStatus,
-          )
-        ) {
-          await Question.findByIdAndUpdate(
-            contentId,
-            {
-              moderationStatus,
-              moderationUpdatedAt,
-            },
-            { session },
-          );
+        const updatedQuestionVersion = await QuestionVersion.findOneAndUpdate(
+          {
+            questionId: contentId,
+            version: effectiveQuestionVersion,
+            moderationStatus: "PENDING",
+          },
+          { moderationStatus, moderationUpdatedAt },
+          { returnDocument: "after", session },
+        );
+
+        if (!updatedQuestionVersion) {
+          const existingQuestionVersion = await QuestionVersion.findOne({
+            questionId: contentId,
+            version: effectiveQuestionVersion,
+          })
+            .select("_id")
+            .session(session)
+            .lean();
+
+          if (!existingQuestionVersion) {
+            return { applied: false, reason: "missing" } as const;
+          }
+
+          return { applied: false, reason: "already_moderated" } as const;
         }
 
-        return;
+        await syncQuestionModerationStatusFromVersions({
+          questionId: contentId,
+          moderationUpdatedAt,
+          session,
+        });
+
+        return { applied: true } as const;
       }
 
+      const moderationRevision = versionOrRevision;
       const model =
         contentType === "ANSWER"
           ? Answer
@@ -140,45 +123,54 @@ const applyContentModerationDecisionService = async (
             : AiAnswerFeedback;
       const ContentModel = model as any;
 
-      const foundContent = await ContentModel.findById(contentId)
-        .select("moderationStatus isActive")
-        .session(session);
-
-      if (!foundContent || !foundContent.isActive) {
-        throw createModerationDecisionError(
-          `${contentType} not found`,
-          404,
-          errorMode,
-        );
-      }
-
-      if (
-        shouldAdvanceModerationStatus(
-          foundContent.moderationStatus,
+      const updatedContent = await ContentModel.findOneAndUpdate(
+        {
+          _id: contentId,
+          moderationStatus: "PENDING",
+          moderationRevision,
+          isActive: true,
+        },
+        {
           moderationStatus,
-        )
-      ) {
-        await ContentModel.findByIdAndUpdate(
-          contentId,
-          {
-            moderationStatus,
-            moderationUpdatedAt,
-          },
-          { session },
-        );
+          moderationUpdatedAt,
+        },
+        { returnDocument: "after", session },
+      );
+
+      if (!updatedContent) {
+        const foundContent = await ContentModel.findById(contentId)
+          .select("moderationStatus moderationRevision isActive")
+          .session(session)
+          .lean();
+
+        if (!foundContent || !foundContent.isActive) {
+          return { applied: false, reason: "missing" } as const;
+        }
+
+        if (foundContent.moderationRevision !== moderationRevision) {
+          return { applied: false, reason: "revision_changed" } as const;
+        }
+
+        return { applied: false, reason: "already_moderated" } as const;
       }
+
+      return { applied: true } as const;
     });
 
-    if (contentType === "QUESTION" && effectiveVersion !== undefined) {
+    if (result?.applied && contentType === "QUESTION") {
       await getRedisCacheClient().del(
         `question:${contentId}`,
-        `v:${effectiveVersion}:question:${contentId}`,
+        `v:${effectiveQuestionVersion}:question:${contentId}`,
       );
       await clearVersionHistoryCache(contentId);
     }
+
+    return result ?? { applied: false, reason: "missing" };
   } finally {
     session.endSession();
   }
 };
+
+export type { AiModerationDecisionResult };
 
 export default applyContentModerationDecisionService;
