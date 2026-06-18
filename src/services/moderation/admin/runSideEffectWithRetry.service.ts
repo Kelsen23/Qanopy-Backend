@@ -2,18 +2,19 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 type AdminSideEffectContext = Record<string, unknown>;
 
-type SideEffectResult = {
+type SideEffectResult<TResult = unknown> = {
   success: boolean;
   attempts: number;
+  result?: TResult;
 };
 
 const SIDE_EFFECT_RETRY_DELAYS_MS = [0, 200, 600] as const;
 
-const runSideEffectWithRetry = async (
+const runSideEffectWithRetry = async <TResult = unknown>(
   effectName: string,
-  fn: () => Promise<unknown>,
+  fn: () => Promise<TResult>,
   context: AdminSideEffectContext,
-): Promise<SideEffectResult> => {
+): Promise<SideEffectResult<TResult>> => {
   let lastError: unknown;
 
   for (let i = 0; i < SIDE_EFFECT_RETRY_DELAYS_MS.length; i++) {
@@ -21,8 +22,8 @@ const runSideEffectWithRetry = async (
     if (delayMs > 0) await sleep(delayMs);
 
     try {
-      await fn();
-      return { success: true, attempts: i + 1 };
+      const result = await fn();
+      return { success: true, attempts: i + 1, result };
     } catch (error) {
       lastError = error;
     }
