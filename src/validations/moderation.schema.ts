@@ -25,6 +25,10 @@ const moderationActionTakenSchema = z.enum(
 );
 
 const targetIdSchema = z.string().min(1, "targetId is required");
+const targetContentVersionSchema = z
+  .number()
+  .int("targetContentVersion must be an integer")
+  .min(1, "targetContentVersion must be at least 1");
 
 const optionalReportCommentSchema = z
   .string()
@@ -81,16 +85,39 @@ const reportSchema = z
   .object({
     targetId: targetIdSchema,
     targetType: reportTargetTypeSchema,
+    targetContentVersion: targetContentVersionSchema.optional(),
     reportReason: reportReasonSchema,
     reportComment: optionalReportCommentSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.targetType === "QUESTION" &&
+      data.targetContentVersion === undefined
+    ) {
+      ctx.addIssue({
+        path: ["targetContentVersion"],
+        message: "targetContentVersion is required for QUESTION reports",
+        code: z.ZodIssueCode.custom,
+      });
+    }
+
+    if (
+      data.targetType !== "QUESTION" &&
+      data.targetContentVersion !== undefined
+    ) {
+      ctx.addIssue({
+        path: ["targetContentVersion"],
+        message: "targetContentVersion is only allowed for QUESTION reports",
+        code: z.ZodIssueCode.custom,
+      });
+    }
+  });
 
 const moderateSchema = z
   .object({
     type: moderationTypeSchema,
     targetId: targetIdSchema,
-    targetType: reportTargetTypeSchema,
     reviewComment: optionalReviewCommentSchema,
     actionTaken: moderationActionTakenSchema,
     title: moderationTitleSchema,
