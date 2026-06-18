@@ -34,7 +34,7 @@ async function startWorker() {
           similarQuestionsStatus: "NONE",
         },
         { $set: { similarQuestionsStatus: "PROCESSING" } },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!locked) return;

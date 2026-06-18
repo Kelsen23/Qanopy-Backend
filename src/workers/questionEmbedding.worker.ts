@@ -41,7 +41,7 @@ async function startWorker() {
           embeddingStatus: "NONE",
         },
         { $set: { embeddingStatus: "PROCESSING" } },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!locked) return;

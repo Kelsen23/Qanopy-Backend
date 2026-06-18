@@ -7,11 +7,13 @@ import mongoose from "mongoose";
 
 import connectMongoDB from "../config/mongodb.config.js";
 
+import Question from "../models/question.model.js";
 import QuestionVersion from "../models/questionVersion.model.js";
 
 import contentPipelineRouter from "../queues/contentPipelineRouter.queue.js";
 
 import { makeJobId } from "../utils/makeJobId.util.js";
+import { resolveQuestionVersionSeedState } from "./questionVersioning.shared.js";
 
 import crypto from "crypto";
 
@@ -24,6 +26,15 @@ const QUESTION_VERSION_LOCK_RENEW_INTERVAL_MS = 10000;
 
 const QUESTION_VERSION_MAX_RETRIES = 3;
 const QUESTION_VERSION_RETRY_BACKOFF_MS = [100, 300, 700];
+
+type QuestionVersionSeed = {
+  currentVersion: number;
+  moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED";
+  moderationUpdatedAt: Date | null;
+  moderationSourceVersion: number | null;
+  topicStatus: "PENDING" | "PROCESSING" | "VALID" | "OFF_TOPIC";
+  embeddingStatus: "NONE" | "PENDING" | "PROCESSING" | "READY";
+};
 
 async function acquireQuestionVersionLock(questionId: string) {
   const redis = getRedisCacheClient();
@@ -108,12 +119,17 @@ async function startWorker() {
   const worker = new Worker(
     "questionVersioningQueue",
     async (job) => {
-      const { questionId, userId, title, body, tags } = job.data;
       const {
-        moderationStatus = "PENDING",
-        moderationUpdatedAt = null,
-        topicStatus = "PENDING",
-        embeddingStatus = "NONE",
+        questionId,
+        intendedVersion,
+        userId,
+        title,
+        body,
+        tags,
+        moderationStatus,
+        moderationUpdatedAt,
+        topicStatus,
+        embeddingStatus,
       } = job.data;
       let { basedOnVersion } = job.data;
 
@@ -138,9 +154,10 @@ async function startWorker() {
       }, QUESTION_VERSION_LOCK_RENEW_INTERVAL_MS);
 
       try {
-        let nextVersion = 1;
+        let nextVersion = Number(intendedVersion ?? 1);
         let activeVersionNumber: number | null = null;
         let resolvedBasedOnVersion = basedOnVersion;
+        let createdVersion = false;
 
         for (
           let attempt = 0;
@@ -150,6 +167,23 @@ async function startWorker() {
           const session = await mongoose.startSession();
           try {
             await session.withTransaction(async () => {
+              const currentQuestion = await Question.findById(questionId)
+                .select(
+                  "currentVersion moderationStatus moderationUpdatedAt moderationSourceVersion topicStatus embeddingStatus",
+                )
+                .session(session)
+                .lean<QuestionVersionSeed>();
+
+              if (!currentQuestion) {
+                throw new Error(`Question not found: ${questionId}`);
+              }
+
+              if (Number(currentQuestion.currentVersion) < nextVersion) {
+                throw new Error(
+                  `Question version ${nextVersion} does not exist on parent question ${questionId}`,
+                );
+              }
+
               const latestVersion = await QuestionVersion.findOne({
                 questionId,
               })
@@ -159,31 +193,56 @@ async function startWorker() {
                 .session(session)
                 .lean();
 
-              nextVersion = latestVersion
-                ? Number(latestVersion.version) + 1
-                : 1;
-
-              if (!resolvedBasedOnVersion)
-                resolvedBasedOnVersion = latestVersion
-                  ? Number(latestVersion.version)
-                  : 1;
-
-              const activeVersion = await QuestionVersion.findOne(
-                { questionId, isActive: true },
-                { version: 1 },
-              )
+              const existingTargetVersion = await QuestionVersion.findOne({
+                questionId,
+                version: nextVersion,
+              })
+                .select("_id")
                 .session(session)
                 .lean();
 
-              activeVersionNumber = activeVersion
-                ? Number(activeVersion.version)
-                : null;
+              if (existingTargetVersion) {
+                return;
+              }
 
-              await QuestionVersion.updateMany(
-                { questionId, isActive: true },
-                { $set: { isActive: false } },
-                { session },
-              );
+              if (!resolvedBasedOnVersion)
+                resolvedBasedOnVersion = nextVersion > 1 ? nextVersion - 1 : 1;
+
+              const {
+                isCurrentLiveVersion,
+                moderationStatus: resolvedModerationStatus,
+                moderationUpdatedAt: resolvedModerationUpdatedAt,
+                topicStatus: resolvedTopicStatus,
+                embeddingStatus: resolvedEmbeddingStatus,
+              } = resolveQuestionVersionSeedState({
+                currentQuestion,
+                nextVersion,
+                queuedSnapshot: {
+                  moderationStatus,
+                  moderationUpdatedAt,
+                  topicStatus,
+                  embeddingStatus,
+                },
+              });
+
+              if (isCurrentLiveVersion) {
+                const activeVersion = await QuestionVersion.findOne(
+                  { questionId, isActive: true },
+                  { version: 1 },
+                )
+                  .session(session)
+                  .lean();
+
+                activeVersionNumber = activeVersion
+                  ? Number(activeVersion.version)
+                  : null;
+
+                await QuestionVersion.updateMany(
+                  { questionId, isActive: true },
+                  { $set: { isActive: false } },
+                  { session },
+                );
+              }
 
               await QuestionVersion.create(
                 [
@@ -195,17 +254,19 @@ async function startWorker() {
                     tags,
                     version: nextVersion,
                     basedOnVersion: resolvedBasedOnVersion,
-                    isActive: true,
-                    moderationStatus,
-                    moderationUpdatedAt,
-                    topicStatus,
-                    embeddingStatus,
+                    isActive: isCurrentLiveVersion,
+                    moderationStatus: resolvedModerationStatus,
+                    moderationUpdatedAt: resolvedModerationUpdatedAt,
+                    topicStatus: resolvedTopicStatus,
+                    embeddingStatus: resolvedEmbeddingStatus,
                     embedding: [],
                     similarQuestionIds: [],
                   },
                 ],
                 { session },
               );
+
+              createdVersion = true;
             });
             break;
           } catch (error) {
@@ -221,6 +282,10 @@ async function startWorker() {
         }
 
         basedOnVersion = resolvedBasedOnVersion;
+
+        if (!createdVersion) {
+          return;
+        }
 
         await contentPipelineRouter.add(
           "QUESTION",

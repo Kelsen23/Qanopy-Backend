@@ -19,9 +19,13 @@ async function startWorker() {
           | "ANSWER"
           | "REPLY"
           | "AI_ANSWER_FEEDBACK";
-        const { contentId, version } = job.data;
+        const { contentId, version, moderationRevision } = job.data;
 
-        await processContent(contentId, contentType, version);
+        await processContent(
+          contentId,
+          contentType,
+          contentType === "QUESTION" ? version : moderationRevision,
+        );
       } catch (error) {
         console.error("Error processing moderation report:", error);
         throw error;

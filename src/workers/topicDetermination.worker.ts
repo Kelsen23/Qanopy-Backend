@@ -37,7 +37,7 @@ async function startWorker() {
           topicStatus: "PENDING",
         },
         { $set: { topicStatus: "PROCESSING" } },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!locked) return;

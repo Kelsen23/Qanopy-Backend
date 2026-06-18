@@ -31,11 +31,25 @@ async function startWorker() {
     "contentFinalizeQueue",
     async (job) => {
       const entityType = job.name;
-      const { userId, entityId } = job.data;
+      const {
+        userId,
+        entityId,
+        version,
+        basedOnVersion,
+        title,
+        body,
+        tags,
+        moderationStatus,
+        moderationUpdatedAt,
+        topicStatus,
+        embeddingStatus,
+      } = job.data;
 
       let entity;
       if (entityType === "QUESTION") {
-        entity = await Question.findById(entityId);
+        entity = await Question.findById(entityId).select(
+          "body currentVersion userId title tags moderationStatus moderationUpdatedAt topicStatus embeddingStatus",
+        );
       } else if (entityType === "ANSWER") {
         entity = await Answer.findById(entityId).select("body");
       } else {
@@ -44,7 +58,8 @@ async function startWorker() {
 
       if (!entity) throw new Error("Content not found");
 
-      let newBody = entity.body as string;
+      let newBody =
+        entityType === "QUESTION" ? String(body ?? "") : (entity.body as string);
 
       const domainWithoutProtocol = (cloudfrontDomain as string)
         .replace(/^https?:\/\//, "")
@@ -101,27 +116,40 @@ async function startWorker() {
         newBody = newBody.replaceAll(oldMarkdown, newMarkdown);
       }
 
-      if (newBody !== entity.body) {
+      if (
+        entityType !== "QUESTION" &&
+        newBody !== entity.body
+      ) {
         entity.body = newBody;
         await entity.save();
       }
 
       if (entityType === "QUESTION") {
+        if (
+          Number((entity as { currentVersion?: number }).currentVersion) ===
+            Number(version) &&
+          newBody !== entity.body
+        ) {
+          entity.body = newBody;
+          await entity.save();
+        }
+
         await getRedisCacheClient().del(`question:${entity._id}`);
 
         await questionVersioningQueue.add(
           "CREATE_NEW_QUESTION_VERSION",
           {
             questionId: entity._id,
-            userId: entity.userId,
-            title: entity.title,
+            intendedVersion: version,
+            basedOnVersion,
+            userId,
+            title,
             body: newBody,
-            tags: entity.tags,
-            moderationStatus: entity.moderationStatus,
-            moderationUpdatedAt: entity.moderationUpdatedAt,
-            topicStatus: entity.topicStatus,
-            embeddingStatus: entity.embeddingStatus,
-            basedOnVersion: null,
+            tags,
+            moderationStatus,
+            moderationUpdatedAt,
+            topicStatus,
+            embeddingStatus,
           },
           {
             removeOnComplete: true,
