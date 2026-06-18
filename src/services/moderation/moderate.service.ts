@@ -7,17 +7,11 @@ import {
 
 type ModerationType = "REPORT" | "STRIKE";
 type ModerationActionTaken = "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
-type ModerationTargetType =
-  | "QUESTION"
-  | "ANSWER"
-  | "REPLY"
-  | "AI_ANSWER_FEEDBACK";
 
 interface ModerateInput {
   userId: string;
   type: ModerationType;
   targetId: string;
-  targetType: ModerationTargetType;
   reviewComment?: string;
   actionTaken: ModerationActionTaken;
   title: string;
