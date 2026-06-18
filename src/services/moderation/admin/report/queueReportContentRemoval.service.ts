@@ -1,9 +1,9 @@
 import { makeJobId } from "../../../../utils/makeJobId.util.js";
 
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-import deleteContentQueue from "../../../../queues/deleteContent.queue.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
+import removeModeratedContent from "../../removeModeratedContent.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
@@ -17,6 +17,7 @@ const queueReportContentRemoval = async (
     reportId,
     reportTargetUserId,
     reportContentId,
+    reportContentVersion,
     targetType,
     reviewedBy,
     claimToken,
@@ -30,31 +31,23 @@ const queueReportContentRemoval = async (
     claimToken,
   });
 
-  await runSideEffectWithRetry(
-    "deleteContentQueue:add",
+  const contentRemovalResult = await runSideEffectWithRetry(
+    "removeModeratedContent",
     async () => {
-      await deleteContentQueue.add(
-        "REMOVE_MODERATED_CONTENT",
-        {
-          userId: reportTargetUserId,
-          targetType,
-          targetId: reportContentId,
-        },
-        {
-          removeOnComplete: true,
-          removeOnFail: false,
-          jobId: makeJobId(
-            "deleteContent",
-            decisionId,
-            "REMOVE_MODERATED_CONTENT",
-            targetType,
-            reportContentId,
-          ),
-        },
+      return removeModeratedContent(
+        targetType,
+        reportContentId,
+        targetType === "QUESTION"
+          ? (reportContentVersion ?? undefined)
+          : undefined,
       );
     },
     { reportMongoId, reviewedBy, claimToken, decisionId, reportId },
   );
+
+  if (!contentRemovalResult.success || !contentRemovalResult.result?.removed) {
+    return;
+  }
 
   await runSideEffectWithRetry(
     "moderationAuditQueue:add:REMOVE_CONTENT",
