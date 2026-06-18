@@ -85,23 +85,20 @@ const adminModerateStrike = async ({
       throw new HttpError("Strike not found", 404);
     }
 
-    if (foundStrike.userId === reviewedBy) {
-      throw new HttpError("Self-moderation is not allowed", 403);
-    }
-
-    if (foundStrike.isReviewed) {
+    if (foundStrike.actionTaken !== "PENDING") {
       throw new HttpError("Strike already reviewed", 409);
     }
 
     const claimedStrike = await tx.moderationStrike.updateMany({
       where: {
         id: foundStrike.id,
-        isReviewed: false,
+        actionTaken: "PENDING",
         OR: [{ reviewedBy: null }, { claimExpiresAt: { lte: reviewedAt } }],
       },
       data: {
         reviewedBy,
         reviewedAt,
+        reviewComment: reviewComment ?? null,
         claimedAt: reviewedAt,
         claimExpiresAt: new Date(reviewedAt.getTime() + 24 * 60 * 60 * 1000),
         claimToken,
@@ -117,20 +114,19 @@ const adminModerateStrike = async ({
       select: { status: true },
     });
 
-    if (!targetUser) {
-      throw new HttpError("Target user not found", 404);
-    }
+    const targetUserExists = Boolean(targetUser);
 
-    if (actionTaken !== "IGNORE" && targetUser.status === "TERMINATED") {
+    if (actionTaken !== "IGNORE" && targetUser?.status === "TERMINATED") {
       throw new HttpError("Target user account is already terminated", 409);
     }
 
     return {
       foundStrike,
+      targetUserExists,
     };
   });
 
-  const { foundStrike } = transactionResult;
+  const { foundStrike, targetUserExists } = transactionResult;
   const targetType = foundStrike.targetType as StrikeTargetType;
   const targetContentState = (await getTargetContentState(
     targetType,
@@ -152,6 +148,7 @@ const adminModerateStrike = async ({
     reasons,
     decisionId,
     claimToken,
+    targetUserExists,
     originalAiDecision: foundStrike.aiDecision ?? null,
     originalAiConfidence: foundStrike.aiConfidence ?? null,
     originalAiReasons: foundStrike.aiReasons ?? [],
@@ -160,6 +157,10 @@ const adminModerateStrike = async ({
   };
 
   try {
+    const isRemovingContent =
+      (actionTaken === "BAN_PERM" || actionTaken === "BAN_TEMP") &&
+      targetContentState.canRemove;
+
     switch (actionTaken) {
       case "BAN_TEMP":
         await moderateStrikeBanTemp(
@@ -199,6 +200,8 @@ const adminModerateStrike = async ({
       strikeMongoId: foundStrike.id,
       reviewedBy,
       claimToken,
+      actionTaken,
+      isRemovingContent,
     });
 
     await runSideEffectWithRetry(
@@ -223,10 +226,10 @@ const adminModerateStrike = async ({
       data: {
         reviewedBy: null,
         reviewedAt: null,
+        reviewComment: null,
         claimedAt: null,
         claimExpiresAt: null,
         claimToken: null,
-        isReviewed: false,
       },
     });
 

@@ -8,12 +8,16 @@ type FinalizeStrikeReviewInput = {
   strikeMongoId: string;
   reviewedBy: string;
   claimToken: string;
+  actionTaken: "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE";
+  isRemovingContent: boolean;
 };
 
 const finalizeStrikeReview = async ({
   strikeMongoId,
   reviewedBy,
   claimToken,
+  actionTaken,
+  isRemovingContent,
 }: FinalizeStrikeReviewInput) => {
   await assertStrikeClaimIsCurrent({
     strikeMongoId,
@@ -24,13 +28,14 @@ const finalizeStrikeReview = async ({
   const updatedStrike = await prisma.moderationStrike.updateMany({
     where: {
       id: strikeMongoId,
-      isReviewed: false,
+      actionTaken: "PENDING",
       reviewedBy,
       claimToken,
       claimExpiresAt: { gt: new Date() },
     },
     data: {
-      isReviewed: true,
+      actionTaken,
+      isRemovingContent,
       claimedAt: null,
       claimExpiresAt: null,
       claimToken: null,

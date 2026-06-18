@@ -16,7 +16,7 @@ const assertStrikeClaimIsCurrent = async ({
   const foundStrike = await prisma.moderationStrike.findFirst({
     where: {
       id: strikeMongoId,
-      isReviewed: false,
+      actionTaken: "PENDING",
       reviewedBy,
       claimToken,
       claimExpiresAt: { gt: new Date() },

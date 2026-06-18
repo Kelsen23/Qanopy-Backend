@@ -49,7 +49,7 @@ const resolveReportStatus = async (
       actionTaken,
       isRemovingContent: shouldRemoveContent,
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!updatedReport) {
