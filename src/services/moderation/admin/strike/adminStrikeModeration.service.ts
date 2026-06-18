@@ -5,6 +5,7 @@ import { clearStrikesCache } from "../../../../utils/clearCache.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
 
+import assertAdminModerationTargetReady from "../assertAdminModerationTargetReady.service.js";
 import getTargetContentState from "./getTargetContentState.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import finalizeStrikeReview from "./finalizeStrikeReview.service.js";
@@ -72,6 +73,12 @@ const adminModerateStrike = async ({
   ) {
     throw new HttpError("Strike target content owner mismatch", 409);
   }
+
+  await assertAdminModerationTargetReady({
+    targetType: preCheckTargetType,
+    targetId: preCheckStrike.targetContentId,
+    targetContentVersion: preCheckStrike.targetContentVersion,
+  });
 
   const reviewedAt = new Date();
   const claimToken = crypto.randomUUID();

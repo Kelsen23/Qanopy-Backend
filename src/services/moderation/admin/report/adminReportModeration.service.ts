@@ -9,6 +9,7 @@ import prisma from "../../../../config/prisma.config.js";
 
 import type { AdminReportActionTaken } from "../shared.js";
 import type { ReportModerationContext } from "./shared.js";
+import assertAdminModerationTargetReady from "../assertAdminModerationTargetReady.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
 import finalizeReportReview from "./finalizeReportReview.service.js";
@@ -59,10 +60,6 @@ const adminModerateReport = async ({
     throw new HttpError("Target user account is already terminated", 409);
   }
 
-  if ((targetUser?.id as string).toString() === reviewedBy) {
-    throw new HttpError("Self-moderation not allowed", 403);
-  }
-
   const resolvedAt = new Date();
   const reportTargetUserId = foundReport.targetUserId as string;
   const reportContentId = String(foundReport.targetId);
@@ -79,6 +76,12 @@ const adminModerateReport = async ({
   const claimToken = crypto.randomUUID();
   const targetType =
     foundReport.targetType as ReportModerationContext["targetType"];
+
+  await assertAdminModerationTargetReady({
+    targetType,
+    targetId: reportContentId,
+    targetContentVersion: reportContentVersion,
+  });
 
   const claimReport = await Report.findOneAndUpdate(
     {
