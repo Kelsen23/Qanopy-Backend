@@ -11,6 +11,7 @@ const ReportSchema: Schema = new Schema(
       required: true,
       enum: ["QUESTION", "ANSWER", "REPLY", "AI_ANSWER_FEEDBACK"],
     },
+    targetContentVersion: { type: Number, default: null, min: 1 },
 
     reportReason: {
       type: String,
@@ -42,7 +43,7 @@ const ReportSchema: Schema = new Schema(
     claimedAt: { type: Date, default: null },
     claimExpiresAt: { type: Date, default: null, index: true },
     claimToken: { type: String, default: null, select: false },
-    
+
     reviewComment: { type: String, maxlength: 150, minlength: 3 },
     actionTaken: {
       type: String,
@@ -50,7 +51,7 @@ const ReportSchema: Schema = new Schema(
       default: "PENDING",
     },
     isRemovingContent: { type: Boolean, required: true, default: false },
-    
+
     reviewedAt: { type: Date, default: null },
   },
   {
