@@ -73,7 +73,7 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
   const newBestAnswer = await Answer.findByIdAndUpdate(
     foundAnswer._id,
     { $set: { isBestAnswerByAsker: true } },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!newBestAnswer) throw new HttpError("Error marking answer as best", 500);

@@ -84,7 +84,7 @@ const vote = async (
         resultVote = await Vote.findByIdAndUpdate(
           existingVote._id,
           { voteType },
-          { new: true, session },
+          { returnDocument: "after", session },
         );
 
         await Question.findByIdAndUpdate(
@@ -195,7 +195,7 @@ const vote = async (
         resultVote = await Vote.findByIdAndUpdate(
           existingVote._id,
           { voteType },
-          { new: true, session },
+          { returnDocument: "after", session },
         );
 
         await Answer.findByIdAndUpdate(
@@ -301,7 +301,7 @@ const vote = async (
         resultVote = await Vote.findByIdAndUpdate(
           existingVote._id,
           { voteType },
-          { new: true, session },
+          { returnDocument: "after", session },
         );
 
         await Reply.findByIdAndUpdate(

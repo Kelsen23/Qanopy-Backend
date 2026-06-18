@@ -7,7 +7,7 @@ import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 const aiAnswerFeedbackPipelineRouter = async (aiAnswerFeedbackId: string) => {
   const foundAiAnswerFeedback = await AiAnswerFeedback.findById(
     aiAnswerFeedbackId,
-  ).select("_id moderationStatus");
+  ).select("_id moderationStatus moderationRevision");
 
   if (
     !foundAiAnswerFeedback ||
@@ -19,6 +19,7 @@ const aiAnswerFeedbackPipelineRouter = async (aiAnswerFeedbackId: string) => {
     "AI_ANSWER_FEEDBACK",
     {
       contentId: foundAiAnswerFeedback._id,
+      moderationRevision: foundAiAnswerFeedback.moderationRevision,
     },
     {
       removeOnComplete: true,

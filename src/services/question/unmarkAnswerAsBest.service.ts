@@ -38,7 +38,7 @@ const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
     {
       $set: { isBestAnswerByAsker: false },
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   await statsQueue.add(

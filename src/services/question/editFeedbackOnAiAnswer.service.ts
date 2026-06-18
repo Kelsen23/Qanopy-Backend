@@ -62,19 +62,23 @@ const editFeedbackOnAiAnswer = async (
   const editedFeedback = await AiAnswerFeedback.findByIdAndUpdate(
     feedbackId,
     {
-      type,
-      body,
-      questionVersionAtFeedback,
-      moderationStatus: "PENDING",
-      moderationUpdatedAt: null,
+      $set: {
+        type,
+        body,
+        questionVersionAtFeedback,
+        moderationStatus: "PENDING",
+        moderationUpdatedAt: null,
+      },
+      $inc: { moderationRevision: 1 },
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   await contentModerationQueue.add(
     "AI_ANSWER_FEEDBACK",
     {
       contentId: feedbackId,
+      moderationRevision: editedFeedback?.moderationRevision,
     },
     {
       removeOnComplete: true,

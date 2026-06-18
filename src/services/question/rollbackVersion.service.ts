@@ -13,6 +13,15 @@ import QuestionVersion from "../../models/questionVersion.model.js";
 
 import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
 
+const moderationSeverity = {
+  PENDING: 0,
+  APPROVED: 1,
+  FLAGGED: 2,
+  REJECTED: 3,
+} as const;
+
+type ModerationStatus = keyof typeof moderationSeverity;
+
 const rollbackVersion = async (
   userId: string,
   questionId: string,
@@ -61,6 +70,13 @@ const rollbackVersion = async (
       if (!freshQuestion) throw new HttpError("Question not found", 404);
 
       const nextVersion = Number(freshQuestion.currentVersion) + 1;
+      const rolledBackVersionIsWorse =
+        moderationSeverity[
+          foundVersion.moderationStatus as ModerationStatus
+        ] >=
+        moderationSeverity[
+          (freshQuestion.moderationStatus as ModerationStatus) ?? "PENDING"
+        ];
 
       await QuestionVersion.updateMany(
         { questionId, isActive: true },
@@ -103,8 +119,15 @@ const rollbackVersion = async (
           body: foundVersion.body,
           tags: foundVersion.tags,
           currentVersion: nextVersion,
-          moderationStatus: foundVersion.moderationStatus,
-          moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
+          moderationStatus: rolledBackVersionIsWorse
+            ? foundVersion.moderationStatus
+            : freshQuestion.moderationStatus,
+          moderationUpdatedAt: rolledBackVersionIsWorse
+            ? (foundVersion.moderationUpdatedAt ?? null)
+            : (freshQuestion.moderationUpdatedAt ?? null),
+          moderationSourceVersion: rolledBackVersionIsWorse
+            ? nextVersion
+            : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
           topicStatus: "PENDING",
           similarQuestionIds: [],
           similarQuestionsStatus: "NONE",

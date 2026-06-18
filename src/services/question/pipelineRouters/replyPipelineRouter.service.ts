@@ -6,14 +6,17 @@ import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 
 const replyPipelineRouter = async (replyId: string) => {
   const foundReply = await Reply.findById(replyId).select(
-    "_id moderationStatus",
+    "_id moderationStatus moderationRevision",
   );
 
   if (!foundReply || foundReply.moderationStatus !== "PENDING") return;
 
   await contentModerationQueue.add(
     "REPLY",
-    { contentId: foundReply._id },
+    {
+      contentId: foundReply._id,
+      moderationRevision: foundReply.moderationRevision,
+    },
     {
       removeOnComplete: true,
       removeOnFail: false,

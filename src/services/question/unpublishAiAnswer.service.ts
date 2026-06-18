@@ -76,7 +76,7 @@ const unpublishAiAnswer = async (
     const answer = await AiAnswer.findByIdAndUpdate(
       aiAnswerId,
       { $set: { isPublished: false } },
-      { new: true, session },
+      { returnDocument: "after", session },
     ).lean();
 
     if (!answer) throw new HttpError("Failed to unpublish AI answer", 500);

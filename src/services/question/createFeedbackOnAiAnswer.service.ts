@@ -69,6 +69,7 @@ const createFeedbackOnAiAnswerService = async (
     "AI_ANSWER_FEEDBACK",
     {
       contentId: newFeedback._id,
+      moderationRevision: newFeedback.moderationRevision,
     },
     {
       removeOnComplete: true,

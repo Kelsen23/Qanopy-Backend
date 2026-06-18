@@ -79,7 +79,7 @@ const publishAiAnswer = async (
     const answer = await AiAnswer.findByIdAndUpdate(
       aiAnswerId,
       { $set: { isPublished: true } },
-      { new: true, session },
+      { returnDocument: "after", session },
     ).lean();
 
     if (!answer) throw new HttpError("Failed to publish AI answer", 500);
