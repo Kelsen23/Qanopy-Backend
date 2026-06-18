@@ -15,7 +15,9 @@ type EmailJobPurpose =
   | "CHANGE_EMAIL"
   | "PASSWORD_RESET_COMPLETED"
   | "PASSWORD_CHANGED"
-  | "EMAIL_CHANGED";
+  | "EMAIL_CHANGED"
+  | "BAN_TEMP"
+  | "BAN_PERM";
 
 type EmailJobData = {
   email: string;
@@ -105,6 +107,17 @@ async function startEmailWorker() {
     async (job) => {
       const { email, subject, htmlContent, userId, purpose, otpHash } =
         job.data as EmailJobData;
+
+      if (purpose === "BAN_TEMP" || purpose === "BAN_PERM") {
+        await transporter.sendMail({
+          from: `'Qanopy' <${process.env.QANOPY_EMAIL}>`,
+          to: email,
+          subject,
+          html: htmlContent,
+        });
+
+        return;
+      }
 
       if (userId) {
         const user = await prisma.user.findUnique({
