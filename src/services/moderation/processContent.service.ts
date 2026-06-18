@@ -1,16 +1,16 @@
+import crypto from "crypto";
+
+import { ContentType } from "../../generated/prisma/index.js";
+
 import aiModerateContent from "./aiModeration.service.js";
 import applyContentModerationDecisionService from "./applyContentModerationDecision.service.js";
 import routeNotification from "../notification/routeNotification.service.js";
 
-import HttpError from "../../utils/httpError.util.js";
+import prisma from "../../config/prisma.config.js";
 
 import { makeJobId } from "../../utils/makeJobId.util.js";
-
 import computeRiskScore from "../../utils/computeRiskScore.util.js";
-import calculateTempBanMs from "../../utils/calculateTempBanMs.util.js";
-
 import { clearStrikesCache } from "../../utils/clearCache.util.js";
-import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -18,17 +18,9 @@ import Reply from "../../models/reply.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 
-import prisma from "../../config/prisma.config.js";
-
-import { ContentType } from "../../generated/prisma/index.js";
-
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
 import moderationMetricsQueue from "../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../queues/moderationAudit.queue.js";
 import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
-
-import crypto from "crypto";
 
 const mapSeverityToDecision = (riskScore: number) => {
   if (riskScore >= 6.0) return "BAN_PERM";
@@ -47,47 +39,85 @@ const moderationContentTypeMap: Record<
   AI_ANSWER_FEEDBACK: ContentType.AI_ANSWER_FEEDBACK,
 };
 
-async function removeTargetContent(
+const isAiModerationTargetStillPending = async (
   contentId: string,
   contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
-) {
-  switch (contentType) {
-    case "QUESTION":
-      await Question.findByIdAndUpdate(contentId, { isActive: false });
-      await getRedisCacheClient().del(`question:${contentId}`);
-      break;
-    case "ANSWER":
-      await Answer.findByIdAndUpdate(contentId, { isActive: false });
-      break;
-    case "REPLY":
-      await Reply.findByIdAndUpdate(contentId, { isActive: false });
-      break;
-    case "AI_ANSWER_FEEDBACK":
-      await AiAnswerFeedback.findByIdAndUpdate(contentId, { isActive: false });
-      break;
+  versionOrRevision?: number,
+) => {
+  if (contentType === "QUESTION") {
+    const foundQuestionVersion = await QuestionVersion.findOne({
+      questionId: contentId,
+      version: versionOrRevision,
+      moderationStatus: "PENDING",
+    })
+      .select("_id")
+      .lean();
+
+    if (!foundQuestionVersion) return false;
+
+    const foundQuestion = await Question.findOne({
+      _id: contentId,
+      isActive: true,
+    })
+      .select("_id")
+      .lean();
+
+    return Boolean(foundQuestion);
   }
-}
+
+  const model =
+    contentType === "ANSWER"
+      ? Answer
+      : contentType === "REPLY"
+        ? Reply
+        : AiAnswerFeedback;
+  const ContentModel = model as any;
+
+  const foundContent = await ContentModel.findOne({
+    _id: contentId,
+    moderationStatus: "PENDING",
+    moderationRevision: versionOrRevision,
+    isActive: true,
+  })
+    .select("_id")
+    .lean();
+
+  return Boolean(foundContent);
+};
 
 const processContent = async (
   contentId: string,
   contentType: "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
-  version?: number,
+  versionOrRevision?: number,
 ) => {
   const content = await (contentType === "QUESTION"
-    ? QuestionVersion.findOne({ questionId: contentId, version }).lean()
+    ? QuestionVersion.findOne({
+        questionId: contentId,
+        version: versionOrRevision,
+      }).lean()
     : contentType === "ANSWER"
-      ? Answer.findById(contentId).lean()
+      ? Answer.findById(contentId)
+          .select(
+            "userId body moderationStatus moderationRevision isActive isDeleted",
+          )
+          .lean()
       : contentType === "REPLY"
-        ? Reply.findById(contentId).lean()
-        : AiAnswerFeedback.findById(contentId).lean());
+        ? Reply.findById(contentId)
+            .select(
+              "userId body moderationStatus moderationRevision isActive isDeleted",
+            )
+            .lean()
+        : AiAnswerFeedback.findById(contentId)
+            .select(
+              "userId body moderationStatus moderationRevision isActive isDeleted",
+            )
+            .lean());
 
-  if (!content) throw new HttpError("Content not found", 404);
+  if (!content) return;
 
-  if (contentType !== "QUESTION")
-    if (!content.isActive) throw new HttpError("Content not found", 404);
+  if (contentType !== "QUESTION") if (!content.isActive) return;
 
-  if (content.moderationStatus !== "PENDING")
-    throw new HttpError("Content already moderated", 500);
+  if (content.moderationStatus !== "PENDING") return;
 
   const contentTitle = "title" in content ? String(content.title ?? "") : "";
   const contentBody = "body" in content ? String(content.body ?? "") : "";
@@ -121,7 +151,13 @@ const processContent = async (
   const baseMeta = {
     targetContentId: contentId,
     targetContentType: contentType,
-    targetContentVersion: version,
+    targetContentVersion:
+      contentType === "QUESTION" ? versionOrRevision : undefined,
+    targetContentRevision:
+      contentType === "QUESTION"
+        ? undefined
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+          undefined),
 
     aiDecision,
     aiConfidence,
@@ -131,6 +167,33 @@ const processContent = async (
   };
 
   if (aiDecision === "BAN_PERM") {
+    const targetStillPending = await isAiModerationTargetStillPending(
+      contentId,
+      contentType,
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
+    );
+
+    if (!targetStillPending) {
+      return;
+    }
+
+    const moderationApplyResult = await applyContentModerationDecisionService(
+      contentId,
+      contentType,
+      "REJECTED",
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
+    );
+
+    if (!moderationApplyResult.applied) {
+      return;
+    }
+
     const newStrike = await prisma.$transaction(async (tx) => {
       const createdStrike = await tx.moderationStrike.create({
         data: {
@@ -142,7 +205,10 @@ const processContent = async (
           riskScore,
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: version,
+          targetContentVersion:
+            contentType === "QUESTION"
+              ? (versionOrRevision as number | undefined)
+              : undefined,
           strikedBy: "AI_MODERATION",
         },
       });
@@ -175,18 +241,6 @@ const processContent = async (
       },
     );
 
-    await moderationMetricsQueue.add(
-      "BAN_PERM",
-      {
-        userId: content.userId as string,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId("moderationMetrics", decisionId, "BAN_PERM"),
-      },
-    );
-
     await routeNotification({
       recipientId: content.userId as string,
       actorId: "AI_MODERATION",
@@ -198,75 +252,60 @@ const processContent = async (
       meta,
     });
   } else if (aiDecision === "BAN_TEMP") {
-    const tempBanMs = calculateTempBanMs(
-      severity,
-      aiConfidence,
-      totalStrikes,
-      trustScore,
+    const targetStillPending = await isAiModerationTargetStillPending(
+      contentId,
+      contentType,
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
     );
-    const tempBanExpiresAt = new Date(Date.now() + tempBanMs);
 
-    const newBan = await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: {
-          userId: content.userId as string,
-          banType: "PERM",
-        },
-        select: { id: true },
-      });
+    if (!targetStillPending) {
+      return;
+    }
 
-      if (existingPermBan)
-        throw new HttpError("User already permanently banned", 409);
-
-      const existingTempBan = await tx.ban.findFirst({
-        where: {
-          userId: content.userId as string,
-          banType: "TEMP",
-          expiresAt: { gt: new Date() },
-        },
-        select: { id: true },
-      });
-
-      if (existingTempBan)
-        throw new HttpError("User already has an active temporary ban", 409);
-
-      const createdBan = await tx.ban.create({
-        data: {
-          userId: content.userId as string,
-          title: "Temporary Account Suspension",
-          reasons: aiReasons,
-          banType: "TEMP",
-          severity,
-          bannedBy: "AI_MODERATION",
-          expiresAt: tempBanExpiresAt,
-          durationMs: tempBanMs,
-        },
-      });
-
-      await tx.user.update({
-        where: { id: content.userId as string },
-        data: { status: "SUSPENDED" },
-      });
-
-      return createdBan;
-    });
-
-    await applyContentModerationDecisionService(
+    const moderationApplyResult = await applyContentModerationDecisionService(
       contentId,
       contentType,
       "REJECTED",
-      contentType === "QUESTION" ? (version as number) : undefined,
-      "error",
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
     );
 
-    await removeTargetContent(contentId, contentType);
+    if (!moderationApplyResult.applied) {
+      return;
+    }
+
+    const newStrike = await prisma.$transaction(async (tx) => {
+      const createdStrike = await tx.moderationStrike.create({
+        data: {
+          userId: content.userId as string,
+          aiDecision,
+          aiConfidence,
+          aiReasons,
+          severity,
+          riskScore,
+          targetContentId: contentId,
+          targetType: moderationContentTypeMap[contentType],
+          targetContentVersion:
+            contentType === "QUESTION"
+              ? (versionOrRevision as number | undefined)
+              : undefined,
+          strikedBy: "AI_MODERATION",
+        },
+      });
+
+      return createdStrike;
+    });
+    await clearStrikesCache();
 
     const meta = {
       ...baseMeta,
-      banId: newBan.id,
+      strikeId: newStrike.id,
       action: "BAN_TEMP",
-      expiresAt: tempBanExpiresAt,
-      durationMs: tempBanMs,
     };
 
     await moderationAuditQueue.add(
@@ -287,32 +326,6 @@ const processContent = async (
       },
     );
 
-    await moderationMetricsQueue.add(
-      "BAN_TEMP",
-      {
-        userId: content.userId as string,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId("moderationMetrics", decisionId, "BAN_TEMP"),
-      },
-    );
-
-    if (contentType === "QUESTION")
-      await contentPipelineRouter.add(
-        "QUESTION",
-        {
-          contentId,
-          version,
-        },
-        {
-          jobId: makeJobId("contentPipelineRoute", contentId, version),
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      );
-
     await routeNotification({
       recipientId: content.userId as string,
       actorId: "AI_MODERATION",
@@ -323,9 +336,21 @@ const processContent = async (
       },
       meta,
     });
-
-    await publishSocketDisconnect(content.userId as string);
   } else if (aiDecision === "WARN") {
+    const moderationApplyResult = await applyContentModerationDecisionService(
+      contentId,
+      contentType,
+      "FLAGGED",
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
+    );
+
+    if (!moderationApplyResult.applied) {
+      return;
+    }
+
     const title =
       aiReasons.length > 0 ? `${aiReasons[0]}` : "Community Guideline Warning";
     const warningExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -340,14 +365,6 @@ const processContent = async (
         expiresAt: warningExpiresAt,
       },
     });
-
-    await applyContentModerationDecisionService(
-      contentId,
-      contentType,
-      "FLAGGED",
-      contentType === "QUESTION" ? (version as number) : undefined,
-      "error",
-    );
 
     const meta = {
       ...baseMeta,
@@ -391,10 +408,14 @@ const processContent = async (
         "QUESTION",
         {
           contentId,
-          version,
+          version: versionOrRevision,
         },
         {
-          jobId: makeJobId("contentPipelineRoute", contentId, version),
+          jobId: makeJobId(
+            "contentPipelineRoute",
+            contentId,
+            versionOrRevision,
+          ),
           removeOnComplete: true,
           removeOnFail: false,
         },
@@ -411,13 +432,19 @@ const processContent = async (
       meta,
     });
   } else if (aiDecision === "IGNORE") {
-    await applyContentModerationDecisionService(
+    const moderationApplyResult = await applyContentModerationDecisionService(
       contentId,
       contentType,
       "APPROVED",
-      contentType === "QUESTION" ? (version as number) : undefined,
-      "error",
+      contentType === "QUESTION"
+        ? (versionOrRevision as number | undefined)
+        : ((content as { moderationRevision?: number }).moderationRevision ??
+            undefined),
     );
+
+    if (!moderationApplyResult.applied) {
+      return;
+    }
 
     const meta = {
       ...baseMeta,
@@ -447,10 +474,14 @@ const processContent = async (
         "QUESTION",
         {
           contentId,
-          version,
+          version: versionOrRevision,
         },
         {
-          jobId: makeJobId("contentPipelineRoute", contentId, version),
+          jobId: makeJobId(
+            "contentPipelineRoute",
+            contentId,
+            versionOrRevision,
+          ),
           removeOnComplete: true,
           removeOnFail: false,
         },
