@@ -8,10 +8,12 @@ import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.j
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 
 import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
+import clearUserCache from "../../../../utils/clearUserCache.util.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
 import removeModeratedContent from "../../removeModeratedContent.service.js";
+import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertStrikeClaimIsCurrent from "./assertStrikeClaimIsCurrent.service.js";
@@ -62,6 +64,16 @@ const moderateStrikeBanPerm = async (
     actionTaken: "BAN_PERM",
     targetUserId: context.targetUserId,
   };
+
+  if (context.targetUserExists) {
+    await runSideEffectWithRetry(
+      "clearUserCache",
+      async () => {
+        await clearUserCache(context.targetUserId);
+      },
+      sideEffectContext,
+    );
+  }
 
   const baseMeta = buildStrikeModerationBaseMeta(context);
   const moderationMeta = {
@@ -311,6 +323,13 @@ const moderateStrikeBanPerm = async (
     },
     sideEffectContext,
   );
+
+  await sendBanNoticeEmail({
+    userId: context.targetUserId,
+    decisionId: context.decisionId,
+    actionTaken: "BAN_PERM",
+    reasons,
+  });
 };
 
 export default moderateStrikeBanPerm;
