@@ -75,6 +75,15 @@ const createQuestion = asyncHandler(
       {
         userId,
         entityId: newQuestion._id,
+        version: 1,
+        basedOnVersion: 1,
+        title,
+        body,
+        tags,
+        moderationStatus: newQuestion.moderationStatus,
+        moderationUpdatedAt: newQuestion.moderationUpdatedAt,
+        topicStatus: newQuestion.topicStatus,
+        embeddingStatus: newQuestion.embeddingStatus,
       },
       {
         removeOnComplete: true,
@@ -216,7 +225,10 @@ const createReplyOnAnswer = asyncHandler(
 
     await contentModerationQueue.add(
       "REPLY",
-      { contentId: newReply._id },
+      {
+        contentId: newReply._id,
+        moderationRevision: newReply.moderationRevision,
+      },
       {
         removeOnComplete: true,
         removeOnFail: false,
@@ -305,7 +317,7 @@ const acceptAnswer = asyncHandler(
     const acceptedAnswer = await Answer.findByIdAndUpdate(
       answerId,
       { isAccepted: true },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!acceptedAnswer) throw new HttpError("Answer acceptance failed", 500);
@@ -387,7 +399,7 @@ const unacceptAnswer = asyncHandler(
         isAccepted: false,
         isBestAnswerByAsker: false,
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (foundAnswer.isBestAnswerByAsker) {
