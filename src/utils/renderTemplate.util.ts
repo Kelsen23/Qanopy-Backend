@@ -71,6 +71,24 @@ const securityNoticeHtml = (
   });
 };
 
+const banNoticeHtml = (
+  username: string,
+  title: string,
+  body: string,
+  summaryLabel: string,
+  summaryValue: string,
+  details: string,
+) => {
+  return renderTemplate("banNotice", {
+    username,
+    title,
+    body,
+    summaryLabel,
+    summaryValue,
+    details,
+  });
+};
+
 const emailChangeHtml = (
   username: string,
   otp: string,
@@ -89,5 +107,6 @@ export {
   verificationHtml,
   resetPasswordHtml,
   securityNoticeHtml,
+  banNoticeHtml,
   emailChangeHtml,
 };
