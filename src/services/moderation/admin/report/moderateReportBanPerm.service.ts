@@ -5,6 +5,9 @@ import prisma from "../../../../config/prisma.config.js";
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 
 import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
+import clearUserCache from "../../../../utils/clearUserCache.util.js";
+
+import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import type { ReportModerationContext } from "./shared.js";
@@ -42,6 +45,22 @@ const moderateReportBanPerm = async (
         data: { status: "TERMINATED" },
       });
     });
+
+    await runSideEffectWithRetry(
+      "clearUserCache",
+      async () => {
+        await clearUserCache(context.reportTargetUserId);
+      },
+      {
+        reportId: context.reportId,
+        reportMongoId: context.reportMongoId,
+        reviewedBy: context.reviewedBy,
+        claimToken: context.claimToken,
+        decisionId: context.decisionId,
+        targetUserId: context.reportTargetUserId,
+        actionTaken: "BAN_PERM",
+      },
+    );
   }
 
   const meta = {
@@ -94,6 +113,13 @@ const moderateReportBanPerm = async (
       },
     );
   }
+
+  await sendBanNoticeEmail({
+    userId: context.reportTargetUserId,
+    decisionId: context.decisionId,
+    actionTaken: "BAN_PERM",
+    reasons,
+  });
 };
 
 export default moderateReportBanPerm;
