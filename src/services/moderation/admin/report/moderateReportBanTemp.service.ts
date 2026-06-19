@@ -1,4 +1,3 @@
-import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
@@ -32,6 +31,20 @@ const moderateReportBanTemp = async (
 ) => {
   const expiresAt = new Date(Date.now() + banDurationMs);
 
+  const meta = {
+    reportId: context.reportId,
+    targetContentId: context.reportContentId,
+    targetContentType: context.targetType,
+    action: "BAN_TEMP",
+    title,
+    reasons,
+    expiresAt,
+    durationMs: banDurationMs,
+  };
+
+  await helpers.applyContentModerationStatus();
+  await helpers.queueDeleteContentIfNeeded(meta);
+
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
       const existingPermBan = await tx.ban.findFirst({
@@ -39,7 +52,12 @@ const moderateReportBanTemp = async (
       });
 
       if (existingPermBan) {
-        throw new HttpError("User already has a permanent ban", 409);
+        await tx.user.update({
+          where: { id: context.reportTargetUserId },
+          data: { status: "TERMINATED" },
+        });
+        
+        return;
       }
 
       const existingTempBan = await tx.ban.findFirst({
@@ -50,21 +68,19 @@ const moderateReportBanTemp = async (
         },
       });
 
-      if (existingTempBan) {
-        throw new HttpError("User already has an active temp ban", 409);
+      if (!existingTempBan) {
+        await tx.ban.create({
+          data: {
+            userId: context.reportTargetUserId,
+            title,
+            reasons,
+            banType: "TEMP",
+            bannedBy: "ADMIN_MODERATION",
+            expiresAt,
+            durationMs: banDurationMs,
+          },
+        });
       }
-
-      await tx.ban.create({
-        data: {
-          userId: context.reportTargetUserId,
-          title,
-          reasons,
-          banType: "TEMP",
-          bannedBy: "ADMIN_MODERATION",
-          expiresAt,
-          durationMs: banDurationMs,
-        },
-      });
 
       await tx.user.update({
         where: { id: context.reportTargetUserId },
@@ -89,19 +105,6 @@ const moderateReportBanTemp = async (
     );
   }
 
-  const meta = {
-    reportId: context.reportId,
-    targetContentId: context.reportContentId,
-    targetContentType: context.targetType,
-    action: "BAN_TEMP",
-    title,
-    reasons,
-    expiresAt,
-    durationMs: banDurationMs,
-  };
-
-  await helpers.applyContentModerationStatus();
-  await helpers.queueDeleteContentIfNeeded(meta);
   await helpers.updateReportStatus("RESOLVED", "BAN_TEMP", meta);
 
   await runSideEffectWithRetry(

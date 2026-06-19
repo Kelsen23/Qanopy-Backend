@@ -30,15 +30,21 @@ const moderateReportBanPerm = async (
 ) => {
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
-      await tx.ban.create({
-        data: {
-          userId: context.reportTargetUserId,
-          title,
-          reasons,
-          banType: "PERM",
-          bannedBy: "ADMIN_MODERATION",
-        },
+      const existingPermBan = await tx.ban.findFirst({
+        where: { userId: context.reportTargetUserId, banType: "PERM" },
       });
+
+      if (!existingPermBan) {
+        await tx.ban.create({
+          data: {
+            userId: context.reportTargetUserId,
+            title,
+            reasons,
+            banType: "PERM",
+            bannedBy: "ADMIN_MODERATION",
+          },
+        });
+      }
 
       await tx.user.update({
         where: { id: context.reportTargetUserId },
@@ -74,6 +80,7 @@ const moderateReportBanPerm = async (
 
   await helpers.applyContentModerationStatus();
   await helpers.queueDeleteContentIfNeeded(meta);
+
   await helpers.updateReportStatus("RESOLVED", "BAN_PERM", meta);
 
   await runSideEffectWithRetry(

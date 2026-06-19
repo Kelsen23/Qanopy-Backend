@@ -1,4 +1,3 @@
-import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
 
@@ -31,33 +30,6 @@ const moderateStrikeBanPerm = async (
   context: StrikeModerationContext,
   targetContentState: TargetContentState,
 ) => {
-  if (context.targetUserExists) {
-    await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: context.targetUserId, banType: "PERM" },
-      });
-
-      if (existingPermBan) {
-        throw new HttpError("User already has a permanent ban", 409);
-      }
-
-      await tx.ban.create({
-        data: {
-          userId: context.targetUserId,
-          title,
-          reasons,
-          banType: "PERM",
-          bannedBy: "ADMIN_MODERATION",
-        },
-      });
-
-      await tx.user.update({
-        where: { id: context.targetUserId },
-        data: { status: "TERMINATED" },
-      });
-    });
-  }
-
   const sideEffectContext: StrikeSideEffectContext = {
     decisionId: context.decisionId,
     strikeId: context.strikeId,
@@ -157,6 +129,39 @@ const moderateStrikeBanPerm = async (
     contentRemovalQueued = Boolean(
       contentRemovalQueueResult.success &&
         contentRemovalQueueResult.result?.removed,
+    );
+  }
+
+  if (context.targetUserExists) {
+    await prisma.$transaction(async (tx) => {
+      const existingPermBan = await tx.ban.findFirst({
+        where: { userId: context.targetUserId, banType: "PERM" },
+      });
+
+      if (!existingPermBan) {
+        await tx.ban.create({
+          data: {
+            userId: context.targetUserId,
+            title,
+            reasons,
+            banType: "PERM",
+            bannedBy: "ADMIN_MODERATION",
+          },
+        });
+      }
+
+      await tx.user.update({
+        where: { id: context.targetUserId },
+        data: { status: "TERMINATED" },
+      });
+    });
+
+    await runSideEffectWithRetry(
+      "clearUserCache",
+      async () => {
+        await clearUserCache(context.targetUserId);
+      },
+      sideEffectContext,
     );
   }
 

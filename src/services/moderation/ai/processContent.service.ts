@@ -2,7 +2,6 @@ import crypto from "crypto";
 
 import aiModerateContent from "./aiModeration.service.js";
 import loadModerationContent from "./loadModerationContent.service.js";
-import isAiModerationTargetStillPending from "./isAiModerationTargetStillPending.service.js";
 import handleContentModerationBan from "./handleContentModerationBan.service.js";
 import handleContentModerationWarn from "./handleContentModerationWarn.service.js";
 import handleContentModerationIgnore from "./handleContentModerationIgnore.service.js";
@@ -108,16 +107,6 @@ const processContent = async (
         undefined);
 
   if (finalDecision === "BAN_PERM" || finalDecision === "BAN_TEMP") {
-    const targetStillPending = await isAiModerationTargetStillPending(
-      contentId,
-      contentType,
-      targetVersionOrRevision,
-    );
-
-    if (!targetStillPending) {
-      return;
-    }
-
     await handleContentModerationBan({
       contentId,
       contentType,

@@ -3,6 +3,7 @@ import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import prisma from "../../../../config/prisma.config.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import routeNotification from "../../../notification/routeNotification.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
 import type { ReportModerationContext } from "./shared.js";
@@ -63,6 +64,34 @@ const moderateReportWarn = async (
           jobId: makeJobId("moderationMetrics", context.decisionId, "WARN"),
         },
       );
+    },
+    {
+      reportId: context.reportId,
+      reportMongoId: context.reportMongoId,
+      reviewedBy: context.reviewedBy,
+      claimToken: context.claimToken,
+      decisionId: context.decisionId,
+    },
+  );
+
+  await runSideEffectWithRetry(
+    "queueNotification:WARN",
+    async () => {
+      await routeNotification({
+        recipientId: context.reportTargetUserId,
+        actorId: context.reviewedBy,
+        event: "WARN",
+        target: {
+          entityType: "USER",
+          entityId: context.reportTargetUserId,
+        },
+        meta: {
+          title,
+          reasons,
+          expiresAt,
+          reportId: context.reportId,
+        },
+      });
     },
     {
       reportId: context.reportId,

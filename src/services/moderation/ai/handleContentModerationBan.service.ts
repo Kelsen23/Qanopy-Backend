@@ -10,8 +10,10 @@ import {
   type ModerationDecision,
 } from "./contentModeration.shared.js";
 import routeNotification from "../../notification/routeNotification.service.js";
+import sendBanNoticeEmail from "../sendBanNoticeEmail.service.js";
 
 import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
 
 import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
@@ -42,19 +44,21 @@ const handleContentModerationBan = async ({
   decisionId,
   content,
 }: HandleContentModerationBanInput) => {
-  const targetStillPending = await applyContentModerationDecisionService(
-    contentId,
-    contentType,
-    "REJECTED",
-    versionOrRevision,
-  );
+  const existingStrike = await prisma.moderationStrike.findFirst({
+    where: {
+      targetContentId: contentId,
+      targetType: moderationContentTypeMap[contentType],
+      targetContentVersion:
+        contentType === "QUESTION" ? versionOrRevision : null,
+      strikedBy: "AI_MODERATION",
+    },
+    select: { id: true },
+  });
 
-  if (!targetStillPending.applied) {
-    return;
-  }
+  let strikeCreatedThisAttempt = false;
 
-  const newStrike = await prisma.$transaction(async (tx) => {
-    const createdStrike = await tx.moderationStrike.create({
+  if (!existingStrike) {
+    await prisma.moderationStrike.create({
       data: {
         userId: content.userId as string,
         aiDecision: finalDecision,
@@ -70,10 +74,54 @@ const handleContentModerationBan = async ({
       },
     });
 
-    return createdStrike;
-  });
+    strikeCreatedThisAttempt = true;
+  }
+
+  const targetStillPending = await applyContentModerationDecisionService(
+    contentId,
+    contentType,
+    "REJECTED",
+    versionOrRevision,
+  );
+
+  if (!targetStillPending.applied) {
+    if (strikeCreatedThisAttempt) {
+      await prisma.moderationStrike.deleteMany({
+        where: {
+          targetContentId: contentId,
+          targetType: moderationContentTypeMap[contentType],
+          targetContentVersion:
+            contentType === "QUESTION" ? versionOrRevision : null,
+          strikedBy: "AI_MODERATION",
+        },
+      });
+      return;
+    }
+  }
+
+  const newStrike = existingStrike
+    ? existingStrike
+    : await prisma.moderationStrike.findFirstOrThrow({
+        where: {
+          targetContentId: contentId,
+          targetType: moderationContentTypeMap[contentType],
+          targetContentVersion:
+            contentType === "QUESTION" ? versionOrRevision : null,
+          strikedBy: "AI_MODERATION",
+        },
+      });
 
   await clearStrikesCache();
+
+  await moderationMetricsQueue.add(
+    finalDecision,
+    { userId: content.userId as string },
+    {
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: makeJobId("moderationMetrics", decisionId, finalDecision),
+    },
+  );
 
   const meta = {
     ...baseMeta,
@@ -108,6 +156,13 @@ const handleContentModerationBan = async ({
       entityId: content.userId as string,
     },
     meta,
+  });
+
+  await sendBanNoticeEmail({
+    userId: content.userId as string,
+    decisionId,
+    actionTaken: finalDecision,
+    reasons: aiReasons,
   });
 };
 
