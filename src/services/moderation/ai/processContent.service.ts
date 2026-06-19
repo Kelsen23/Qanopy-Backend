@@ -74,10 +74,7 @@ const processContent = async (
   );
 
   const riskDecision = mapSeverityToDecision(riskScore);
-  const finalDecision = pickStrongerDecision(
-    recommendedAction,
-    riskDecision,
-  );
+  const finalDecision = pickStrongerDecision(recommendedAction, riskDecision);
 
   const decisionId = crypto.randomUUID();
 
@@ -133,7 +130,7 @@ const processContent = async (
       decisionId,
       content,
     });
-    
+
     return;
   }
 
