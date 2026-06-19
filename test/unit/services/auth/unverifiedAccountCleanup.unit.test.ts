@@ -15,7 +15,7 @@ vi.mock(
   () => mockAuthUnitModules.redisConfig,
 );
 vi.mock(
-  "../../../../src/utils/publishSocketDisconnect.util.js",
+  "../../../../src/utils/socket/publishSocketDisconnect.util.js",
   () => mockAuthUnitModules.publishSocketDisconnect,
 );
 vi.mock("../../../../src/services/auth/deleteAccount.service.js", () => ({

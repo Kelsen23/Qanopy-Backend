@@ -17,7 +17,7 @@ vi.mock(
 );
 
 const { startBadgeWorker } = await import(
-  "../../../../src/workers/badge.worker.js"
+  "../../../../src/workers/user/badge.worker.js"
 );
 
 describe("badge worker", () => {

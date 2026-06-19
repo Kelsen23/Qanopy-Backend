@@ -1,6 +1,6 @@
 import { badgeTriggers, type BadgeTrigger } from "./badge.shared.js";
 
-import { makeJobId } from "../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import badgeQueue from "../../../queues/badge.queue.js";
 

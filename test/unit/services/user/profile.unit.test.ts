@@ -16,19 +16,19 @@ vi.mock(
   () => mockUserUnitModules.redisConfig,
 );
 vi.mock(
-  "../../../../src/utils/clearCache.util.js",
+  "../../../../src/utils/cache/clearCache.util.js",
   () => mockUserUnitModules.clearCacheUtil,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockUserUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../src/utils/buildDeletedUserData.util.js",
+  "../../../../src/utils/auth/buildDeletedUserData.util.js",
   () => mockUserUnitModules.buildDeletedUserData,
 );
 vi.mock(
-  "../../../../src/utils/publishSocketDisconnect.util.js",
+  "../../../../src/utils/socket/publishSocketDisconnect.util.js",
   () => mockUserUnitModules.publishSocketDisconnect,
 );
 vi.mock(

@@ -1,5 +1,5 @@
-import HttpError from "../../utils/httpError.util.js";
-import { clearReportsCache } from "../../utils/clearCache.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { clearReportsCache } from "../../utils/cache/clearCache.util.js";
 
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 import Answer from "../../models/answer.model.js";

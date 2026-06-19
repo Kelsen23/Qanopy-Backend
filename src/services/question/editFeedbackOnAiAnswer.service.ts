@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";

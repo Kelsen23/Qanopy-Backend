@@ -2,8 +2,8 @@ import prisma from "../../config/prisma.config.js";
 
 import emailQueue from "../../queues/email.queue.js";
 
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import { banNoticeHtml } from "../../utils/renderTemplate.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import { banNoticeHtml } from "../../utils/email/renderTemplate.util.js";
 
 type SendBanNoticeEmailInput = {
   userId: string;
@@ -67,9 +67,7 @@ const sendBanNoticeEmail = async ({
     }
 
     const isTempBan = actionTaken === "BAN_TEMP";
-    const title = isTempBan
-      ? "Temporary ban notice"
-      : "Permanent ban notice";
+    const title = isTempBan ? "Temporary ban notice" : "Permanent ban notice";
     const body = isTempBan
       ? "Your Qanopy account has been temporarily banned by the moderation team."
       : "Your Qanopy account has been permanently banned by the moderation team.";

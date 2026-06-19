@@ -1,4 +1,4 @@
-import HttpError from "../../../utils/httpError.util.js";
+import HttpError from "../../../utils/http/httpError.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";

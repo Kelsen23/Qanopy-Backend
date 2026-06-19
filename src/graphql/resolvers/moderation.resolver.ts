@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import { Redis } from "ioredis";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import Report from "../../models/report.model.js";
 

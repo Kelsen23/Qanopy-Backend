@@ -1,11 +1,11 @@
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
   clearAnswerCache,
   clearReplyCache,
   clearVersionHistoryCache,
-} from "../../utils/clearCache.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+} from "../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -55,11 +55,14 @@ const removeModeratedContent = async (
     typeof questionVersion === "number" &&
     Number(foundContent.currentVersion) !== questionVersion
   ) {
-    await getRedisCacheClient().del(`v:${questionVersion}:question:${targetId}`);
+    await getRedisCacheClient().del(
+      `v:${questionVersion}:question:${targetId}`,
+    );
     await clearVersionHistoryCache(targetId);
 
     return {
-      message: "Question version is no longer current, parent question left active",
+      message:
+        "Question version is no longer current, parent question left active",
       removed: false,
     };
   }

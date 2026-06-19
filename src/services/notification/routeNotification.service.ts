@@ -3,7 +3,7 @@ import NotificationParams, {
   UserNotificationParams,
 } from "../../types/notification.type.js";
 
-import queueNotification from "../../utils/queueNotification.util.js";
+import queueNotification from "../../utils/notification/queueNotification.util.js";
 
 import maybeQueueNotification from "./maybeQueueNotification.service.js";
 

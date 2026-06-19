@@ -4,13 +4,16 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.util.js";
+import {
+  clearAnswerCache,
+  clearReplyCache,
+} from "../utils/cache/clearCache.util.js";
 
-import { makeJobId } from "../utils/makeJobId.util.js";
+import { makeJobId } from "../utils/job/makeJobId.util.js";
 
-import HttpError from "../utils/httpError.util.js";
+import HttpError from "../utils/http/httpError.util.js";
 
-import queueUserInterest from "../utils/queueUserInterest.util.js";
+import queueUserInterest from "../utils/question/queueUserInterest.util.js";
 
 import voteService from "../services/question/vote.service.js";
 import unvoteService from "../services/question/unvote.service.js";

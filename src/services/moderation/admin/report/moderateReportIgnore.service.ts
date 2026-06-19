@@ -1,4 +1,4 @@
-import { makeJobId } from "../../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";

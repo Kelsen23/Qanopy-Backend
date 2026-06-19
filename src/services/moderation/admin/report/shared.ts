@@ -1,7 +1,4 @@
-import type {
-  AdminReportActionTaken,
-  ReportTargetType,
-} from "../shared.js";
+import type { AdminReportActionTaken, ReportTargetType } from "../shared.js";
 
 type ReportModerationContext = {
   reportId: string;

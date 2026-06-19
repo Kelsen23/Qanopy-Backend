@@ -1,10 +1,10 @@
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
 
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import mongoose from "mongoose";
 
@@ -71,9 +71,7 @@ const rollbackVersion = async (
 
       const nextVersion = Number(freshQuestion.currentVersion) + 1;
       const rolledBackVersionIsWorse =
-        moderationSeverity[
-          foundVersion.moderationStatus as ModerationStatus
-        ] >=
+        moderationSeverity[foundVersion.moderationStatus as ModerationStatus] >=
         moderationSeverity[
           (freshQuestion.moderationStatus as ModerationStatus) ?? "PENDING"
         ];

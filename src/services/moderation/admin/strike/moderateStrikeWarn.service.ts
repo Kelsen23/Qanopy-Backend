@@ -1,5 +1,5 @@
-import { makeJobId } from "../../../../utils/makeJobId.util.js";
-import { clearStrikesCache } from "../../../../utils/clearCache.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
 

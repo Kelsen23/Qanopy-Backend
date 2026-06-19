@@ -1,4 +1,4 @@
-import { makeJobId } from "../../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 

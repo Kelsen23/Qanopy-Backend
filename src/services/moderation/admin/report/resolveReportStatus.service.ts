@@ -1,8 +1,8 @@
-import HttpError from "../../../../utils/httpError.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
 
 import Report from "../../../../models/report.model.js";
 
-import { makeJobId } from "../../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 

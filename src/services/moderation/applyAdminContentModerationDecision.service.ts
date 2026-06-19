@@ -4,8 +4,8 @@ import { syncQuestionModerationStatusFromVersions } from "./questionModerationSt
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";

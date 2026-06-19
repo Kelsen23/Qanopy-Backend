@@ -1,8 +1,8 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import { emailChangeHtml } from "../../utils/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";

@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
+import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 
 import { purgeAccountData } from "./deleteAccount.service.js";
 

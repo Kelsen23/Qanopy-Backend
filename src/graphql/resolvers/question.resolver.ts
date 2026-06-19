@@ -10,11 +10,11 @@ import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 import UserInterest from "../../models/userInterest.model.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import interests from "../../utils/interests.util.js";
-import queueUserInterest from "../../utils/queueUserInterest.util.js";
-import rotateArray from "../../utils/rotateArray.util.js";
-import getStableOffset from "../../utils/getStableOffset.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import interests from "../../utils/question/interests.util.js";
+import queueUserInterest from "../../utils/question/queueUserInterest.util.js";
+import rotateArray from "../../utils/question/rotateArray.util.js";
+import getStableOffset from "../../utils/question/getStableOffset.util.js";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 

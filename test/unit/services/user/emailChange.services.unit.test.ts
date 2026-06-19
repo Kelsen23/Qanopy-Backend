@@ -24,11 +24,11 @@ vi.mock(
   () => mockUserUnitModules.emailQueue,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockUserUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../src/utils/renderTemplate.util.js",
+  "../../../../src/utils/email/renderTemplate.util.js",
   () => mockUserUnitModules.renderTemplate,
 );
 vi.mock(
@@ -40,7 +40,7 @@ vi.mock(
   () => mockUserUnitModules.emailChangeShared,
 );
 vi.mock(
-  "../../../../src/utils/publishSocketDisconnect.util.js",
+  "../../../../src/utils/socket/publishSocketDisconnect.util.js",
   () => mockUserUnitModules.publishSocketDisconnect,
 );
 

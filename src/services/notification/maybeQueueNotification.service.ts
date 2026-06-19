@@ -2,7 +2,7 @@ import { UserNotificationParams } from "../../types/notification.type.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import queueNotification from "../../utils/queueNotification.util.js";
+import queueNotification from "../../utils/notification/queueNotification.util.js";
 
 import shouldNotify from "./notification.rules.js";
 

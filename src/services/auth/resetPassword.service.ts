@@ -1,9 +1,9 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import { securityNoticeHtml } from "../../utils/renderTemplate.util.js";
-import publishSocketDisconnect from "../../utils/publishSocketDisconnect.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
+import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 
 import {
   getDeviceIp,

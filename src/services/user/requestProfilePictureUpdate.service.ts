@@ -4,8 +4,8 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import getS3, { bucketName } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import imageModerationQueue from "../../queues/imageModeration.queue.js";
 

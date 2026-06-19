@@ -21,7 +21,7 @@ vi.mock("../../../../src/services/auth/auth.service.js", () => ({
   }),
 }));
 
-vi.mock("../../../../src/utils/getDeviceInfo.util.js", () =>
+vi.mock("../../../../src/utils/auth/getDeviceInfo.util.js", () =>
   createMockGetDeviceInfoModule(),
 );
 

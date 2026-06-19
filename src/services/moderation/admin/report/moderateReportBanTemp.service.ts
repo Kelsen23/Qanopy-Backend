@@ -1,12 +1,12 @@
-import HttpError from "../../../../utils/httpError.util.js";
-import { makeJobId } from "../../../../utils/makeJobId.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
 
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 
-import publishSocketDisconnect from "../../../../utils/publishSocketDisconnect.util.js";
-import clearUserCache from "../../../../utils/clearUserCache.util.js";
+import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
+import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";

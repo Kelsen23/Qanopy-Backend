@@ -7,12 +7,12 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import deleteSingleImageService from "../media/deleteSingleImage.service.js";
 
-import buildDeletedUserData from "../../utils/buildDeletedUserData.util.js";
+import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
 
 import {
   clearNotificationCache,
   clearUserBadgesCache,
-} from "../../utils/clearCache.util.js";
+} from "../../utils/cache/clearCache.util.js";
 
 type DeleteAccountJobData = {
   userId: string;

@@ -4,9 +4,9 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import generateToken from "../utils/generateToken.util.js";
-import getDeviceInfo from "../utils/getDeviceInfo.util.js";
-import sanitizeUser from "../utils/sanitizeUser.util.js";
+import generateToken from "../utils/auth/generateToken.util.js";
+import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
+import sanitizeUser from "../utils/auth/sanitizeUser.util.js";
 
 import {
   changePassword as changePasswordService,

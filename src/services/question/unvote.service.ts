@@ -1,4 +1,4 @@
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import mongoose from "mongoose";
 
@@ -8,8 +8,8 @@ import Reply from "../../models/reply.model.js";
 import Vote from "../../models/vote.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
-import invalidateCacheOnUnvote from "../../utils/invalidateCacheOnUnvote.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
+import invalidateCacheOnUnvote from "../../utils/cache/invalidateCacheOnUnvote.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
 import statsQueue from "../../queues/stats.queue.js";
 

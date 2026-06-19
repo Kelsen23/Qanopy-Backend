@@ -1,7 +1,7 @@
 import DataLoader from "dataloader";
 
 import prisma from "../config/prisma.config.js";
-import sanitizeUser from "../utils/sanitizeUser.util.js";
+import sanitizeUser from "../utils/auth/sanitizeUser.util.js";
 
 const batchUsers = async (userIds: readonly string[]) => {
   const users = await prisma.user.findMany({

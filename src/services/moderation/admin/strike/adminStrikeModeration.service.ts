@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
-import HttpError from "../../../../utils/httpError.util.js";
-import { clearStrikesCache } from "../../../../utils/clearCache.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
+import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
 

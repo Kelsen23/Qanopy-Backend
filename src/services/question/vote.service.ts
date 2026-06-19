@@ -1,12 +1,12 @@
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
   clearAnswerCache,
   clearReplyCache,
-} from "../../utils/clearCache.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import queueUserInterest from "../../utils/queueUserInterest.util.js";
+} from "../../utils/cache/clearCache.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import queueUserInterest from "../../utils/question/queueUserInterest.util.js";
 
 import mongoose from "mongoose";
 

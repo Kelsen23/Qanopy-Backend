@@ -1,5 +1,5 @@
-import HttpError from "../../utils/httpError.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";

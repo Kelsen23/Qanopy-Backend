@@ -7,7 +7,7 @@ import prisma from "../../config/prisma.config.js";
 
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
-import moveS3Object from "../../utils/moveS3Object.util.js";
+import moveS3Object from "../../utils/media/moveS3Object.util.js";
 import { cacheUser } from "../auth/auth.shared.js";
 
 type UploadFingerprint = {

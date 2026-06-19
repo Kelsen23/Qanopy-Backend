@@ -17,7 +17,7 @@ vi.mock(
 );
 
 const { startImageModerationWorker } = await import(
-  "../../../../src/workers/imageModeration.worker.js"
+  "../../../../src/workers/moderation/imageModeration.worker.js"
 );
 
 describe("imageModeration worker", () => {

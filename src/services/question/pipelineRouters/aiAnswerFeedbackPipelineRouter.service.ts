@@ -1,4 +1,4 @@
-import { makeJobId } from "../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 

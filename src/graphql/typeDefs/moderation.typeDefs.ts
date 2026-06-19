@@ -116,7 +116,7 @@ const moderationTypeDefs = gql`
 
     adminId: String
     strikeComment: String
-    
+
     reviewedBy: String
     reviewComment: String
     actionTaken: ReportActionTaken!

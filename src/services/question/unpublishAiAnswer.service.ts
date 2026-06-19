@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import Question from "../../models/question.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";

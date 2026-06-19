@@ -15,11 +15,11 @@ vi.mock(
   () => mockAuthUnitModules.redisConfig,
 );
 vi.mock(
-  "../../../../src/utils/generateOAuthUsername.util.js",
+  "../../../../src/utils/auth/generateOAuthUsername.util.js",
   () => mockAuthUnitModules.generateOAuthUsername,
 );
 vi.mock(
-  "../../../../src/utils/verifyGoogleToken.util.js",
+  "../../../../src/utils/auth/verifyGoogleToken.util.js",
   () => mockAuthUnitModules.verifyGoogleToken,
 );
 vi.mock(
