@@ -70,6 +70,8 @@ const rollbackVersion = async (
       if (!freshQuestion) throw new HttpError("Question not found", 404);
 
       const nextVersion = Number(freshQuestion.currentVersion) + 1;
+      const rolledBackVersionIsPending =
+        foundVersion.moderationStatus === "PENDING";
       const rolledBackVersionIsWorse =
         moderationSeverity[foundVersion.moderationStatus as ModerationStatus] >=
         moderationSeverity[
@@ -117,13 +119,19 @@ const rollbackVersion = async (
           body: foundVersion.body,
           tags: foundVersion.tags,
           currentVersion: nextVersion,
-          moderationStatus: rolledBackVersionIsWorse
+          moderationStatus: rolledBackVersionIsPending
+            ? "PENDING"
+            : rolledBackVersionIsWorse
             ? foundVersion.moderationStatus
             : freshQuestion.moderationStatus,
-          moderationUpdatedAt: rolledBackVersionIsWorse
+          moderationUpdatedAt: rolledBackVersionIsPending
+            ? null
+            : rolledBackVersionIsWorse
             ? (foundVersion.moderationUpdatedAt ?? null)
             : (freshQuestion.moderationUpdatedAt ?? null),
-          moderationSourceVersion: rolledBackVersionIsWorse
+          moderationSourceVersion: rolledBackVersionIsPending
+            ? nextVersion
+            : rolledBackVersionIsWorse
             ? nextVersion
             : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
           topicStatus: "PENDING",

@@ -8,13 +8,6 @@ import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
 
-const moderationSeverity = {
-  PENDING: 0,
-  APPROVED: 1,
-  FLAGGED: 2,
-  REJECTED: 3,
-} as const;
-
 const editQuestion = async (
   userId: string,
   questionId: string,
@@ -48,14 +41,6 @@ const editQuestion = async (
     throw new HttpError("Unauthorized to edit question", 403);
 
   const newVersion = Number(foundQuestion.currentVersion ?? 0) + 1;
-  const parentModerationStatus =
-    moderationSeverity[
-      (foundQuestion.moderationStatus as keyof typeof moderationSeverity) ??
-        "PENDING"
-    ] > moderationSeverity.PENDING
-      ? foundQuestion.moderationStatus
-      : "PENDING";
-
   const editedQuestion = await Question.findByIdAndUpdate(
     foundQuestion._id || foundQuestion.id,
     {
@@ -63,15 +48,9 @@ const editQuestion = async (
       body,
       tags,
       currentVersion: newVersion,
-      moderationStatus: parentModerationStatus,
-      moderationUpdatedAt:
-        parentModerationStatus === "PENDING"
-          ? null
-          : (foundQuestion.moderationUpdatedAt ?? null),
-      moderationSourceVersion:
-        parentModerationStatus === "PENDING"
-          ? newVersion
-          : Number(foundQuestion.moderationSourceVersion ?? 1),
+      moderationStatus: "PENDING",
+      moderationUpdatedAt: null,
+      moderationSourceVersion: newVersion,
       topicStatus: "PENDING",
       embeddingStatus: "NONE",
       similarQuestionIds: [],
