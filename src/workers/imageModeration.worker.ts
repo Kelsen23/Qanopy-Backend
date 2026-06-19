@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
 import updateProfilePictureService from "../services/user/updateProfilePicture.service.js";
-import processContentImage from "../services/moderation/processContentImage.service.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
 
@@ -21,10 +20,6 @@ async function startImageModerationWorker() {
             objectKey,
             uploadFingerprint,
           );
-          break;
-
-        case "CONTENT":
-          await processContentImage(userId, objectKey);
           break;
 
         default:

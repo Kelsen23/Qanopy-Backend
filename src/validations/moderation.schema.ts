@@ -163,16 +163,9 @@ const moderateSchema = z
     }
   });
 
-const moderateContentImageSchema = z
-  .object({
-    objectKey: contentImageObjectKeySchema,
-  })
-  .strict();
-
 export {
   reportSchema,
   moderateSchema,
-  moderateContentImageSchema,
   reportTargetTypeSchema,
   reportReasonSchema,
   moderationTypeSchema,

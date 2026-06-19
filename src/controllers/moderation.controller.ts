@@ -8,7 +8,6 @@ import {
   createReport as createReportService,
   getBan as getBanService,
   moderate as moderateService,
-  moderateContentImage as moderateContentImageService,
 } from "../services/moderation/moderation.service.js";
 
 const createReport = asyncHandler(
@@ -60,18 +59,4 @@ const getBan = asyncHandler(
   },
 );
 
-const moderateContentImage = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user.id;
-    const { objectKey } = req.body;
-
-    const { message } = await moderateContentImageService({
-      userId,
-      objectKey,
-    });
-
-    return res.status(202).json({ message });
-  },
-);
-
-export { createReport, moderate, getBan, moderateContentImage };
+export { createReport, moderate, getBan };

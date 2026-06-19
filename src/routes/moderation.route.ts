@@ -4,19 +4,14 @@ import {
   createReport,
   moderate,
   getBan,
-  moderateContentImage,
 } from "../controllers/moderation.controller.js";
 
 import {
   moderateSchema,
   reportSchema,
-  moderateContentImageSchema,
 } from "../validations/moderation.schema.js";
 
-import {
-  createReportLimiterMiddleware,
-  moderateContentImageLimiterMiddleware,
-} from "../middlewares/rate-limiters/moderation.rate-limiters.js";
+import { createReportLimiterMiddleware } from "../middlewares/rate-limiters/moderation.rate-limiters.js";
 
 import isAuthenticated, {
   requireActiveUser,
@@ -51,16 +46,5 @@ router
   );
 
 router.route("/ban/active").get(isAuthenticated, getBan);
-
-router
-  .route("/content/image")
-  .post(
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    moderateContentImageLimiterMiddleware,
-    validate(moderateContentImageSchema),
-    moderateContentImage,
-  );
 
 export default router;

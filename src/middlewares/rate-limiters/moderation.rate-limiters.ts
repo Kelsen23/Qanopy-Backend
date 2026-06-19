@@ -15,23 +15,10 @@ const createReportLimiter = new RateLimiterRedis({
   duration: 60 * 10,
 });
 
-const moderateContentImageLimiter = new RateLimiterRedis({
-  storeClient: getRedisMessagingClient(),
-  keyPrefix: "moderation:user:content-image:create",
-  points: 24,
-  duration: 60 * 60,
-});
-
 const createReportLimiterMiddleware = createRateLimiterMiddleware(
   createReportLimiter,
   "Too many reports from this account, please try again later",
   userKeyResolver,
 );
 
-const moderateContentImageLimiterMiddleware = createRateLimiterMiddleware(
-  moderateContentImageLimiter,
-  "Too many content image uploads from this account, please try again later",
-  userKeyResolver,
-);
-
-export { createReportLimiterMiddleware, moderateContentImageLimiterMiddleware };
+export { createReportLimiterMiddleware };
