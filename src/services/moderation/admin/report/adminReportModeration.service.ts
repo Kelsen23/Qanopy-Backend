@@ -61,7 +61,7 @@ const adminModerateReport = async ({
     throw new HttpError("Target user account is already terminated", 409);
   }
 
-  if ((targetUser?.id as string).toString() === reviewedBy) {
+  if (targetUser?.id === reviewedBy) {
     throw new HttpError("Self-moderation not allowed", 403);
   }
 
