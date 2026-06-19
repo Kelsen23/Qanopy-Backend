@@ -47,9 +47,9 @@ const moderateReportWarn = async (
     expiresAt,
   };
 
-  await helpers.updateReportStatus("RESOLVED", "WARN", meta);
   await helpers.applyContentModerationStatus();
   await helpers.queueDeleteContentIfNeeded(meta);
+  await helpers.updateReportStatus("RESOLVED", "WARN", meta);
 
   await runSideEffectWithRetry(
     "moderationMetricsQueue:add",

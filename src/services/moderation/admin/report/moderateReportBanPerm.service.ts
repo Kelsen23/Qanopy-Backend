@@ -72,9 +72,9 @@ const moderateReportBanPerm = async (
     reasons,
   };
 
-  await helpers.updateReportStatus("RESOLVED", "BAN_PERM", meta);
   await helpers.applyContentModerationStatus();
   await helpers.queueDeleteContentIfNeeded(meta);
+  await helpers.updateReportStatus("RESOLVED", "BAN_PERM", meta);
 
   await runSideEffectWithRetry(
     "moderationMetricsQueue:add",

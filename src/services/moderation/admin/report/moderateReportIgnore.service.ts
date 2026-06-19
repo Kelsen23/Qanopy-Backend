@@ -20,8 +20,8 @@ const moderateReportIgnore = async (
 ) => {
   const meta = { title, reasons };
 
-  await helpers.updateReportStatus("DISMISSED", "IGNORE", meta);
   await helpers.applyContentModerationStatus();
+  await helpers.updateReportStatus("DISMISSED", "IGNORE", meta);
 
   await runSideEffectWithRetry(
     "moderationMetricsQueue:add",

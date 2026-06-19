@@ -100,9 +100,9 @@ const moderateReportBanTemp = async (
     durationMs: banDurationMs,
   };
 
-  await helpers.updateReportStatus("RESOLVED", "BAN_TEMP", meta);
   await helpers.applyContentModerationStatus();
   await helpers.queueDeleteContentIfNeeded(meta);
+  await helpers.updateReportStatus("RESOLVED", "BAN_TEMP", meta);
 
   await runSideEffectWithRetry(
     "moderationMetricsQueue:add",
