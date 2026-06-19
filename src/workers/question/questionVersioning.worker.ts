@@ -157,7 +157,6 @@ async function startWorker() {
         let nextVersion = Number(intendedVersion ?? 1);
         let activeVersionNumber: number | null = null;
         let resolvedBasedOnVersion = basedOnVersion;
-        let createdVersion = false;
 
         for (
           let attempt = 0;
@@ -265,8 +264,6 @@ async function startWorker() {
                 ],
                 { session },
               );
-
-              createdVersion = true;
             });
             break;
           } catch (error) {
@@ -283,7 +280,14 @@ async function startWorker() {
 
         basedOnVersion = resolvedBasedOnVersion;
 
-        if (!createdVersion) {
+        const targetVersionExists = await QuestionVersion.findOne({
+          questionId,
+          version: nextVersion,
+        })
+          .select("_id")
+          .lean();
+
+        if (!targetVersionExists) {
           return;
         }
 
