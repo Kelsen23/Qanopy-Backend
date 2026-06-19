@@ -27,7 +27,18 @@ const updateProfilePicture = async (
 
   if (!foundUser) throw new Error("User not found");
 
-  await moderateFileService(userId, objectKey, "PROFILE_PICTURE");
+  const { safe } = await moderateFileService(
+    userId,
+    objectKey,
+    "PROFILE_PICTURE",
+  );
+
+  if (!safe) {
+    return {
+      message: "Profile picture contains unsafe content",
+      profilePictureUrl: null,
+    };
+  }
 
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
