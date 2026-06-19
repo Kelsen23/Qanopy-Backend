@@ -15,6 +15,7 @@ import {
 import prisma from "../../../config/prisma.config.js";
 
 import computeRiskScore from "../../../utils/moderation/computeRiskScore.util.js";
+import calculateTempBanMs from "../../../utils/moderation/calculateTempBanMs.util.js";
 
 const processContent = async (
   contentId: string,
@@ -75,6 +76,12 @@ const processContent = async (
 
   const riskDecision = mapSeverityToDecision(riskScore);
   const finalDecision = pickStrongerDecision(recommendedAction, riskDecision);
+  const tempBanDurationMs = calculateTempBanMs(
+    severity,
+    aiConfidence,
+    totalStrikes,
+    trustScore,
+  );
 
   const decisionId = crypto.randomUUID();
 
@@ -116,6 +123,7 @@ const processContent = async (
       aiReasons,
       severity,
       riskScore,
+      tempBanDurationMs,
       baseMeta,
       decisionId,
       content,
@@ -135,6 +143,7 @@ const processContent = async (
       decisionId,
       content,
     });
+    
     return;
   }
 

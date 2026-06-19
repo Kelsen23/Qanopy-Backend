@@ -26,6 +26,7 @@ type HandleContentModerationBanInput = {
   aiReasons: string[];
   severity: number;
   riskScore: number;
+  tempBanDurationMs: number;
   baseMeta: Record<string, unknown>;
   decisionId: string;
   content: LoadedModerationContent["content"];
@@ -40,6 +41,7 @@ const handleContentModerationBan = async ({
   aiReasons,
   severity,
   riskScore,
+  tempBanDurationMs,
   baseMeta,
   decisionId,
   content,
@@ -97,6 +99,75 @@ const handleContentModerationBan = async ({
       });
       return;
     }
+  }
+
+  if (content.userId) {
+    await prisma.$transaction(async (tx) => {
+      if (finalDecision === "BAN_PERM") {
+        const existingPermBan = await tx.ban.findFirst({
+          where: { userId: content.userId as string, banType: "PERM" },
+        });
+
+        if (!existingPermBan) {
+          await tx.ban.create({
+            data: {
+              userId: content.userId as string,
+              title: "AI moderation ban",
+              reasons: aiReasons,
+              banType: "PERM",
+              bannedBy: "AI_MODERATION",
+            },
+          });
+        }
+
+        await tx.user.update({
+          where: { id: content.userId as string },
+          data: { status: "TERMINATED" },
+        });
+
+        return;
+      }
+
+      const existingPermBan = await tx.ban.findFirst({
+        where: { userId: content.userId as string, banType: "PERM" },
+      });
+
+      if (existingPermBan) {
+        await tx.user.update({
+          where: { id: content.userId as string },
+          data: { status: "TERMINATED" },
+        });
+
+        return;
+      }
+
+      const existingTempBan = await tx.ban.findFirst({
+        where: {
+          userId: content.userId as string,
+          banType: "TEMP",
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (!existingTempBan) {
+        await tx.ban.create({
+          data: {
+            userId: content.userId as string,
+            title: "AI moderation ban",
+            reasons: aiReasons,
+            banType: "TEMP",
+            bannedBy: "AI_MODERATION",
+            expiresAt: new Date(Date.now() + tempBanDurationMs),
+            durationMs: tempBanDurationMs,
+          },
+        });
+      }
+
+      await tx.user.update({
+        where: { id: content.userId as string },
+        data: { status: "SUSPENDED" },
+      });
+    });
   }
 
   const newStrike = existingStrike
@@ -163,6 +234,7 @@ const handleContentModerationBan = async ({
     decisionId,
     actionTaken: finalDecision,
     reasons: aiReasons,
+    banDurationMs: finalDecision === "BAN_TEMP" ? tempBanDurationMs : undefined,
   });
 };
 
