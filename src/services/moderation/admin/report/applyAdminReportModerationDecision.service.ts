@@ -65,9 +65,7 @@ const applyAdminReportModerationDecision = async ({
       reportContentId,
       targetType,
       mappedStatus,
-      targetType === "QUESTION"
-        ? (reportContentVersion ?? undefined)
-        : undefined,
+      reportContentVersion ?? undefined,
     );
   } catch (error) {
     console.error(

@@ -79,10 +79,7 @@ const moderateStrikeWarn = async (
     });
 
     const mappedStatus = actionToModerationStatus.WARN;
-    const questionVersion =
-      context.targetType === "QUESTION"
-        ? (context.targetContentVersion ?? undefined)
-        : undefined;
+    const questionVersion = context.targetContentVersion ?? undefined;
 
     const moderationApplyResult = await runSideEffectWithRetry(
       "applyAdminContentModerationDecisionService",

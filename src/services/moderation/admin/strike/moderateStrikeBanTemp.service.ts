@@ -85,10 +85,7 @@ const moderateStrikeBanTemp = async (
     });
 
     const mappedStatus = actionToModerationStatus.BAN_TEMP;
-    const questionVersion =
-      context.targetType === "QUESTION"
-        ? (context.targetContentVersion ?? undefined)
-        : undefined;
+    const questionVersion = context.targetContentVersion ?? undefined;
 
     const moderationApplyResult = await runSideEffectWithRetry(
       "applyAdminContentModerationDecisionService",

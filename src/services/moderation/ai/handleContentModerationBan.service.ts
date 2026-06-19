@@ -50,8 +50,7 @@ const handleContentModerationBan = async ({
     where: {
       targetContentId: contentId,
       targetType: moderationContentTypeMap[contentType],
-      targetContentVersion:
-        contentType === "QUESTION" ? versionOrRevision : null,
+      targetContentVersion: versionOrRevision,
       strikedBy: "AI_MODERATION",
     },
     select: { id: true },
@@ -70,8 +69,7 @@ const handleContentModerationBan = async ({
         riskScore,
         targetContentId: contentId,
         targetType: moderationContentTypeMap[contentType],
-        targetContentVersion:
-          contentType === "QUESTION" ? versionOrRevision : undefined,
+        targetContentVersion: versionOrRevision,
         strikedBy: "AI_MODERATION",
       },
     });
@@ -92,8 +90,7 @@ const handleContentModerationBan = async ({
         where: {
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion:
-            contentType === "QUESTION" ? versionOrRevision : null,
+          targetContentVersion: versionOrRevision,
           strikedBy: "AI_MODERATION",
         },
       });
@@ -176,8 +173,7 @@ const handleContentModerationBan = async ({
         where: {
           targetContentId: contentId,
           targetType: moderationContentTypeMap[contentType],
-          targetContentVersion:
-            contentType === "QUESTION" ? versionOrRevision : null,
+          targetContentVersion: versionOrRevision,
           strikedBy: "AI_MODERATION",
         },
       });

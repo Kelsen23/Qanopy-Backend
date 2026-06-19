@@ -80,15 +80,23 @@ const applyAdminContentModerationDecisionService = async (
       const ContentModel = model as any;
 
       const existingContent = await ContentModel.findById(contentId)
-        .select("moderationStatus isActive")
+        .select("moderationStatus moderationRevision isActive")
         .session(session);
 
       if (!existingContent || !existingContent.isActive) {
         throw new HttpError(`${contentType} not found`, 404);
       }
 
-      const updatedContent = await ContentModel.findByIdAndUpdate(
-        contentId,
+      if (effectiveVersion === undefined) {
+        effectiveVersion = existingContent.moderationRevision as number;
+      }
+
+      const updatedContent = await ContentModel.findOneAndUpdate(
+        {
+          _id: contentId,
+          moderationRevision: effectiveVersion,
+          isActive: true,
+        },
         { moderationStatus, moderationUpdatedAt },
         { returnDocument: "after", session },
       );
