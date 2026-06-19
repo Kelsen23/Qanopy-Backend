@@ -1,15 +1,15 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  DetectModerationLabelsCommand,
+  Rekognition,
+} from "@aws-sdk/client-rekognition";
+
 import getS3, {
   accessKey,
   bucketName,
   bucketRegion,
   secretAccessKey,
 } from "../../config/s3.config.js";
-
-import {
-  DetectModerationLabelsCommand,
-  Rekognition,
-} from "@aws-sdk/client-rekognition";
 
 import routeNotification from "../notification/routeNotification.service.js";
 
@@ -48,6 +48,16 @@ const moderateFile = async (
     try {
       await getS3().send(deleteCommand);
     } catch (error) {
+      if (contentType === "CONTENT_IMAGE") {
+        console.warn("[fileModeration] Failed to delete unsafe content image", {
+          userId,
+          objectKey,
+          error,
+        });
+
+        return { safe: false, deleted: false };
+      }
+
       throw new Error(`Couldn't delete an object: ${error}`);
     }
 
@@ -64,12 +74,10 @@ const moderateFile = async (
       },
     });
 
-    throw new Error(
-      `Image contains unsafe content: ${labels.map((l) => l.Name).join(", ")}`,
-    );
+    return { safe: false };
   }
 
-  return { message: "Image passed moderation" };
+  return { safe: true };
 };
 
 export default moderateFile;
