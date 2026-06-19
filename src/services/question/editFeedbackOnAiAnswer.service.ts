@@ -83,7 +83,12 @@ const editFeedbackOnAiAnswer = async (
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentModeration", "AI_ANSWER_FEEDBACK", feedbackId),
+      jobId: makeJobId(
+        "contentModeration",
+        "AI_ANSWER_FEEDBACK",
+        feedbackId,
+        editedFeedback?.moderationRevision,
+      ),
     },
   );
 
