@@ -46,7 +46,8 @@ const processContent = async (
       contentType,
       versionOrRevision,
     });
-    return;
+
+    throw new Error("AI moderation unavailable");
   }
 
   const {
