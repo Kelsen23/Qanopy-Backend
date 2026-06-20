@@ -14,15 +14,9 @@ const moderateReportWarn = async (
   warningDurationMs: number,
   context: ReportModerationContext,
   helpers: {
-    updateReportStatus: (
-      status: "RESOLVED" | "DISMISSED",
-      actionTaken: "BAN_TEMP" | "BAN_PERM" | "WARN" | "IGNORE",
-      meta: Record<string, unknown>,
-    ) => Promise<void>;
+    updateReportStatus: Function;
     applyContentModerationStatus: () => Promise<void>;
-    queueDeleteContentIfNeeded: (
-      meta: Record<string, unknown>,
-    ) => Promise<void>;
+    queueDeleteContentIfNeeded: Function;
   },
 ) => {
   const expiresAt = new Date(Date.now() + warningDurationMs);
@@ -79,7 +73,6 @@ const moderateReportWarn = async (
     async () => {
       await routeNotification({
         recipientId: context.reportTargetUserId,
-        actorId: context.reviewedBy,
         event: "WARN",
         target: {
           entityType: "USER",

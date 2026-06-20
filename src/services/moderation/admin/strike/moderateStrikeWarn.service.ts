@@ -133,7 +133,6 @@ const moderateStrikeWarn = async (
     async () => {
       await routeNotification({
         recipientId: context.targetUserId,
-        actorId: context.reviewedBy,
         event: "WARN",
         target: {
           entityType: "USER",

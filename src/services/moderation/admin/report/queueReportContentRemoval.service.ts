@@ -79,7 +79,6 @@ const queueReportContentRemoval = async (
     async () => {
       await routeNotification({
         recipientId: reportTargetUserId,
-        actorId: reviewedBy,
         event: "REMOVE_CONTENT",
         target: {
           entityType: targetType,

@@ -115,7 +115,6 @@ const moderateStrikeIgnore = async (
     async () => {
       await routeNotification({
         recipientId: context.targetUserId,
-        actorId: context.reviewedBy,
         event: "STRIKE",
         target: {
           entityType: "USER",

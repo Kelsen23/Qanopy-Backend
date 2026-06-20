@@ -86,7 +86,6 @@ const resolveReportStatus = async (
     async () => {
       await routeNotification({
         recipientId: reporterUserId,
-        actorId: reviewedBy,
         event: "REPORT_UPDATE",
         target: {
           entityType: "REPORT",

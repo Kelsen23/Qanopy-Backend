@@ -268,7 +268,6 @@ const moderateStrikeBanPerm = async (
     async () => {
       await routeNotification({
         recipientId: context.targetUserId,
-        actorId: context.reviewedBy,
         event: "STRIKE",
         target: {
           entityType: "USER",
@@ -291,7 +290,6 @@ const moderateStrikeBanPerm = async (
       async () => {
         await routeNotification({
           recipientId: context.targetUserId,
-          actorId: context.reviewedBy,
           event: "REMOVE_CONTENT",
           target: {
             entityType: context.targetType,
