@@ -28,35 +28,64 @@ const WARN_CATEGORIES = new Set(["hate", "harassment", "sexual", "violence"]);
 
 const CATEGORY_REASON_MAP: Record<string, string[]> = {
   "sexual/minors": [
-    "Content includes sexual material involving minors.",
-    "This is treated as a severe safety violation.",
+    "Your content appears to contain sexual material involving a minor or someone who may be underage.",
+    "Any sexual content involving minors is strictly prohibited and results in immediate enforcement action.",
   ],
+
   "violence/graphic": [
-    "Content contains graphic violence.",
-    "Graphic violent material is not allowed on the platform.",
+    "Your content appears to contain graphic depictions of serious injury, gore, or extreme violence.",
+    "Graphic violent material is not permitted because it may be disturbing or harmful to other users.",
   ],
+
   "self-harm/graphic": [
-    "Content contains graphic self-harm material.",
-    "Graphic self-harm content is not allowed on the platform.",
+    "Your content appears to contain graphic depictions of self-harm, injury, or suicide.",
+    "Graphic self-harm content is not allowed due to the risk of harm and distress it may cause.",
   ],
+
   "self-harm/instructions": [
-    "Content appears to provide self-harm instructions.",
-    "Instructions that facilitate self-harm are not allowed.",
+    "Your content appears to provide instructions, methods, or guidance related to self-harm.",
+    "Content that promotes, facilitates, or teaches self-harm is strictly prohibited.",
   ],
+
   "hate/threatening": [
-    "Content contains threatening hateful language.",
-    "Threats or incitement toward protected groups are not allowed.",
+    "Your content appears to contain hateful language combined with threats, intimidation, or calls for harm toward a protected group.",
+    "Threats, incitement, or advocacy of violence against protected groups are not allowed.",
   ],
+
   "harassment/threatening": [
-    "Content contains threats or targeted harassment.",
-    "Threatening behavior toward another person is not allowed.",
+    "Your content appears to contain targeted threats, intimidation, or severe harassment directed at another individual.",
+    "Threatening or abusive behavior toward others is prohibited.",
   ],
-  "self-harm": ["Content references self-harm in a concerning manner."],
-  "self-harm/intent": ["Content appears to express self-harm intent."],
-  hate: ["Content contains hateful or degrading language."],
-  harassment: ["Content targets another person with abusive language."],
-  sexual: ["Content contains sexual material that is not allowed here."],
-  violence: ["Content promotes or depicts violence."],
+
+  "self-harm": [
+    "Your content appears to promote, encourage, glorify, or normalize self-harm.",
+    "Content that encourages self-harming behavior is not allowed on the platform.",
+  ],
+
+  "self-harm/intent": [
+    "Your content appears to express an intention or desire to engage in self-harm.",
+    "Statements indicating self-harm intent are treated as serious safety concerns and may require additional review.",
+  ],
+
+  hate: [
+    "Your content appears to contain hateful, degrading, or discriminatory language targeting people based on protected characteristics.",
+    "Content that attacks, demeans, or promotes hatred toward protected groups is not allowed.",
+  ],
+
+  harassment: [
+    "Your content appears to contain insults, abusive language, or targeted harassment directed at another person.",
+    "Personal attacks and harassment are not permitted.",
+  ],
+
+  sexual: [
+    "Your content appears to contain explicit sexual material or sexually descriptive content.",
+    "Sexual content may be restricted or prohibited depending on context and platform rules.",
+  ],
+
+  violence: [
+    "Your content appears to contain depictions, descriptions, or promotion of violence.",
+    "Violent content may be restricted when it promotes harm, injury, or dangerous behavior.",
+  ],
 };
 
 const normalizeScore = (score: number) => Math.max(0, Math.min(1, score));
@@ -128,7 +157,7 @@ const buildModerationReasons = (
   }
 
   return [
-    `Content violates platform policy related to ${formatCategoryLabel(primaryCategory)}.`,
+    `We detected content that appears to violate our policy in relation to ${formatCategoryLabel(primaryCategory)}.`,
   ];
 };
 
