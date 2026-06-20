@@ -408,6 +408,8 @@ model Ban {
   severity Int?
   bannedBy Mods
 
+  isActive Boolean @default(true)
+
   expiresAt  DateTime?
   durationMs Int?
 
