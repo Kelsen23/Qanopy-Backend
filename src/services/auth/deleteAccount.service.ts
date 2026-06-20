@@ -3,8 +3,6 @@ import prisma from "../../config/prisma.config.js";
 import Notification from "../../models/notification.model.js";
 import UserInterest from "../../models/userInterest.model.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
 import deleteSingleImageService from "../media/deleteSingleImage.service.js";
 
 import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
@@ -13,6 +11,7 @@ import {
   clearNotificationCache,
   clearUserBadgesCache,
 } from "../../utils/cache/clearCache.util.js";
+import clearUserCache from "../../utils/cache/clearUserCache.util.js";
 
 type DeleteAccountJobData = {
   userId: string;
@@ -49,7 +48,7 @@ const purgeAccountData = async ({
 
   await UserInterest.deleteMany({ userId });
 
-  await getRedisCacheClient().del(`user:${userId}`);
+  await clearUserCache(userId);
   await clearNotificationCache(userId);
   await clearUserBadgesCache(userId);
 };
@@ -88,6 +87,8 @@ const softDeleteAccount = async (userId: string) => {
       accountDeletionCompletedAt: new Date(),
     },
   });
+
+  await clearUserCache(updatedUser.id);
 
   return updatedUser;
 };

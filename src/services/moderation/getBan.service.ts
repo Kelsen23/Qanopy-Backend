@@ -1,5 +1,7 @@
 import prisma from "../../config/prisma.config.js";
 
+import clearUserCache from "../../utils/cache/clearUserCache.util.js";
+
 interface GetBanInput {
   userId: string;
 }
@@ -31,6 +33,8 @@ const getBan = async ({ userId }: GetBanInput) => {
       where: { id: userId },
       data: { status: "ACTIVE" },
     });
+
+    await clearUserCache(userId);
   }
 
   return {

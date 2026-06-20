@@ -2,6 +2,7 @@ import prisma from "../../../config/prisma.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import { clearStrikesCache } from "../../../utils/cache/clearCache.util.js";
+import clearUserCache from "../../../utils/cache/clearUserCache.util.js";
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
@@ -166,6 +167,8 @@ const handleContentModerationBan = async ({
         data: { status: "SUSPENDED" },
       });
     });
+
+    await clearUserCache(content.userId as string);
   }
 
   const newStrike = existingStrike
