@@ -26,7 +26,46 @@ const TEMP_BAN_CATEGORIES = new Set([
 
 const WARN_CATEGORIES = new Set(["hate", "harassment", "sexual", "violence"]);
 
+const CATEGORY_REASON_MAP: Record<string, string[]> = {
+  "sexual/minors": [
+    "Content includes sexual material involving minors.",
+    "This is treated as a severe safety violation.",
+  ],
+  "violence/graphic": [
+    "Content contains graphic violence.",
+    "Graphic violent material is not allowed on the platform.",
+  ],
+  "self-harm/graphic": [
+    "Content contains graphic self-harm material.",
+    "Graphic self-harm content is not allowed on the platform.",
+  ],
+  "self-harm/instructions": [
+    "Content appears to provide self-harm instructions.",
+    "Instructions that facilitate self-harm are not allowed.",
+  ],
+  "hate/threatening": [
+    "Content contains threatening hateful language.",
+    "Threats or incitement toward protected groups are not allowed.",
+  ],
+  "harassment/threatening": [
+    "Content contains threats or targeted harassment.",
+    "Threatening behavior toward another person is not allowed.",
+  ],
+  "self-harm": ["Content references self-harm in a concerning manner."],
+  "self-harm/intent": ["Content appears to express self-harm intent."],
+  hate: ["Content contains hateful or degrading language."],
+  harassment: ["Content targets another person with abusive language."],
+  sexual: ["Content contains sexual material that is not allowed here."],
+  violence: ["Content promotes or depicts violence."],
+};
+
 const normalizeScore = (score: number) => Math.max(0, Math.min(1, score));
+
+const formatCategoryLabel = (category: string) =>
+  category
+    .split("/")
+    .map((part) => part.replace(/-/g, " "))
+    .join(" / ");
 
 const getPrimaryCategory = (categoryScores: Record<string, number>) => {
   let primaryCategory: string | null = null;
@@ -70,41 +109,26 @@ const determineRecommendedAction = (
 
 const buildModerationReasons = (
   primaryCategory: string | null,
-  topScore: number,
   flagged: boolean,
 ) => {
   if (!flagged) {
-    return ["No violations detected"];
+    return ["No policy violation was identified."];
   }
 
   if (!primaryCategory) {
-    return ["Flagged but unclear"];
-  }
-
-  if (HIGH_RISK_CATEGORIES.has(primaryCategory)) {
     return [
-      `High-risk content detected: ${primaryCategory}`,
-      `Confidence ${(topScore * 100).toFixed(1)}%`,
+      "Content was flagged for a policy concern during moderation review.",
     ];
   }
 
-  if (TEMP_BAN_CATEGORIES.has(primaryCategory)) {
-    return [
-      `Serious content detected: ${primaryCategory}`,
-      `Confidence ${(topScore * 100).toFixed(1)}%`,
-    ];
-  }
+  const mappedReasons = CATEGORY_REASON_MAP[primaryCategory];
 
-  if (WARN_CATEGORIES.has(primaryCategory)) {
-    return [
-      `Potential guideline violation: ${primaryCategory}`,
-      `Confidence ${(topScore * 100).toFixed(1)}%`,
-    ];
+  if (mappedReasons?.length) {
+    return mappedReasons;
   }
 
   return [
-    `Flagged content category: ${primaryCategory}`,
-    `Confidence ${(topScore * 100).toFixed(1)}%`,
+    `Content violates platform policy related to ${formatCategoryLabel(primaryCategory)}.`,
   ];
 };
 
@@ -127,7 +151,7 @@ const buildAiModerationPolicy = (rawResult: {
     topScore,
     flagged,
   );
-  const reasons = buildModerationReasons(primaryCategory, topScore, flagged);
+  const reasons = buildModerationReasons(primaryCategory, flagged);
 
   const severity = !flagged
     ? 0
