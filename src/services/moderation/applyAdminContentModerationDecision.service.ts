@@ -2,10 +2,8 @@ import mongoose from "mongoose";
 
 import { syncQuestionModerationStatusFromVersions } from "./questionModerationStatus.service.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
 import HttpError from "../../utils/http/httpError.util.js";
-import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
+import clearModeratedContentCache from "../../utils/moderation/clearModeratedContentCache.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -23,8 +21,6 @@ const applyAdminContentModerationDecisionService = async (
   const session = await mongoose.startSession();
 
   let effectiveVersion: number | undefined = version;
-  let updatedParentQuestion = false;
-
   try {
     await session.withTransaction(async () => {
       if (contentType === "QUESTION") {
@@ -67,7 +63,6 @@ const applyAdminContentModerationDecisionService = async (
           session,
         });
 
-        updatedParentQuestion = true;
         return;
       }
 
@@ -106,24 +101,12 @@ const applyAdminContentModerationDecisionService = async (
       }
     });
 
-    if (
-      contentType === "QUESTION" &&
-      effectiveVersion !== undefined &&
-      updatedParentQuestion
-    ) {
-      await getRedisCacheClient().del(
-        `question:${contentId}`,
-        `v:${effectiveVersion}:question:${contentId}`,
+    if (effectiveVersion !== undefined || contentType !== "QUESTION") {
+      await clearModeratedContentCache(
+        contentType,
+        contentId,
+        effectiveVersion,
       );
-      await clearVersionHistoryCache(contentId);
-    } else if (contentType === "QUESTION" && effectiveVersion !== undefined) {
-      await getRedisCacheClient().del(
-        `v:${effectiveVersion}:question:${contentId}`,
-      );
-      await clearVersionHistoryCache(contentId);
-    } else if (contentType === "QUESTION") {
-      await getRedisCacheClient().del(`question:${contentId}`);
-      await clearVersionHistoryCache(contentId);
     }
   } finally {
     session.endSession();

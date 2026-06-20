@@ -2,9 +2,7 @@ import mongoose from "mongoose";
 
 import { syncQuestionModerationStatusFromVersions } from "./questionModerationStatus.service.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
+import clearModeratedContentCache from "../../utils/moderation/clearModeratedContentCache.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -157,12 +155,12 @@ const applyContentModerationDecisionService = async (
       return { applied: true } as const;
     });
 
-    if (result?.applied && contentType === "QUESTION") {
-      await getRedisCacheClient().del(
-        `question:${contentId}`,
-        `v:${effectiveQuestionVersion}:question:${contentId}`,
+    if (result?.applied) {
+      await clearModeratedContentCache(
+        contentType,
+        contentId,
+        effectiveQuestionVersion,
       );
-      await clearVersionHistoryCache(contentId);
     }
 
     return result ?? { applied: false, reason: "missing" };
