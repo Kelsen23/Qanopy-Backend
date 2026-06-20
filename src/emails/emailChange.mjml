@@ -143,6 +143,7 @@
           color="#666666"
           padding="0 0 0 0"
           line-height="170%"
+          align="center"
         >
           If you didn't attempt to change your email but received this email,
           or if the location doesn't match, please ignore this email. Don't

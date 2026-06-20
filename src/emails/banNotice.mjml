@@ -87,16 +87,20 @@
           cellpadding="0"
           cellspacing="0"
           padding="0 0 16px 0"
-          style="table-layout: fixed"
+          style="
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+            background-color: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+          "
         >
           <tr>
             <td
               valign="middle"
               align="center"
               style="
-                background-color: #f8fafc;
-                border: 1px solid #e5e7eb;
-                border-radius: 14px;
                 padding: 20px 28px;
                 height: 80px;
               "
@@ -155,10 +159,11 @@
         />
 
         <mj-text
-          font-size="15px"
-          color="#4a5568"
-          padding="16px 0 8px 0"
-          align="left"
+          font-size="13px"
+          color="#666666"
+          padding="0 0 0 0"
+          line-height="170%"
+          align="center"
         >
           If you believe this is a mistake, please contact support and mention
           your account email.
