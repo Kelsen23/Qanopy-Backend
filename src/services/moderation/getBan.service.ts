@@ -16,6 +16,14 @@ const getBan = async ({ userId }: GetBanInput) => {
       ],
     },
     orderBy: { banType: "asc" },
+    select: {
+      id: true,
+      title: true,
+      reasons: true,
+      banType: true,
+      expiresAt: true,
+      durationMs: true,
+    },
   });
 
   if (!ban) {
