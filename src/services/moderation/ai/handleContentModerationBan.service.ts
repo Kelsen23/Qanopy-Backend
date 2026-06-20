@@ -3,6 +3,7 @@ import prisma from "../../../config/prisma.config.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import { clearStrikesCache } from "../../../utils/cache/clearCache.util.js";
 import clearUserCache from "../../../utils/cache/clearUserCache.util.js";
+import clearModeratedContentCache from "../../../utils/moderation/clearModeratedContentCache.util.js";
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
@@ -96,50 +97,13 @@ const handleContentModerationBan = async ({
           strikedBy: "AI_MODERATION",
         },
       });
+      
       return;
     }
   }
 
-  if (content.userId) {
+  if (content.userId && finalDecision === "BAN_TEMP") {
     await prisma.$transaction(async (tx) => {
-      if (finalDecision === "BAN_PERM") {
-        const existingPermBan = await tx.ban.findFirst({
-          where: { userId: content.userId as string, banType: "PERM" },
-        });
-
-        if (!existingPermBan) {
-          await tx.ban.create({
-            data: {
-              userId: content.userId as string,
-              title: "AI moderation ban",
-              reasons: aiReasons,
-              banType: "PERM",
-              bannedBy: "AI_MODERATION",
-            },
-          });
-        }
-
-        await tx.user.update({
-          where: { id: content.userId as string },
-          data: { status: "TERMINATED" },
-        });
-
-        return;
-      }
-
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: content.userId as string, banType: "PERM" },
-      });
-
-      if (existingPermBan) {
-        await tx.user.update({
-          where: { id: content.userId as string },
-          data: { status: "TERMINATED" },
-        });
-
-        return;
-      }
-
       const existingTempBan = await tx.ban.findFirst({
         where: {
           userId: content.userId as string,
@@ -236,13 +200,17 @@ const handleContentModerationBan = async ({
     meta: notificationMeta,
   });
 
-  await sendBanNoticeEmail({
-    userId: content.userId as string,
-    decisionId,
-    actionTaken: finalDecision,
-    reasons: aiReasons,
-    banDurationMs: finalDecision === "BAN_TEMP" ? tempBanDurationMs : undefined,
-  });
+  await clearModeratedContentCache(contentType, contentId, versionOrRevision);
+
+  if (finalDecision === "BAN_TEMP") {
+    await sendBanNoticeEmail({
+      userId: content.userId as string,
+      decisionId,
+      actionTaken: finalDecision,
+      reasons: aiReasons,
+      banDurationMs: tempBanDurationMs,
+    });
+  }
 };
 
 export default handleContentModerationBan;
