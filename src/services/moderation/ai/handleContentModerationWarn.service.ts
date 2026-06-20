@@ -1,6 +1,7 @@
 import prisma from "../../../config/prisma.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
 import routeNotification from "../../notification/routeNotification.service.js";
@@ -65,6 +66,11 @@ const handleContentModerationWarn = async ({
     action: "WARN",
     expiresAt: warningExpiresAt,
   };
+  const notificationMeta = buildAiModerationNotificationMeta({
+    action: "WARN",
+    reasons: aiReasons,
+    expiresAt: warningExpiresAt,
+  });
 
   await moderationAuditQueue.add(
     "MOD_ACTION_LOG",
@@ -112,13 +118,12 @@ const handleContentModerationWarn = async ({
 
   await routeNotification({
     recipientId: content.userId as string,
-    actorId: "AI_MODERATION",
     event: "WARN",
     target: {
       entityType: "USER",
       entityId: content.userId as string,
     },
-    meta,
+    meta: notificationMeta,
   });
 };
 

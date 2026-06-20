@@ -2,6 +2,7 @@ import prisma from "../../../config/prisma.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import { clearStrikesCache } from "../../../utils/cache/clearCache.util.js";
+import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
 import {
@@ -195,6 +196,14 @@ const handleContentModerationBan = async ({
     strikeId: newStrike.id,
     action: finalDecision,
   };
+  const notificationMeta = buildAiModerationNotificationMeta({
+    action: finalDecision,
+    reasons: aiReasons,
+    expiresAt:
+      finalDecision === "BAN_TEMP"
+        ? new Date(Date.now() + tempBanDurationMs)
+        : undefined,
+  });
 
   await moderationAuditQueue.add(
     "MOD_ACTION_LOG",
@@ -216,13 +225,12 @@ const handleContentModerationBan = async ({
 
   await routeNotification({
     recipientId: content.userId as string,
-    actorId: "AI_MODERATION",
     event: "STRIKE",
     target: {
       entityType: "USER",
       entityId: content.userId as string,
     },
-    meta,
+    meta: notificationMeta,
   });
 
   await sendBanNoticeEmail({
