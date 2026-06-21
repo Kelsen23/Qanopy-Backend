@@ -24,7 +24,7 @@ const {
   CLEANUP_JOB_NAME,
   CLEANUP_REPEAT_EVERY_MS,
   startUnverifiedAccountCleanupWorker,
-} = await import("../../../../src/workers/unverifiedAccountCleanup.worker.js");
+} = await import("../../../../src/workers/auth/unverifiedAccountCleanup.worker.js");
 
 describe("unverifiedAccountCleanup worker", () => {
   const consoleLogSpy = vi

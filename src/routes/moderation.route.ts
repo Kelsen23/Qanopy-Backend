@@ -4,19 +4,16 @@ import {
   createReport,
   moderate,
   getBan,
-  moderateContentImage,
+  removeBan,
 } from "../controllers/moderation.controller.js";
 
 import {
   moderateSchema,
+  removeBanSchema,
   reportSchema,
-  moderateContentImageSchema,
 } from "../validations/moderation.schema.js";
 
-import {
-  createReportLimiterMiddleware,
-  moderateContentImageLimiterMiddleware,
-} from "../middlewares/rate-limiters/moderation.rate-limiters.js";
+import { createReportLimiterMiddleware } from "../middlewares/rate-limiters/moderation.rate-limiters.js";
 
 import isAuthenticated, {
   requireActiveUser,
@@ -29,18 +26,18 @@ import validate from "../middlewares/validate.middleware.js";
 const router = express.Router();
 
 router
-  .route("/report/create")
+  .route("/report")
   .post(
-    createReportLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createReportLimiterMiddleware,
     validate(reportSchema),
     createReport,
   );
 
 router
-  .route("/moderate")
+  .route("/review")
   .patch(
     isAuthenticated,
     isVerified,
@@ -50,17 +47,17 @@ router
     moderate,
   );
 
-router.route("/ban").get(isAuthenticated, getBan);
-
 router
-  .route("/content/moderate/image")
-  .post(
-    moderateContentImageLimiterMiddleware,
+  .route("/ban/remove")
+  .patch(
     isAuthenticated,
     isVerified,
     requireActiveUser,
-    validate(moderateContentImageSchema),
-    moderateContentImage,
+    isAdmin,
+    validate(removeBanSchema),
+    removeBan,
   );
+
+router.route("/ban/active").get(isAuthenticated, getBan);
 
 export default router;

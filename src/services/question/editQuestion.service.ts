@@ -1,10 +1,10 @@
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import Question from "../../models/question.model.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
 
@@ -41,7 +41,6 @@ const editQuestion = async (
     throw new HttpError("Unauthorized to edit question", 403);
 
   const newVersion = Number(foundQuestion.currentVersion ?? 0) + 1;
-
   const editedQuestion = await Question.findByIdAndUpdate(
     foundQuestion._id || foundQuestion.id,
     {
@@ -50,12 +49,14 @@ const editQuestion = async (
       tags,
       currentVersion: newVersion,
       moderationStatus: "PENDING",
+      moderationUpdatedAt: null,
+      moderationSourceVersion: newVersion,
       topicStatus: "PENDING",
       embeddingStatus: "NONE",
       similarQuestionIds: [],
       similarQuestionsStatus: "NONE",
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   await contentFinalizeQueue.add(
@@ -63,6 +64,15 @@ const editQuestion = async (
     {
       userId,
       entityId: editedQuestion?._id,
+      version: newVersion,
+      basedOnVersion: newVersion - 1,
+      title,
+      body,
+      tags,
+      moderationStatus: "PENDING",
+      moderationUpdatedAt: null,
+      topicStatus: "PENDING",
+      embeddingStatus: "NONE",
     },
     {
       removeOnComplete: true,

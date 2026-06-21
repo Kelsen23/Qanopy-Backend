@@ -14,7 +14,7 @@ import prisma from "./config/prisma.config.js";
 import connectMongoDB from "./config/mongodb.config.js";
 import { getRedisCacheClient } from "./config/redis.config.js";
 
-import closeAllRedisConnections from "./utils/closeAllRedisConnections.util.js";
+import closeAllRedisConnections from "./utils/redis/closeAllRedisConnections.util.js";
 
 import typeDefs from "./graphql/typeDefs/index.js";
 import resolvers from "./graphql/resolvers/index.js";

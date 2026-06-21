@@ -330,6 +330,14 @@ enum AiDecision {
   IGNORE
 }
 
+enum ModerationActionTaken {
+  PENDING
+  BAN_TEMP
+  BAN_PERM
+  WARN
+  IGNORE
+}
+
 enum BanType {
   PERM
   TEMP
@@ -350,18 +358,27 @@ model ModerationStrike {
   targetType           ContentType
   targetContentVersion Int?
 
-  strikedBy     Mods
-  adminId       String?
-  strikeReasons String?
+  strikedBy Mods
 
-  isReviewed Boolean   @default(false)
-  reviewedBy String?
-  reviewedAt DateTime?
+  adminId       String?
+  strikeComment String? @db.VarChar(150)
+
+  reviewedBy        String?
+  reviewComment     String?               @db.VarChar(150)
+  actionTaken       ModerationActionTaken @default(PENDING)
+  isRemovingContent Boolean               @default(false)
+  reviewedAt        DateTime?
+
+  claimedAt      DateTime?
+  claimExpiresAt DateTime?
+  claimToken     String?
 
   expiresAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([reviewedBy, claimExpiresAt])
 }
 
 model Warning {
@@ -390,6 +407,8 @@ model Ban {
   banType  BanType
   severity Int?
   bannedBy Mods
+
+  isActive Boolean @default(true)
 
   expiresAt  DateTime?
   durationMs Int?

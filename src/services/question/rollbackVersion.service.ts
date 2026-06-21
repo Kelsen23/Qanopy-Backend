@@ -1,10 +1,10 @@
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
-import { clearVersionHistoryCache } from "../../utils/clearCache.util.js";
+import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
 
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import mongoose from "mongoose";
 
@@ -12,6 +12,15 @@ import Question from "../../models/question.model.js";
 import QuestionVersion from "../../models/questionVersion.model.js";
 
 import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
+
+const moderationSeverity = {
+  PENDING: 0,
+  APPROVED: 1,
+  FLAGGED: 2,
+  REJECTED: 3,
+} as const;
+
+type ModerationStatus = keyof typeof moderationSeverity;
 
 const rollbackVersion = async (
   userId: string,
@@ -61,6 +70,13 @@ const rollbackVersion = async (
       if (!freshQuestion) throw new HttpError("Question not found", 404);
 
       const nextVersion = Number(freshQuestion.currentVersion) + 1;
+      const rolledBackVersionIsPending =
+        foundVersion.moderationStatus === "PENDING";
+      const rolledBackVersionIsWorse =
+        moderationSeverity[foundVersion.moderationStatus as ModerationStatus] >=
+        moderationSeverity[
+          (freshQuestion.moderationStatus as ModerationStatus) ?? "PENDING"
+        ];
 
       await QuestionVersion.updateMany(
         { questionId, isActive: true },
@@ -103,8 +119,21 @@ const rollbackVersion = async (
           body: foundVersion.body,
           tags: foundVersion.tags,
           currentVersion: nextVersion,
-          moderationStatus: foundVersion.moderationStatus,
-          moderationUpdatedAt: foundVersion.moderationUpdatedAt ?? null,
+          moderationStatus: rolledBackVersionIsPending
+            ? "PENDING"
+            : rolledBackVersionIsWorse
+              ? foundVersion.moderationStatus
+              : freshQuestion.moderationStatus,
+          moderationUpdatedAt: rolledBackVersionIsPending
+            ? null
+            : rolledBackVersionIsWorse
+              ? (foundVersion.moderationUpdatedAt ?? null)
+              : (freshQuestion.moderationUpdatedAt ?? null),
+          moderationSourceVersion: rolledBackVersionIsPending
+            ? nextVersion
+            : rolledBackVersionIsWorse
+              ? nextVersion
+              : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
           topicStatus: "PENDING",
           similarQuestionIds: [],
           similarQuestionsStatus: "NONE",

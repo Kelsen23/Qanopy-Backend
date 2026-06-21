@@ -7,7 +7,7 @@ import {
   getAiAnswerSessionSockets,
 } from "../../redis/aiAnswerSession.service.js";
 
-import publishSocketEvent from "../../../utils/publishSocketEvent.util.js";
+import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
 
 import AiAnswer from "../../../models/aiAnswer.model.js";
 

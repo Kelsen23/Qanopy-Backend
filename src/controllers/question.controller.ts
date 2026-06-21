@@ -4,13 +4,16 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import { clearAnswerCache, clearReplyCache } from "../utils/clearCache.util.js";
+import {
+  clearAnswerCache,
+  clearReplyCache,
+} from "../utils/cache/clearCache.util.js";
 
-import { makeJobId } from "../utils/makeJobId.util.js";
+import { makeJobId } from "../utils/job/makeJobId.util.js";
 
-import HttpError from "../utils/httpError.util.js";
+import HttpError from "../utils/http/httpError.util.js";
 
-import queueUserInterest from "../utils/queueUserInterest.util.js";
+import queueUserInterest from "../utils/question/queueUserInterest.util.js";
 
 import voteService from "../services/question/vote.service.js";
 import unvoteService from "../services/question/unvote.service.js";
@@ -75,6 +78,15 @@ const createQuestion = asyncHandler(
       {
         userId,
         entityId: newQuestion._id,
+        version: 1,
+        basedOnVersion: 1,
+        title,
+        body,
+        tags,
+        moderationStatus: newQuestion.moderationStatus,
+        moderationUpdatedAt: newQuestion.moderationUpdatedAt,
+        topicStatus: newQuestion.topicStatus,
+        embeddingStatus: newQuestion.embeddingStatus,
       },
       {
         removeOnComplete: true,
@@ -216,7 +228,10 @@ const createReplyOnAnswer = asyncHandler(
 
     await contentModerationQueue.add(
       "REPLY",
-      { contentId: newReply._id },
+      {
+        contentId: newReply._id,
+        moderationRevision: newReply.moderationRevision,
+      },
       {
         removeOnComplete: true,
         removeOnFail: false,
@@ -305,7 +320,7 @@ const acceptAnswer = asyncHandler(
     const acceptedAnswer = await Answer.findByIdAndUpdate(
       answerId,
       { isAccepted: true },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!acceptedAnswer) throw new HttpError("Answer acceptance failed", 500);
@@ -387,7 +402,7 @@ const unacceptAnswer = asyncHandler(
         isAccepted: false,
         isBestAnswerByAsker: false,
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (foundAnswer.isBestAnswerByAsker) {

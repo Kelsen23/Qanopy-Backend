@@ -7,7 +7,7 @@ import prisma from "../../config/prisma.config.js";
 
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
-import moveS3Object from "../../utils/moveS3Object.util.js";
+import moveS3Object from "../../utils/media/moveS3Object.util.js";
 import { cacheUser } from "../auth/auth.shared.js";
 
 type UploadFingerprint = {
@@ -27,7 +27,18 @@ const updateProfilePicture = async (
 
   if (!foundUser) throw new Error("User not found");
 
-  await moderateFileService(userId, objectKey, "PROFILE_PICTURE");
+  const { safe } = await moderateFileService(
+    userId,
+    objectKey,
+    "PROFILE_PICTURE",
+  );
+
+  if (!safe) {
+    return {
+      message: "Profile picture contains unsafe content",
+      profilePictureUrl: null,
+    };
+  }
 
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },

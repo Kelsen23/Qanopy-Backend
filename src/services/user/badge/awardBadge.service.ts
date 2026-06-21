@@ -3,7 +3,7 @@ import { getBadgeRulesForTrigger } from "./rules/index.js";
 
 import prisma from "../../../config/prisma.config.js";
 
-import { clearUserBadgesCache } from "../../../utils/clearCache.util.js";
+import { clearUserBadgesCache } from "../../../utils/cache/clearCache.util.js";
 
 type AwardBadgeInput = {
   userId: string;

@@ -4,8 +4,8 @@ import asyncHandler from "./asyncHandler.middleware.js";
 
 import { NextFunction, Request, Response } from "express";
 
-import HttpError from "../utils/httpError.util.js";
-import sanitizeUserForAuth from "../utils/sanitizeUserForAuth.util.js";
+import HttpError from "../utils/http/httpError.util.js";
+import sanitizeUserForAuth from "../utils/auth/sanitizeUserForAuth.util.js";
 
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";

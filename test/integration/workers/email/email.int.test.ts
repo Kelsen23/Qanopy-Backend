@@ -25,7 +25,7 @@ vi.mock(
 );
 
 const { startEmailWorker } = await import(
-  "../../../../src/workers/email.worker.js"
+  "../../../../src/workers/email/email.worker.js"
 );
 
 describe("email worker", () => {

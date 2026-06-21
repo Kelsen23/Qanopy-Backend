@@ -3,8 +3,8 @@ import { User } from "../../generated/prisma/index.js";
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import sanitizeUser from "../../utils/sanitizeUser.util.js";
-import sanitizeUserForAuth from "../../utils/sanitizeUserForAuth.util.js";
+import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
+import sanitizeUserForAuth from "../../utils/auth/sanitizeUserForAuth.util.js";
 
 import {
   cleanupExpiredUnverifiedUserById,

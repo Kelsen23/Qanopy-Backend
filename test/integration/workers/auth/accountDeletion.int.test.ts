@@ -21,7 +21,7 @@ vi.mock(
 );
 
 const { startAccountDeletionWorker } = await import(
-  "../../../../src/workers/accountDeletion.worker.js"
+  "../../../../src/workers/auth/accountDeletion.worker.js"
 );
 
 describe("accountDeletion worker", () => {

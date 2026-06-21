@@ -1,20 +1,23 @@
-import { makeJobId } from "../../../utils/makeJobId.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import Answer from "../../../models/answer.model.js";
 
 import contentModerationQueue from "../../../queues/contentModeration.queue.js";
-import { clearAnswerCache } from "../../../utils/clearCache.util.js";
+import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
 
 const answerPipelineRouter = async (answerId: string) => {
   const foundAnswer = await Answer.findById(answerId).select(
-    "_id questionId moderationStatus",
+    "_id questionId moderationStatus moderationRevision",
   );
 
   if (!foundAnswer || foundAnswer.moderationStatus !== "PENDING") return;
 
   await contentModerationQueue.add(
     "ANSWER",
-    { contentId: foundAnswer._id },
+    {
+      contentId: foundAnswer._id,
+      moderationRevision: foundAnswer.moderationRevision,
+    },
     {
       removeOnComplete: true,
       removeOnFail: false,

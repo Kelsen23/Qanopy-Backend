@@ -29,7 +29,7 @@ const ModActionLogSchema: Schema = new Schema(
 
     actionTaken: {
       type: String,
-      enum: ["BAN_TEMP", "BAN_PERM", "WARN", "REMOVE", "IGNORE"],
+      enum: ["BAN_TEMP", "BAN_PERM", "WARN", "REMOVE", "IGNORE", "UNBAN"],
       required: true,
     },
 

@@ -1,7 +1,7 @@
 import { addUserSocket } from "../redis/presence.service.js";
 import redeemCreditsService from "../user/redeemCredits.service.js";
 
-import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
+import publishSocketEvent from "../../utils/socket/publishSocketEvent.util.js";
 
 const initializeSocketUserSession = async (
   userId: string,

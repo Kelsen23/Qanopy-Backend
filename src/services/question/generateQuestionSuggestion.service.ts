@@ -7,11 +7,11 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import { getEditSessionSockets } from "../redis/editSession.service.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import convertQuestionToLLMText from "../../utils/convertQuestionToLLMText.js";
-import normalizeText from "../../utils/normalizeText.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import convertQuestionToLLMText from "../../utils/question/convertQuestionToLLMText.util.js";
+import normalizeText from "../../utils/question/normalizeText.util.js";
 
-import publishSocketEvent from "../../utils/publishSocketEvent.util.js";
+import publishSocketEvent from "../../utils/socket/publishSocketEvent.util.js";
 
 import generateSuggestion from "./generateSuggestion.service.js";
 import routeNotification from "../notification/routeNotification.service.js";

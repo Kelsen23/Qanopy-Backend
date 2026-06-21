@@ -7,9 +7,9 @@ import {
 
 import prisma from "../../config/prisma.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import generateOAuthUsername from "../../utils/generateOAuthUsername.util.js";
-import verifyGoogleToken from "../../utils/verifyGoogleToken.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import generateOAuthUsername from "../../utils/auth/generateOAuthUsername.util.js";
+import verifyGoogleToken from "../../utils/auth/verifyGoogleToken.util.js";
 
 type OAuthInput =
   | {

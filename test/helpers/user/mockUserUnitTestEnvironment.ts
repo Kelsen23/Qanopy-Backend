@@ -62,7 +62,7 @@ const clearUserBadgesCache = vi.fn(async () => undefined);
 const cacheUser = vi.fn(async () => undefined);
 const cacheAuthUser = vi.fn(async () => undefined);
 const moveS3Object = vi.fn(async () => true);
-const moderateFileService = vi.fn(async () => undefined);
+const moderateFileService = vi.fn(async () => ({ safe: true }));
 const handleExpiredUnverifiedUser = vi.fn(async () => false);
 const getDeviceIp = vi.fn(() => "127.0.0.1");
 const removeEmailChangeAttempts = vi.fn(async () => undefined);
@@ -313,7 +313,7 @@ export const resetUserUnitTestEnvironment = () => {
   cacheUser.mockClear();
   cacheAuthUser.mockClear();
   moveS3Object.mockReset().mockResolvedValue(true);
-  moderateFileService.mockClear();
+  moderateFileService.mockReset().mockResolvedValue({ safe: true });
   handleExpiredUnverifiedUser.mockReset().mockResolvedValue(false);
   getDeviceIp.mockReset().mockReturnValue("127.0.0.1");
   removeEmailChangeAttempts.mockClear();

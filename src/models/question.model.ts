@@ -41,6 +41,7 @@ const QuestionSchema: Schema = new Schema(
       default: "PENDING",
     },
     moderationUpdatedAt: { type: Date, default: null },
+    moderationSourceVersion: { type: Number, default: 1, min: 1 },
     topicStatus: {
       type: String,
       enum: ["PENDING", "PROCESSING", "VALID", "OFF_TOPIC"],

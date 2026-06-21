@@ -31,11 +31,11 @@ vi.mock(
   () => mockUserUnitModules.imageDeletionQueue,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockUserUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../src/utils/moveS3Object.util.js",
+  "../../../../src/utils/media/moveS3Object.util.js",
   () => mockUserUnitModules.moveS3Object,
 );
 vi.mock(

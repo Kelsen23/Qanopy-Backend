@@ -11,7 +11,7 @@ vi.mock(
   () => mockUserUnitModules.prismaConfig,
 );
 vi.mock(
-  "../../../../src/utils/clearCache.util.js",
+  "../../../../src/utils/cache/clearCache.util.js",
   () => mockUserUnitModules.clearCacheUtil,
 );
 vi.mock(
@@ -23,7 +23,7 @@ vi.mock(
   () => mockUserUnitModules.badgeQueue,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockUserUnitModules.makeJobId,
 );
 

@@ -1,0 +1,26 @@
+const MIN_TEMP_BAN_DURATION_MS = 24 * 60 * 60 * 1000;
+
+const calculateTempBanMs = (
+  severity: number,
+  confidence: number,
+  totalStrikes: number,
+  trustScore: number,
+): number => {
+  const baseDays = 3 + ((severity - 70) / 30) * 4;
+
+  const confidenceMultiplier = 1 + confidence * 0.5;
+
+  const strikeMultiplier = 1 + totalStrikes * 0.25;
+
+  const trustMultiplier = 1 / Math.max(trustScore, 0.01);
+
+  const adjustedDays =
+    baseDays * confidenceMultiplier * strikeMultiplier * trustMultiplier;
+
+  return Math.max(
+    MIN_TEMP_BAN_DURATION_MS,
+    Math.round(adjustedDays * 24 * 60 * 60 * 1000),
+  );
+};
+
+export default calculateTempBanMs;

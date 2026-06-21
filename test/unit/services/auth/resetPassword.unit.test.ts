@@ -17,7 +17,7 @@ vi.mock(
 );
 vi.mock("bcrypt", () => mockAuthUnitModules.bcrypt);
 vi.mock(
-  "../../../../src/utils/publishSocketDisconnect.util.js",
+  "../../../../src/utils/socket/publishSocketDisconnect.util.js",
   () => mockAuthUnitModules.publishSocketDisconnect,
 );
 vi.mock(
@@ -25,11 +25,11 @@ vi.mock(
   () => mockAuthUnitModules.emailQueue,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockAuthUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../src/utils/renderTemplate.util.js",
+  "../../../../src/utils/email/renderTemplate.util.js",
   () => mockAuthUnitModules.renderTemplate,
 );
 vi.mock(

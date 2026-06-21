@@ -6,7 +6,7 @@ import { getRedisMessagingClient } from "../../config/redis.config.js";
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
 const userKeyResolver = (req: Request) =>
-  (req as Request & { user?: { id?: string } }).user?.id || "unknown-user";
+  (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown";
 
 const profilePictureUpdateLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),

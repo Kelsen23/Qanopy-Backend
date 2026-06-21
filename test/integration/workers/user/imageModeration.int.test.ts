@@ -15,13 +15,9 @@ vi.mock(
   "../../../../src/services/user/updateProfilePicture.service.js",
   () => mockUserWorkerModules.updateProfilePictureService,
 );
-vi.mock(
-  "../../../../src/services/moderation/processContentImage.service.js",
-  () => mockUserWorkerModules.processContentImageService,
-);
 
 const { startImageModerationWorker } = await import(
-  "../../../../src/workers/imageModeration.worker.js"
+  "../../../../src/workers/moderation/imageModeration.worker.js"
 );
 
 describe("imageModeration worker", () => {
@@ -84,31 +80,6 @@ describe("imageModeration worker", () => {
       "profile-picture-key",
       "upload-fingerprint",
     );
-    expect(
-      mockUserWorkerTestEnvironment.processContentImage,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("handles content jobs with the moderation service", async () => {
-    await startImageModerationWorker();
-
-    const worker = mockUserWorkerTestEnvironment.workerInstances[0];
-
-    await worker.processor({
-      name: "CONTENT",
-      id: "job-1",
-      data: {
-        userId: "user_1",
-        objectKey: "content-image-key",
-      },
-    });
-
-    expect(
-      mockUserWorkerTestEnvironment.processContentImage,
-    ).toHaveBeenCalledWith("user_1", "content-image-key");
-    expect(
-      mockUserWorkerTestEnvironment.updateProfilePictureService,
-    ).not.toHaveBeenCalled();
   });
 
   it("rejects invalid job types", async () => {

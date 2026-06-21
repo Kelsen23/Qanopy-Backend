@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 import Question from "../../models/question.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
@@ -76,7 +76,7 @@ const unpublishAiAnswer = async (
     const answer = await AiAnswer.findByIdAndUpdate(
       aiAnswerId,
       { $set: { isPublished: false } },
-      { new: true, session },
+      { returnDocument: "after", session },
     ).lean();
 
     if (!answer) throw new HttpError("Failed to unpublish AI answer", 500);

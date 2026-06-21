@@ -21,7 +21,6 @@ const redisMessagingClientConnection = {
 
 const awardBadge = vi.fn(async () => undefined);
 const updateProfilePictureService = vi.fn(async () => undefined);
-const processContentImage = vi.fn(async () => undefined);
 
 const buildWorkerInstance = (
   name: string,
@@ -68,9 +67,6 @@ export const mockUserWorkerModules = {
   updateProfilePictureService: {
     default: updateProfilePictureService,
   },
-  processContentImageService: {
-    default: processContentImage,
-  },
 };
 
 export const mockUserWorkerTestEnvironment = {
@@ -79,7 +75,6 @@ export const mockUserWorkerTestEnvironment = {
   redisMessagingClientConnection,
   awardBadge,
   updateProfilePictureService,
-  processContentImage,
 };
 
 export const resetUserWorkerTestEnvironment = () => {
@@ -98,5 +93,4 @@ export const resetUserWorkerTestEnvironment = () => {
 
   awardBadge.mockReset().mockResolvedValue(undefined);
   updateProfilePictureService.mockReset().mockResolvedValue(undefined);
-  processContentImage.mockReset().mockResolvedValue(undefined);
 };

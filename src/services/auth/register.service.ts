@@ -11,9 +11,9 @@ import {
 
 import prisma from "../../config/prisma.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/makeJobId.util.js";
-import { verificationHtml } from "../../utils/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import { verificationHtml } from "../../utils/email/renderTemplate.util.js";
 
 import emailQueue from "../../queues/email.queue.js";
 

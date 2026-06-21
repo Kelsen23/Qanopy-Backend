@@ -20,11 +20,11 @@ vi.mock(
   () => mockAuthUnitModules.emailQueue,
 );
 vi.mock(
-  "../../../../src/utils/makeJobId.util.js",
+  "../../../../src/utils/job/makeJobId.util.js",
   () => mockAuthUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../src/utils/renderTemplate.util.js",
+  "../../../../src/utils/email/renderTemplate.util.js",
   () => mockAuthUnitModules.renderTemplate,
 );
 vi.mock(

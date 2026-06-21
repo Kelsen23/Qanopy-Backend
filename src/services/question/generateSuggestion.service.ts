@@ -1,8 +1,8 @@
 import { suggestionGenerationClient } from "../../config/deepseek.config.js";
 
-import HttpError from "../../utils/httpError.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
-import interests from "../../utils/interests.util.js";
+import interests from "../../utils/question/interests.util.js";
 
 import aiSuggestionSchema from "../../validations/aiSuggestion.schema.js";
 

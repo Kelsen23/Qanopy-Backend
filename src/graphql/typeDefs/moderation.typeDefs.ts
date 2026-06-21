@@ -63,6 +63,7 @@ const moderationTypeDefs = gql`
     targetUserId: String!
 
     targetId: String!
+    targetContentVersion: Int
     targetType: ReportTargetType!
 
     reportReason: ReportReason!
@@ -112,8 +113,15 @@ const moderationTypeDefs = gql`
     targetContentVersion: Int
 
     strikedBy: Mods!
+
     adminId: String
-    strikeReasons: String
+    strikeComment: String
+
+    reviewedBy: String
+    reviewComment: String
+    actionTaken: ReportActionTaken!
+    isRemovingContent: Boolean!
+    reviewedAt: String
 
     expiresAt: String
 

@@ -1,5 +1,5 @@
 import { Redis } from "ioredis";
-import createRedisClient from "../utils/createRedisClient.util.js";
+import createRedisClient from "../utils/redis/createRedisClient.util.js";
 
 import dotenv from "dotenv";
 dotenv.config();

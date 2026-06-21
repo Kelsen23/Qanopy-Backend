@@ -16,6 +16,7 @@ const ReplySchema: Schema = new Schema(
       default: "PENDING",
     },
     moderationUpdatedAt: { type: Date },
+    moderationRevision: { type: Number, default: 1, min: 1 },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

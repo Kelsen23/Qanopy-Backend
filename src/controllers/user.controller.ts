@@ -4,7 +4,7 @@ import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
-import getDeviceInfo from "../utils/getDeviceInfo.util.js";
+import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
 
 import {
   deleteAccount as deleteAccountService,

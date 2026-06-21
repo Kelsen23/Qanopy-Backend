@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { clearNotificationCache } from "../../utils/clearCache.util.js";
+import { clearNotificationCache } from "../../utils/cache/clearCache.util.js";
 
 import Notification from "../../models/notification.model.js";
 

@@ -27,11 +27,11 @@ vi.mock(
   () => mockAuthUnitModules.deleteSingleImageService,
 );
 vi.mock(
-  "../../../../src/utils/buildDeletedUserData.util.js",
+  "../../../../src/utils/auth/buildDeletedUserData.util.js",
   () => mockAuthUnitModules.buildDeletedUserData,
 );
 vi.mock(
-  "../../../../src/utils/clearCache.util.js",
+  "../../../../src/utils/cache/clearCache.util.js",
   () => mockAuthUnitModules.clearCacheUtil,
 );
 

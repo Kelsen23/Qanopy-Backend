@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/httpError.util.js";
-import { makeJobId } from "../../utils/makeJobId.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
@@ -62,24 +62,33 @@ const editFeedbackOnAiAnswer = async (
   const editedFeedback = await AiAnswerFeedback.findByIdAndUpdate(
     feedbackId,
     {
-      type,
-      body,
-      questionVersionAtFeedback,
-      moderationStatus: "PENDING",
-      moderationUpdatedAt: null,
+      $set: {
+        type,
+        body,
+        questionVersionAtFeedback,
+        moderationStatus: "PENDING",
+        moderationUpdatedAt: null,
+      },
+      $inc: { moderationRevision: 1 },
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   await contentModerationQueue.add(
     "AI_ANSWER_FEEDBACK",
     {
       contentId: feedbackId,
+      moderationRevision: editedFeedback?.moderationRevision,
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentModeration", "AI_ANSWER_FEEDBACK", feedbackId),
+      jobId: makeJobId(
+        "contentModeration",
+        "AI_ANSWER_FEEDBACK",
+        feedbackId,
+        editedFeedback?.moderationRevision,
+      ),
     },
   );
 
