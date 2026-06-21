@@ -8,7 +8,7 @@ import handleContentModerationIgnore from "./handleContentModerationIgnore.servi
 import {
   buildContentFields,
   mapSeverityToDecision,
-  pickStrongerDecision,
+  resolveFinalModerationDecision,
   type ModeratableContentType,
 } from "./contentModeration.shared.js";
 
@@ -75,7 +75,12 @@ const processContent = async (
   );
 
   const riskDecision = mapSeverityToDecision(riskScore);
-  const finalDecision = pickStrongerDecision(recommendedAction, riskDecision);
+  const finalDecision = resolveFinalModerationDecision({
+    recommendedAction,
+    riskDecision,
+    primaryCategory,
+    confidence: aiConfidence,
+  });
   const tempBanDurationMs = calculateTempBanMs(
     severity,
     aiConfidence,

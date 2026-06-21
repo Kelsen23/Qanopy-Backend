@@ -1,5 +1,7 @@
 import { ContentType } from "../../../generated/prisma/index.js";
 
+import { isLowConfidenceHighRiskCategory } from "./aiModeration.policy.js";
+
 type ModerationDecision = "IGNORE" | "WARN" | "BAN_TEMP" | "BAN_PERM";
 
 const moderationContentTypeMap: Record<
@@ -29,6 +31,21 @@ const decisionRank: Record<ModerationDecision, number> = {
 const pickStrongerDecision = (a: ModerationDecision, b: ModerationDecision) =>
   decisionRank[a] >= decisionRank[b] ? a : b;
 
+const resolveFinalModerationDecision = ({
+  recommendedAction,
+  riskDecision,
+  primaryCategory,
+  confidence,
+}: {
+  recommendedAction: ModerationDecision;
+  riskDecision: ModerationDecision;
+  primaryCategory: string | null;
+  confidence: number;
+}) =>
+  isLowConfidenceHighRiskCategory(primaryCategory, confidence)
+    ? recommendedAction
+    : pickStrongerDecision(recommendedAction, riskDecision);
+
 const buildContentFields = (content: { title?: unknown; body?: unknown }) => {
   const contentTitle = "title" in content ? String(content.title ?? "") : "";
   const contentBody = "body" in content ? String(content.body ?? "") : "";
@@ -48,5 +65,6 @@ export {
   moderationContentTypeMap,
   mapSeverityToDecision,
   pickStrongerDecision,
+  resolveFinalModerationDecision,
   buildContentFields,
 };

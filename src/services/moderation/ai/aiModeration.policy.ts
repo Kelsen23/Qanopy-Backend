@@ -17,6 +17,9 @@ const HIGH_RISK_CATEGORIES = new Set([
   "self-harm/instructions",
 ]);
 
+const HIGH_RISK_TEMP_BAN_MIN_SCORE = 0.5;
+const HIGH_RISK_PERM_BAN_MIN_SCORE = 0.55;
+
 const TEMP_BAN_CATEGORIES = new Set([
   "hate/threatening",
   "harassment/threatening",
@@ -112,6 +115,14 @@ const getPrimaryCategory = (categoryScores: Record<string, number>) => {
   return { primaryCategory, topScore };
 };
 
+const isHighRiskCategory = (primaryCategory: string | null) =>
+  Boolean(primaryCategory && HIGH_RISK_CATEGORIES.has(primaryCategory));
+
+const isLowConfidenceHighRiskCategory = (
+  primaryCategory: string | null,
+  topScore: number,
+) => isHighRiskCategory(primaryCategory) && topScore < HIGH_RISK_TEMP_BAN_MIN_SCORE;
+
 const determineRecommendedAction = (
   primaryCategory: string | null,
   topScore: number,
@@ -121,8 +132,10 @@ const determineRecommendedAction = (
 
   if (!primaryCategory) return "WARN";
 
-  if (HIGH_RISK_CATEGORIES.has(primaryCategory)) {
-    return topScore >= 0.55 ? "BAN_PERM" : "BAN_TEMP";
+  if (isHighRiskCategory(primaryCategory)) {
+    if (topScore >= HIGH_RISK_PERM_BAN_MIN_SCORE) return "BAN_PERM";
+    if (topScore >= HIGH_RISK_TEMP_BAN_MIN_SCORE) return "BAN_TEMP";
+    return "WARN";
   }
 
   if (TEMP_BAN_CATEGORIES.has(primaryCategory)) {
@@ -184,7 +197,7 @@ const buildAiModerationPolicy = (rawResult: {
 
   const severity = !flagged
     ? 0
-    : primaryCategory && HIGH_RISK_CATEGORIES.has(primaryCategory)
+    : isHighRiskCategory(primaryCategory)
       ? Math.min(100, Math.round(topScore * 120))
       : primaryCategory && TEMP_BAN_CATEGORIES.has(primaryCategory)
         ? Math.min(100, Math.round(topScore * 110))
@@ -205,4 +218,4 @@ const buildAiModerationPolicy = (rawResult: {
 
 export type { AiModerationPolicyResult, ModerationDecision };
 
-export { buildAiModerationPolicy };
+export { buildAiModerationPolicy, isLowConfidenceHighRiskCategory };
