@@ -130,9 +130,9 @@ const handleContentModerationBan = async ({
           strikedBy: "AI_MODERATION",
         },
       });
-
-      return;
     }
+
+    return;
   }
 
   let createdBan = false;
