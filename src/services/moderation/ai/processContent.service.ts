@@ -143,7 +143,7 @@ const processContent = async (
       decisionId,
       content,
     });
-    
+
     return;
   }
 

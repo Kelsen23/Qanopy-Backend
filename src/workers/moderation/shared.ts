@@ -5,6 +5,7 @@ type ContentModerationJobName =
   | "AI_ANSWER_FEEDBACK";
 
 type ModerationActionJobName = "BAN_PERM" | "BAN_TEMP" | "WARN" | "IGNORE";
+type ModerationReviewer = "AI_MODERATION" | "ADMIN_MODERATION";
 
 const createWorkerEventHandlers = (workerName: string) => ({
   completed: (job: { id?: string | number }) => {
@@ -48,17 +49,30 @@ const assertModerationActionJobName = (
   throw new Error(`Unsupported moderation action job type: ${name}`);
 };
 
+const assertModerationReviewer = (value: unknown): ModerationReviewer => {
+  if (value === "AI_MODERATION" || value === "ADMIN_MODERATION") {
+    return value;
+  }
+
+  throw new Error(`Unsupported moderation reviewer: ${String(value)}`);
+};
+
 const getModerationRevisionFromJob = (
   contentType: ContentModerationJobName,
   jobData: { version?: number; moderationRevision?: number },
 ) =>
   contentType === "QUESTION" ? jobData.version : jobData.moderationRevision;
 
-export type { ContentModerationJobName, ModerationActionJobName };
+export type {
+  ContentModerationJobName,
+  ModerationActionJobName,
+  ModerationReviewer,
+};
 
 export {
   createWorkerEventHandlers,
   assertContentModerationJobName,
   assertModerationActionJobName,
+  assertModerationReviewer,
   getModerationRevisionFromJob,
 };

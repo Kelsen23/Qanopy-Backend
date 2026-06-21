@@ -4,7 +4,6 @@ import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
 import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 
-import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
 
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
@@ -42,7 +41,10 @@ const moderateStrikeIgnore = async (
     async () => {
       await moderationMetricsQueue.add(
         "IGNORE",
-        { userId: context.targetUserId },
+        {
+          userId: context.targetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
@@ -106,27 +108,6 @@ const moderateStrikeIgnore = async (
           ),
         },
       );
-    },
-    sideEffectContext,
-  );
-
-  await runSideEffectWithRetry(
-    "queueNotification:STRIKE",
-    async () => {
-      await routeNotification({
-        recipientId: context.targetUserId,
-        event: "STRIKE",
-        target: {
-          entityType: "USER",
-          entityId: context.targetUserId,
-        },
-        meta: {
-          actionTaken: "IGNORE",
-          title,
-          reasons,
-          strikeId: context.strikeId,
-        },
-      });
     },
     sideEffectContext,
   );

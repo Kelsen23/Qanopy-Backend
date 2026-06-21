@@ -1,9 +1,13 @@
 import prisma from "../../config/prisma.config.js";
 
-import emailQueue from "../../queues/email.queue.js";
-
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 import { banNoticeHtml } from "../../utils/email/renderTemplate.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import {
+  formatBanDurationBreakdown,
+  formatBanNoticeExpiryUtc,
+} from "../../utils/moderation/formatBanNotice.util.js";
+
+import emailQueue from "../../queues/email.queue.js";
 
 type SendBanNoticeEmailInput = {
   userId: string;
@@ -11,24 +15,6 @@ type SendBanNoticeEmailInput = {
   actionTaken: "BAN_TEMP" | "BAN_PERM";
   reasons?: string[];
   banDurationMs?: number;
-};
-
-const formatBanDuration = (banDurationMs?: number) => {
-  if (!banDurationMs) return "Temporary";
-
-  const totalMinutes = Math.max(1, Math.round(banDurationMs / 60000));
-
-  if (totalMinutes % 1440 === 0) {
-    const days = totalMinutes / 1440;
-    return `${days} day${days === 1 ? "" : "s"}`;
-  }
-
-  if (totalMinutes % 60 === 0) {
-    const hours = totalMinutes / 60;
-    return `${hours} hour${hours === 1 ? "" : "s"}`;
-  }
-
-  return `${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
 };
 
 const formatBanReasons = (reasons?: string[]) => {
@@ -71,10 +57,22 @@ const sendBanNoticeEmail = async ({
     const body = isTempBan
       ? "Your Qanopy account has been temporarily banned by the moderation team."
       : "Your Qanopy account has been permanently banned by the moderation team.";
-    const summaryLabel = isTempBan ? "Suspension duration" : "Ban type";
+    const summaryLabel = isTempBan ? "Suspension duration" : "Ban duration";
     const summaryValue = isTempBan
-      ? formatBanDuration(banDurationMs)
+      ? formatBanDurationBreakdown(banDurationMs)
       : "Permanent";
+    const tempBanExpiresAt =
+      isTempBan && banDurationMs ? new Date(Date.now() + banDurationMs) : null;
+    const expiryLabel = "Expires at (UTC)";
+    const expiryValue = tempBanExpiresAt
+      ? formatBanNoticeExpiryUtc(tempBanExpiresAt)
+      : "";
+    const expiryRowStyle = isTempBan
+      ? ""
+      : "display: none !important; mso-hide: all;";
+    const expiryCellStyle = isTempBan
+      ? ""
+      : "padding: 0 !important; height: 0 !important; line-height: 0 !important; font-size: 0 !important; border-top: 0 !important;";
     const details = formatBanReasons(reasons);
 
     const htmlContent = banNoticeHtml(
@@ -83,6 +81,10 @@ const sendBanNoticeEmail = async ({
       body,
       summaryLabel,
       summaryValue,
+      expiryLabel,
+      expiryValue,
+      expiryRowStyle,
+      expiryCellStyle,
       details,
     );
 

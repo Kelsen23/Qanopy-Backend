@@ -78,6 +78,7 @@ const handleContentModerationIgnore = async ({
     "IGNORE",
     {
       userId: content.userId as string,
+      reviewedBy: "AI_MODERATION",
     },
     {
       removeOnComplete: true,

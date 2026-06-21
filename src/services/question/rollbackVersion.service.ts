@@ -122,18 +122,18 @@ const rollbackVersion = async (
           moderationStatus: rolledBackVersionIsPending
             ? "PENDING"
             : rolledBackVersionIsWorse
-            ? foundVersion.moderationStatus
-            : freshQuestion.moderationStatus,
+              ? foundVersion.moderationStatus
+              : freshQuestion.moderationStatus,
           moderationUpdatedAt: rolledBackVersionIsPending
             ? null
             : rolledBackVersionIsWorse
-            ? (foundVersion.moderationUpdatedAt ?? null)
-            : (freshQuestion.moderationUpdatedAt ?? null),
+              ? (foundVersion.moderationUpdatedAt ?? null)
+              : (freshQuestion.moderationUpdatedAt ?? null),
           moderationSourceVersion: rolledBackVersionIsPending
             ? nextVersion
             : rolledBackVersionIsWorse
-            ? nextVersion
-            : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
+              ? nextVersion
+              : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
           topicStatus: "PENDING",
           similarQuestionIds: [],
           similarQuestionsStatus: "NONE",

@@ -6,12 +6,6 @@
       <mj-text line-height="160%" />
     </mj-attributes>
     <mj-style>
-      .card-column {
-        background-color: #ffffff;
-        padding: 88px 56px 64px;
-        border-radius: 8px;
-      }
-
       .highlight {
         color: #4169e1;
         font-weight: 600;
@@ -33,10 +27,6 @@
       }
 
       @media only screen and (max-width: 480px) {
-        .card-column {
-          padding: 64px 20px 48px !important;
-        }
-
         .summary-value {
           font-size: 18px !important;
         }
@@ -46,7 +36,7 @@
 
   <mj-body background-color="#ffffff">
     <mj-section background-color="#ffffff" padding="40px 12px 0">
-      <mj-column css-class="card-column">
+      <mj-column>
         <mj-image
           src="{{logoUrl}}"
           alt="Qanopy Logo"
@@ -100,18 +90,28 @@
             <td
               valign="middle"
               align="center"
-              style="
-                padding: 20px 28px;
-                height: 80px;
-              "
+              style="padding: 20px 28px; height: 80px"
             >
               <div class="summary-label">{{ summaryLabel }}</div>
               <div class="summary-value">{{ summaryValue }}</div>
             </td>
           </tr>
+          <tr style="{{ expiryRowStyle }}">
+            <td
+              valign="middle"
+              align="center"
+              style="
+                padding: 20px 28px;
+                height: 80px;
+                border-top: 1px solid #e5e7eb;
+                {{ expiryCellStyle }}
+              "
+            >
+              <div class="summary-label">{{ expiryLabel }}</div>
+              <div class="summary-value">{{ expiryValue }}</div>
+            </td>
+          </tr>
         </mj-table>
-
-        <mj-spacer height="12px" />
 
         <mj-table
           width="100%"
@@ -165,8 +165,9 @@
           line-height="170%"
           align="center"
         >
-          If you believe this is a mistake, please contact support and mention
-          your account email.
+          If you believe this is a mistake, please contact support. You can send
+          a ban appeal to
+          {{ supportEmail }} and mention your account email.
         </mj-text>
 
         <mj-text

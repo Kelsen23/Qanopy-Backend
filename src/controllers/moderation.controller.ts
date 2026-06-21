@@ -8,6 +8,7 @@ import {
   createReport as createReportService,
   getBan as getBanService,
   moderate as moderateService,
+  unbanUser as unbanUserService,
 } from "../services/moderation/moderation.service.js";
 
 const createReport = asyncHandler(
@@ -59,4 +60,18 @@ const getBan = asyncHandler(
   },
 );
 
-export { createReport, moderate, getBan };
+const removeBan = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const reviewedBy = req.user.id;
+    const { userId } = req.body;
+
+    const result = await unbanUserService({
+      userId,
+      reviewedBy,
+    });
+
+    return res.status(200).json(result);
+  },
+);
+
+export { createReport, moderate, getBan, removeBan };

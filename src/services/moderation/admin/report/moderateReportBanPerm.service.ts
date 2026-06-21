@@ -7,6 +7,7 @@ import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.j
 import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
 import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 
+import applyUserBan from "../../applyUserBan.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
@@ -30,25 +31,12 @@ const moderateReportBanPerm = async (
 ) => {
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: context.reportTargetUserId, banType: "PERM" },
-      });
-
-      if (!existingPermBan) {
-        await tx.ban.create({
-          data: {
-            userId: context.reportTargetUserId,
-            title,
-            reasons,
-            banType: "PERM",
-            bannedBy: "ADMIN_MODERATION",
-          },
-        });
-      }
-
-      await tx.user.update({
-        where: { id: context.reportTargetUserId },
-        data: { status: "TERMINATED" },
+      await applyUserBan(tx, {
+        userId: context.reportTargetUserId,
+        banType: "PERM",
+        title,
+        reasons,
+        bannedBy: "ADMIN_MODERATION",
       });
     });
 
@@ -88,7 +76,10 @@ const moderateReportBanPerm = async (
     async () => {
       await moderationMetricsQueue.add(
         "BAN_PERM",
-        { userId: context.reportTargetUserId },
+        {
+          userId: context.reportTargetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,

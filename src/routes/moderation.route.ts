@@ -4,10 +4,12 @@ import {
   createReport,
   moderate,
   getBan,
+  removeBan,
 } from "../controllers/moderation.controller.js";
 
 import {
   moderateSchema,
+  removeBanSchema,
   reportSchema,
 } from "../validations/moderation.schema.js";
 
@@ -43,6 +45,17 @@ router
     isAdmin,
     validate(moderateSchema),
     moderate,
+  );
+
+router
+  .route("/ban/remove")
+  .patch(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    isAdmin,
+    validate(removeBanSchema),
+    removeBan,
   );
 
 router.route("/ban/active").get(isAuthenticated, getBan);

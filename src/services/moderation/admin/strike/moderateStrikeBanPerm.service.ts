@@ -11,6 +11,7 @@ import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
+import applyUserBan from "../../applyUserBan.service.js";
 import removeModeratedContent from "../../removeModeratedContent.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 
@@ -61,7 +62,10 @@ const moderateStrikeBanPerm = async (
     async () => {
       await moderationMetricsQueue.add(
         "BAN_PERM",
-        { userId: context.targetUserId },
+        {
+          userId: context.targetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
@@ -131,25 +135,12 @@ const moderateStrikeBanPerm = async (
 
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: context.targetUserId, banType: "PERM" },
-      });
-
-      if (!existingPermBan) {
-        await tx.ban.create({
-          data: {
-            userId: context.targetUserId,
-            title,
-            reasons,
-            banType: "PERM",
-            bannedBy: "ADMIN_MODERATION",
-          },
-        });
-      }
-
-      await tx.user.update({
-        where: { id: context.targetUserId },
-        data: { status: "TERMINATED" },
+      await applyUserBan(tx, {
+        userId: context.targetUserId,
+        banType: "PERM",
+        title,
+        reasons,
+        bannedBy: "ADMIN_MODERATION",
       });
     });
 

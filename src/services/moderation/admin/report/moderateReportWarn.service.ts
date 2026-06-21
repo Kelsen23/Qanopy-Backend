@@ -51,7 +51,10 @@ const moderateReportWarn = async (
     async () => {
       await moderationMetricsQueue.add(
         "WARN",
-        { userId: context.reportTargetUserId },
+        {
+          userId: context.reportTargetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,

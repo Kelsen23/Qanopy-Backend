@@ -11,6 +11,7 @@ import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
+import applyUserBan from "../../applyUserBan.service.js";
 import removeModeratedContent from "../../removeModeratedContent.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 
@@ -32,6 +33,7 @@ const moderateStrikeBanTemp = async (
   targetContentState: TargetContentState,
 ) => {
   const expiresAt = new Date(Date.now() + banDurationMs);
+  let createdBan = false;
 
   const sideEffectContext: StrikeSideEffectContext = {
     decisionId: context.decisionId,
@@ -66,7 +68,10 @@ const moderateStrikeBanTemp = async (
     async () => {
       await moderationMetricsQueue.add(
         "BAN_TEMP",
-        { userId: context.targetUserId },
+        {
+          userId: context.targetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
@@ -136,44 +141,16 @@ const moderateStrikeBanTemp = async (
 
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: context.targetUserId, banType: "PERM" },
+      const result = await applyUserBan(tx, {
+        userId: context.targetUserId,
+        banType: "TEMP",
+        title,
+        reasons,
+        bannedBy: "ADMIN_MODERATION",
+        durationMs: banDurationMs,
       });
 
-      if (existingPermBan) {
-        await tx.user.update({
-          where: { id: context.targetUserId },
-          data: { status: "TERMINATED" },
-        });
-        return;
-      }
-
-      const existingTempBan = await tx.ban.findFirst({
-        where: {
-          userId: context.targetUserId,
-          banType: "TEMP",
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (!existingTempBan) {
-        await tx.ban.create({
-          data: {
-            userId: context.targetUserId,
-            title,
-            reasons,
-            banType: "TEMP",
-            bannedBy: "ADMIN_MODERATION",
-            expiresAt,
-            durationMs: banDurationMs,
-          },
-        });
-      }
-
-      await tx.user.update({
-        where: { id: context.targetUserId },
-        data: { status: "SUSPENDED" },
-      });
+      createdBan = result.createdBan;
     });
 
     await runSideEffectWithRetry(
@@ -348,13 +325,15 @@ const moderateStrikeBanTemp = async (
     sideEffectContext,
   );
 
-  await sendBanNoticeEmail({
-    userId: context.targetUserId,
-    decisionId: context.decisionId,
-    actionTaken: "BAN_TEMP",
-    reasons,
-    banDurationMs,
-  });
+  if (createdBan) {
+    await sendBanNoticeEmail({
+      userId: context.targetUserId,
+      decisionId: context.decisionId,
+      actionTaken: "BAN_TEMP",
+      reasons,
+      banDurationMs,
+    });
+  }
 };
 
 export default moderateStrikeBanTemp;

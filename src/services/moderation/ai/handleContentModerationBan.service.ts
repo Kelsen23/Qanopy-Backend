@@ -7,6 +7,7 @@ import clearModeratedContentCache from "../../../utils/moderation/clearModerated
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
+import applyUserBan from "../applyUserBan.service.js";
 import {
   moderationContentTypeMap,
   type ModeratableContentType,
@@ -35,6 +36,33 @@ type HandleContentModerationBanInput = {
   content: LoadedModerationContent["content"];
 };
 
+const AI_BAN_TITLE_BY_REASON: Record<string, string> = {
+  "Your content appears to contain sexual material involving a minor or someone who may be underage.":
+    "Sexual Content Involving Minors",
+  "Your content appears to contain graphic depictions of serious injury, gore, or extreme violence.":
+    "Graphic Violence",
+  "Your content appears to contain graphic depictions of self-harm, injury, or suicide.":
+    "Graphic Self-Harm Content",
+  "Your content appears to provide instructions, methods, or guidance related to self-harm.":
+    "Self-Harm Instructions",
+  "Your content appears to contain hateful language combined with threats, intimidation, or calls for harm toward a protected group.":
+    "Threatening Hate Speech",
+  "Your content appears to contain targeted threats, intimidation, or severe harassment directed at another individual.":
+    "Targeted Threats Or Harassment",
+  "Your content appears to promote, encourage, glorify, or normalize self-harm.":
+    "Promotion Of Self-Harm",
+  "Your content appears to express an intention or desire to engage in self-harm.":
+    "Self-Harm Intent",
+  "Your content appears to contain hateful, degrading, or discriminatory language targeting people based on protected characteristics.":
+    "Hateful Or Discriminatory Content",
+  "Your content appears to contain insults, abusive language, or targeted harassment directed at another person.":
+    "Harassment Or Abuse",
+  "Your content appears to contain explicit sexual material or sexually descriptive content.":
+    "Explicit Sexual Content",
+  "Your content appears to contain depictions, descriptions, or promotion of violence.":
+    "Violent Content",
+};
+
 const handleContentModerationBan = async ({
   contentId,
   contentType,
@@ -49,19 +77,24 @@ const handleContentModerationBan = async ({
   decisionId,
   content,
 }: HandleContentModerationBanInput) => {
-  const existingStrike = await prisma.moderationStrike.findFirst({
-    where: {
-      targetContentId: contentId,
-      targetType: moderationContentTypeMap[contentType],
-      targetContentVersion: versionOrRevision,
-      strikedBy: "AI_MODERATION",
-    },
-    select: { id: true },
-  });
+  const banTitle =
+    (aiReasons[0] && AI_BAN_TITLE_BY_REASON[aiReasons[0]]) || "Temporary ban";
+  const shouldCreateStrike = finalDecision === "BAN_PERM";
+  const existingStrike = shouldCreateStrike
+    ? await prisma.moderationStrike.findFirst({
+        where: {
+          targetContentId: contentId,
+          targetType: moderationContentTypeMap[contentType],
+          targetContentVersion: versionOrRevision,
+          strikedBy: "AI_MODERATION",
+        },
+        select: { id: true },
+      })
+    : null;
 
   let strikeCreatedThisAttempt = false;
 
-  if (!existingStrike) {
+  if (shouldCreateStrike && !existingStrike) {
     await prisma.moderationStrike.create({
       data: {
         userId: content.userId as string,
@@ -97,60 +130,53 @@ const handleContentModerationBan = async ({
           strikedBy: "AI_MODERATION",
         },
       });
-      
+
       return;
     }
   }
 
+  let createdBan = false;
+
   if (content.userId && finalDecision === "BAN_TEMP") {
     await prisma.$transaction(async (tx) => {
-      const existingTempBan = await tx.ban.findFirst({
-        where: {
-          userId: content.userId as string,
-          banType: "TEMP",
-          expiresAt: { gt: new Date() },
-        },
+      const result = await applyUserBan(tx, {
+        userId: content.userId as string,
+        banType: "TEMP",
+        title: banTitle,
+        reasons: aiReasons,
+        bannedBy: "AI_MODERATION",
+        durationMs: tempBanDurationMs,
       });
 
-      if (!existingTempBan) {
-        await tx.ban.create({
-          data: {
-            userId: content.userId as string,
-            title: "AI moderation ban",
-            reasons: aiReasons,
-            banType: "TEMP",
-            bannedBy: "AI_MODERATION",
-            expiresAt: new Date(Date.now() + tempBanDurationMs),
-            durationMs: tempBanDurationMs,
-          },
-        });
-      }
-
-      await tx.user.update({
-        where: { id: content.userId as string },
-        data: { status: "SUSPENDED" },
-      });
+      createdBan = result.createdBan;
     });
 
     await clearUserCache(content.userId as string);
   }
 
-  const newStrike = existingStrike
+  const newStrike = shouldCreateStrike
     ? existingStrike
-    : await prisma.moderationStrike.findFirstOrThrow({
-        where: {
-          targetContentId: contentId,
-          targetType: moderationContentTypeMap[contentType],
-          targetContentVersion: versionOrRevision,
-          strikedBy: "AI_MODERATION",
-        },
-      });
+      ? existingStrike
+      : await prisma.moderationStrike.findFirstOrThrow({
+          where: {
+            targetContentId: contentId,
+            targetType: moderationContentTypeMap[contentType],
+            targetContentVersion: versionOrRevision,
+            strikedBy: "AI_MODERATION",
+          },
+        })
+    : null;
 
-  await clearStrikesCache();
+  if (shouldCreateStrike) {
+    await clearStrikesCache();
+  }
 
   await moderationMetricsQueue.add(
     finalDecision,
-    { userId: content.userId as string },
+    {
+      userId: content.userId as string,
+      reviewedBy: "AI_MODERATION",
+    },
     {
       removeOnComplete: true,
       removeOnFail: false,
@@ -160,7 +186,7 @@ const handleContentModerationBan = async ({
 
   const meta = {
     ...baseMeta,
-    strikeId: newStrike.id,
+    ...(newStrike ? { strikeId: newStrike.id } : {}),
     action: finalDecision,
   };
   const notificationMeta = buildAiModerationNotificationMeta({
@@ -202,7 +228,7 @@ const handleContentModerationBan = async ({
 
   await clearModeratedContentCache(contentType, contentId, versionOrRevision);
 
-  if (finalDecision === "BAN_TEMP") {
+  if (finalDecision === "BAN_TEMP" && createdBan) {
     await sendBanNoticeEmail({
       userId: content.userId as string,
       decisionId,

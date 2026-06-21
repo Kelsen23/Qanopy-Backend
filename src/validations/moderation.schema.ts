@@ -163,9 +163,16 @@ const moderateSchema = z
     }
   });
 
+const removeBanSchema = z
+  .object({
+    userId: targetIdSchema,
+  })
+  .strict();
+
 export {
   reportSchema,
   moderateSchema,
+  removeBanSchema,
   reportTargetTypeSchema,
   reportReasonSchema,
   moderationTypeSchema,

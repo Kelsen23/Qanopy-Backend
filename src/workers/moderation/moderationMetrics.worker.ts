@@ -1,12 +1,15 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
+
 import {
   assertModerationActionJobName,
+  assertModerationReviewer,
   createWorkerEventHandlers,
   type ModerationActionJobName,
+  type ModerationReviewer,
 } from "./shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
@@ -27,6 +30,7 @@ const getTrustScoreDelta = (jobName: ModerationActionJobName) => {
 const updateModerationStats = async (
   userId: string,
   jobName: ModerationActionJobName,
+  reviewedBy: ModerationReviewer,
 ) => {
   const stats = await prisma.moderationStats.findUnique({
     where: { userId },
@@ -46,20 +50,26 @@ const updateModerationStats = async (
       where: { userId },
       data: { trustScore },
     });
+
     return;
   }
-
-  const commonUpdate = {
-    lastStrikeAt: new Date(),
-    trustScore,
-    totalStrikes: { increment: 1 },
-  };
 
   if (jobName === "BAN_PERM") {
     await prisma.moderationStats.update({
       where: { userId },
-      data: commonUpdate,
+      data:
+        reviewedBy === "AI_MODERATION"
+          ? {
+              lastStrikeAt: new Date(),
+              trustScore,
+              totalStrikes: { increment: 1 },
+            }
+          : {
+              trustScore,
+              rejectedCount: { increment: 1 },
+            },
     });
+
     return;
   }
 
@@ -67,17 +77,18 @@ const updateModerationStats = async (
     await prisma.moderationStats.update({
       where: { userId },
       data: {
-        ...commonUpdate,
+        trustScore,
         rejectedCount: { increment: 1 },
       },
     });
+
     return;
   }
 
   await prisma.moderationStats.update({
     where: { userId },
     data: {
-      ...commonUpdate,
+      trustScore,
       flaggedCount: { increment: 1 },
     },
   });
@@ -90,8 +101,9 @@ const startWorker = () => {
     async (job) => {
       const userId = job.data.userId as string;
       const jobName = assertModerationActionJobName(job.name);
+      const reviewedBy = assertModerationReviewer(job.data.reviewedBy);
 
-      await updateModerationStats(userId, jobName);
+      await updateModerationStats(userId, jobName, reviewedBy);
     },
     {
       connection: redisMessagingClientConnection,

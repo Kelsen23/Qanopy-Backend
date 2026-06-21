@@ -81,10 +81,7 @@ const clearModeratedContentCache = async (
   if (!foundAiAnswer) return;
 
   await getRedisCacheClient().del(`question:${foundAiAnswer.questionId}`);
-  await clearAiAnswerFeedbackCache(
-    String(foundFeedback.aiAnswerId),
-    contentId,
-  );
+  await clearAiAnswerFeedbackCache(String(foundFeedback.aiAnswerId), contentId);
 };
 
 export default clearModeratedContentCache;

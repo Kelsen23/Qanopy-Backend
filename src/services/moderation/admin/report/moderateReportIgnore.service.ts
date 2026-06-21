@@ -28,7 +28,10 @@ const moderateReportIgnore = async (
     async () => {
       await moderationMetricsQueue.add(
         "IGNORE",
-        { userId: context.reportTargetUserId },
+        {
+          userId: context.reportTargetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,

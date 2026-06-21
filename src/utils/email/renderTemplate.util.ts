@@ -16,6 +16,7 @@ export function renderTemplate(
   const { html } = mjml2html(mjml);
 
   const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN?.replace(/\/$/, "");
+  const supportEmail = process.env.SUPPORT_EMAIL as string;
 
   const logoUrl = cloudfrontDomain
     ? cloudfrontDomain + "/app/qanopy-transparent-logo.png"
@@ -23,6 +24,8 @@ export function renderTemplate(
 
   return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
     if (key === "logoUrl") return logoUrl;
+    if (key === "supportEmail") return supportEmail;
+
     return variables[key] || "";
   });
 }
@@ -77,6 +80,10 @@ const banNoticeHtml = (
   body: string,
   summaryLabel: string,
   summaryValue: string,
+  expiryLabel: string,
+  expiryValue: string,
+  expiryRowStyle: string,
+  expiryCellStyle: string,
   details: string,
 ) => {
   return renderTemplate("banNotice", {
@@ -85,6 +92,24 @@ const banNoticeHtml = (
     body,
     summaryLabel,
     summaryValue,
+    expiryLabel,
+    expiryValue,
+    expiryRowStyle,
+    expiryCellStyle,
+    details,
+  });
+};
+
+const unbanNoticeHtml = (
+  username: string,
+  title: string,
+  body: string,
+  details: string,
+) => {
+  return renderTemplate("unbanNotice", {
+    username,
+    title,
+    body,
     details,
   });
 };
@@ -108,5 +133,6 @@ export {
   resetPasswordHtml,
   securityNoticeHtml,
   banNoticeHtml,
+  unbanNoticeHtml,
   emailChangeHtml,
 };

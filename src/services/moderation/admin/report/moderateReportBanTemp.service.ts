@@ -7,6 +7,7 @@ import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.j
 import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
 import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 
+import applyUserBan from "../../applyUserBan.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
@@ -30,6 +31,7 @@ const moderateReportBanTemp = async (
   },
 ) => {
   const expiresAt = new Date(Date.now() + banDurationMs);
+  let createdBan = false;
 
   const meta = {
     reportId: context.reportId,
@@ -47,45 +49,16 @@ const moderateReportBanTemp = async (
 
   if (context.targetUserExists) {
     await prisma.$transaction(async (tx) => {
-      const existingPermBan = await tx.ban.findFirst({
-        where: { userId: context.reportTargetUserId, banType: "PERM" },
+      const result = await applyUserBan(tx, {
+        userId: context.reportTargetUserId,
+        banType: "TEMP",
+        title,
+        reasons,
+        bannedBy: "ADMIN_MODERATION",
+        durationMs: banDurationMs,
       });
 
-      if (existingPermBan) {
-        await tx.user.update({
-          where: { id: context.reportTargetUserId },
-          data: { status: "TERMINATED" },
-        });
-        
-        return;
-      }
-
-      const existingTempBan = await tx.ban.findFirst({
-        where: {
-          userId: context.reportTargetUserId,
-          banType: "TEMP",
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (!existingTempBan) {
-        await tx.ban.create({
-          data: {
-            userId: context.reportTargetUserId,
-            title,
-            reasons,
-            banType: "TEMP",
-            bannedBy: "ADMIN_MODERATION",
-            expiresAt,
-            durationMs: banDurationMs,
-          },
-        });
-      }
-
-      await tx.user.update({
-        where: { id: context.reportTargetUserId },
-        data: { status: "SUSPENDED" },
-      });
+      createdBan = result.createdBan;
     });
 
     await runSideEffectWithRetry(
@@ -112,7 +85,10 @@ const moderateReportBanTemp = async (
     async () => {
       await moderationMetricsQueue.add(
         "BAN_TEMP",
-        { userId: context.reportTargetUserId },
+        {
+          userId: context.reportTargetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
@@ -145,13 +121,15 @@ const moderateReportBanTemp = async (
     );
   }
 
-  await sendBanNoticeEmail({
-    userId: context.reportTargetUserId,
-    decisionId: context.decisionId,
-    actionTaken: "BAN_TEMP",
-    reasons,
-    banDurationMs,
-  });
+  if (createdBan) {
+    await sendBanNoticeEmail({
+      userId: context.reportTargetUserId,
+      decisionId: context.decisionId,
+      actionTaken: "BAN_TEMP",
+      reasons,
+      banDurationMs,
+    });
+  }
 };
 
 export default moderateReportBanTemp;

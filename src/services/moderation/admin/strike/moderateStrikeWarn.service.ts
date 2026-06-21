@@ -60,7 +60,10 @@ const moderateStrikeWarn = async (
     async () => {
       await moderationMetricsQueue.add(
         "WARN",
-        { userId: context.targetUserId },
+        {
+          userId: context.targetUserId,
+          reviewedBy: "ADMIN_MODERATION",
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
