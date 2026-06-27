@@ -72,85 +72,97 @@
           {{ body }}
         </mj-text>
 
-        <mj-table
-          width="100%"
-          cellpadding="0"
-          cellspacing="0"
-          padding="0 0 16px 0"
-          style="
-            table-layout: fixed;
-            border-collapse: separate;
-            border-spacing: 0;
-            background-color: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-          "
-        >
-          <tr>
-            <td
-              valign="middle"
-              align="center"
-              style="padding: 20px 28px; height: 80px"
-            >
-              <div class="summary-label">{{ summaryLabel }}</div>
-              <div class="summary-value">{{ summaryValue }}</div>
-            </td>
-          </tr>
-          <tr style="{{ expiryRowStyle }}">
-            <td
-              valign="middle"
-              align="center"
-              style="
-                padding: 20px 28px;
-                height: 80px;
-                border-top: 1px solid #e5e7eb;
-                {{ expiryCellStyle }}
-              "
-            >
-              <div class="summary-label">{{ expiryLabel }}</div>
-              <div class="summary-value">{{ expiryValue }}</div>
-            </td>
-          </tr>
-        </mj-table>
+        <mj-raw>
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              table-layout: fixed;
+              border-collapse: separate;
+              border-spacing: 0;
+              background-color: #f8fafc;
+              border: 1px solid #e5e7eb;
+              border-radius: 14px;
+              margin-bottom: 16px;
+              font-family: Helvetica, Arial, sans-serif;
+            "
+          >
+            <tr>
+              <td
+                valign="middle"
+                align="center"
+                style="
+                  padding: 20px 28px;
+                  height: 80px;
+                  font-family: Helvetica, Arial, sans-serif;
+                "
+              >
+                <div class="summary-label">{{ summaryLabel }}</div>
+                <div class="summary-value">{{ summaryValue }}</div>
+              </td>
+            </tr>
+            <tr>
+              <td
+                valign="middle"
+                align="center"
+                style="
+                  padding: 20px 28px;
+                  height: 80px;
+                  border-top: 1px solid #e5e7eb;
+                  font-family: Helvetica, Arial, sans-serif;
+                "
+              >
+                <div class="summary-label">{{ expiryLabel }}</div>
+                <div class="summary-value">{{ expiryValue }}</div>
+              </td>
+            </tr>
+          </table>
 
-        <mj-table
-          width="100%"
-          cellpadding="0"
-          cellspacing="0"
-          padding="0 0 16px 0"
-          style="table-layout: fixed"
-        >
-          <tr>
-            <td
-              width="4"
-              style="
-                background-color: #4169e1;
-                border-radius: 8px 0 0 8px;
-                font-size: 0;
-                line-height: 0;
-              "
-            >
-              &nbsp;
-            </td>
-            <td
-              style="
-                background-color: #ffffff;
-                padding: 18px 20px 18px 18px;
-                border: 1px solid #e5e7eb;
-                border-left: 0;
-                border-radius: 0 8px 8px 0;
-                color: #4a5568;
-                font-family: Helvetica, Arial, sans-serif;
-                font-size: 15px;
-                line-height: 160%;
-                overflow-wrap: anywhere;
-                word-break: break-word;
-              "
-            >
-              {{ details }}
-            </td>
-          </tr>
-        </mj-table>
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              table-layout: fixed;
+              margin-bottom: 16px;
+              font-family: Helvetica, Arial, sans-serif;
+            "
+          >
+            <tr>
+              <td
+                width="4"
+                style="
+                  background-color: #4169e1;
+                  border-radius: 8px 0 0 8px;
+                  font-size: 0;
+                  line-height: 0;
+                "
+              >
+                &nbsp;
+              </td>
+              <td
+                style="
+                  background-color: #ffffff;
+                  padding: 18px 20px 18px 18px;
+                  border: 1px solid #e5e7eb;
+                  border-left: 0;
+                  border-radius: 0 8px 8px 0;
+                  color: #4a5568;
+                  font-family: Helvetica, Arial, sans-serif;
+                  font-size: 15px;
+                  line-height: 160%;
+                  overflow-wrap: anywhere;
+                  word-break: break-word;
+                "
+              >
+                {{ details }}
+              </td>
+            </tr>
+          </table>
+        </mj-raw>
 
         <mj-divider
           border-color="#e5e5e5"

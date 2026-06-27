@@ -8,7 +8,7 @@
     </mj-attributes>
   </mj-head>
   <mj-body background-color="#f4f7fb">
-    <mj-section padding="24px 16px">
+    <mj-section padding="24px 16px 20px">
       <mj-column>
         <mj-image
           src="{{logoUrl}}"
@@ -16,30 +16,29 @@
           width="140px"
           padding="0 0 20px"
         />
-        <mj-wrapper
-          background-color="#ffffff"
-          border-radius="16px"
-          padding="32px 28px"
-        >
-          <mj-section>
-            <mj-column>
-              <mj-text font-size="28px" font-weight="700" padding="0 0 16px">
-                {{ title }}
-              </mj-text>
-              <mj-text padding="0 0 16px">
-                Hi <span style="color: #4169e1">{{ username }}</span
-                >,
-              </mj-text>
-              <mj-text padding="0 0 16px">{{ body }}</mj-text>
-              <mj-text padding="0 0 16px">{{ details }}</mj-text>
-              <mj-text color="#6b7280" font-size="14px" padding="0">
-                If you have questions about this moderation decision, reply to
-                the support channel you normally use with Qanopy.
-              </mj-text>
-            </mj-column>
-          </mj-section>
-        </mj-wrapper>
       </mj-column>
     </mj-section>
+    <mj-wrapper
+      background-color="#ffffff"
+      border-radius="16px"
+      padding="32px 28px"
+    >
+      <mj-section>
+        <mj-column>
+          <mj-text font-size="28px" font-weight="700" padding="0 0 16px">
+            {{ title }}
+          </mj-text>
+          <mj-text padding="0 0 16px">
+            Hi <span style="color: #4169e1">{{ username }}</span>,
+          </mj-text>
+          <mj-text padding="0 0 16px">{{ body }}</mj-text>
+          <mj-text padding="0 0 16px">{{ details }}</mj-text>
+          <mj-text color="#6b7280" font-size="14px" padding="0">
+            If you have questions about this moderation decision, reply to the
+            support channel you normally use with Qanopy.
+          </mj-text>
+        </mj-column>
+      </mj-section>
+    </mj-wrapper>
   </mj-body>
 </mjml>
