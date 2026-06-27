@@ -75,6 +75,9 @@ const buildDeletedUserData = vi.fn(async () => ({
 }));
 const clearNotificationCache = vi.fn(async () => undefined);
 const clearUserBadgesCache = vi.fn(async () => undefined);
+const clearReportsCache = vi.fn(async () => undefined);
+const clearStrikesCache = vi.fn(async () => undefined);
+const clearModerationCachesForUser = vi.fn(async () => undefined);
 const cleanupExpiredUnverifiedUserById = vi.fn(async () => false);
 const isExpiredUnverifiedLocalUser = vi.fn(() => false);
 
@@ -183,6 +186,11 @@ export const mockAuthUnitModules = {
   clearCacheUtil: {
     clearNotificationCache,
     clearUserBadgesCache,
+    clearReportsCache,
+    clearStrikesCache,
+  },
+  clearModerationCacheUtil: {
+    default: clearModerationCachesForUser,
   },
   notificationModel: {
     default: {
@@ -240,6 +248,7 @@ export const mockAuthUnitTestEnvironment = {
   buildDeletedUserData,
   clearNotificationCache,
   clearUserBadgesCache,
+  clearModerationCachesForUser,
   cleanupExpiredUnverifiedUserById,
   isExpiredUnverifiedLocalUser,
   notificationDeleteMany,
@@ -308,6 +317,9 @@ export const resetAuthUnitTestEnvironment = () => {
   buildDeletedUserData.mockClear();
   clearNotificationCache.mockClear();
   clearUserBadgesCache.mockClear();
+  clearReportsCache.mockClear();
+  clearStrikesCache.mockClear();
+  clearModerationCachesForUser.mockClear();
   cleanupExpiredUnverifiedUserById.mockClear();
   isExpiredUnverifiedLocalUser.mockClear();
   notificationDeleteMany.mockClear();
