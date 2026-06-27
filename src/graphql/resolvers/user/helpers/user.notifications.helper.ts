@@ -6,6 +6,8 @@ import Notification from "../../../../models/notification.model.js";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
 
+import { normalizeLimitCount, parseCachedPage } from "./user.shared.helper.js";
+
 type NotificationCursor = {
   id: string;
   createdAt: string;
@@ -79,11 +81,6 @@ type NotificationMatchStage = {
   >;
 };
 
-const normalizeLimitCount = (limitCount: number) =>
-  Number.isInteger(limitCount) && Number(limitCount) > 0
-    ? Number(limitCount)
-    : 10;
-
 const buildNotificationsCacheKey = (
   userId: string,
   cursor: NotificationCursor | undefined,
@@ -132,9 +129,6 @@ const normalizeNotification = (notification: {
   createdAt: new Date(notification.createdAt as string).toISOString(),
   updatedAt: new Date(notification.updatedAt as string).toISOString(),
 });
-
-const parseCachedPage = (cachedNotifications: string): CachedNotificationPage =>
-  JSON.parse(cachedNotifications) as CachedNotificationPage;
 
 const buildActorMap = async (
   slicedNotifications: NotificationRecord[],
@@ -191,7 +185,7 @@ const getUserNotifications = async ({
   getRedisCacheClient,
   loaders,
 }: UserNotificationsContext) => {
-  const normalizedLimitCount = normalizeLimitCount(limitCount);
+  const normalizedLimitCount = normalizeLimitCount(limitCount, 10);
 
   if (cursor) {
     validateCursor(cursor);
@@ -205,7 +199,8 @@ const getUserNotifications = async ({
 
   const cachedNotifications = await getRedisCacheClient().get(cacheKey);
   if (cachedNotifications) {
-    const cachedPage = parseCachedPage(cachedNotifications);
+    const cachedPage =
+      parseCachedPage<CachedNotificationPage>(cachedNotifications);
     const notificationsWithActors = await hydrateNotifications(
       cachedPage.notifications,
       loaders,
