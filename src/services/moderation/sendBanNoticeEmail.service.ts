@@ -66,13 +66,9 @@ const sendBanNoticeEmail = async ({
     const expiryLabel = "Expires at (UTC)";
     const expiryValue = tempBanExpiresAt
       ? formatBanNoticeExpiryUtc(tempBanExpiresAt)
-      : "";
-    const expiryRowStyle = isTempBan
-      ? ""
-      : "display: none !important; mso-hide: all;";
-    const expiryCellStyle = isTempBan
-      ? ""
-      : "padding: 0 !important; height: 0 !important; line-height: 0 !important; font-size: 0 !important; border-top: 0 !important;";
+      : "Never";
+    const expiryRowStyle = "";
+    const expiryCellStyle = "";
     const details = formatBanReasons(reasons);
 
     const htmlContent = banNoticeHtml(
