@@ -59,6 +59,8 @@ const buildDeletedUserData = vi.fn(async () => ({
 const publishSocketDisconnect = vi.fn(async () => undefined);
 const clearNotificationCache = vi.fn(async () => undefined);
 const clearUserBadgesCache = vi.fn(async () => undefined);
+const clearReportsCache = vi.fn(async () => undefined);
+const clearStrikesCache = vi.fn(async () => undefined);
 const cacheUser = vi.fn(async () => undefined);
 const cacheAuthUser = vi.fn(async () => undefined);
 const moveS3Object = vi.fn(async () => true);
@@ -168,6 +170,8 @@ export const mockUserUnitModules = {
   clearCacheUtil: {
     clearNotificationCache,
     clearUserBadgesCache,
+    clearReportsCache,
+    clearStrikesCache,
   },
   authShared: {
     cacheUser,
@@ -235,6 +239,8 @@ export const mockUserUnitTestEnvironment = {
   publishSocketDisconnect,
   clearNotificationCache,
   clearUserBadgesCache,
+  clearReportsCache,
+  clearStrikesCache,
   cacheUser,
   cacheAuthUser,
   moveS3Object,
@@ -310,6 +316,8 @@ export const resetUserUnitTestEnvironment = () => {
   publishSocketDisconnect.mockClear();
   clearNotificationCache.mockClear();
   clearUserBadgesCache.mockClear();
+  clearReportsCache.mockClear();
+  clearStrikesCache.mockClear();
   cacheUser.mockClear();
   cacheAuthUser.mockClear();
   moveS3Object.mockReset().mockResolvedValue(true);
