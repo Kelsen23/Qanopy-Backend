@@ -34,6 +34,10 @@ vi.mock(
   "../../../../src/utils/cache/clearCache.util.js",
   () => mockAuthUnitModules.clearCacheUtil,
 );
+vi.mock(
+  "../../../../src/utils/cache/clearModerationCachesForUser.util.js",
+  () => mockAuthUnitModules.clearModerationCacheUtil,
+);
 
 const {
   default: deleteAccount,
@@ -60,6 +64,9 @@ describe("deleteAccount service", () => {
     expect(authUnitTestEnvironment.clearNotificationCache).toHaveBeenCalledWith(
       "user_1",
     );
+    expect(
+      authUnitTestEnvironment.clearModerationCachesForUser,
+    ).toHaveBeenCalledWith("user_1");
   });
 
   it("soft deletes accounts", async () => {
@@ -110,5 +117,8 @@ describe("deleteAccount service", () => {
     expect(authUnitTestEnvironment.clearNotificationCache).toHaveBeenCalledWith(
       "user_1",
     );
+    expect(
+      authUnitTestEnvironment.clearModerationCachesForUser,
+    ).toHaveBeenCalledWith("user_1");
   });
 });
