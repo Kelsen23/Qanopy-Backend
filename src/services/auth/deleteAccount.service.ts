@@ -11,6 +11,7 @@ import {
   clearNotificationCache,
   clearUserBadgesCache,
 } from "../../utils/cache/clearCache.util.js";
+import clearModerationCachesForUser from "../../utils/cache/clearModerationCachesForUser.util.js";
 import clearUserCache from "../../utils/cache/clearUserCache.util.js";
 
 type DeleteAccountJobData = {
@@ -49,6 +50,7 @@ const purgeAccountData = async ({
   await UserInterest.deleteMany({ userId });
 
   await clearUserCache(userId);
+  await clearModerationCachesForUser(userId);
   await clearNotificationCache(userId);
   await clearUserBadgesCache(userId);
 };
@@ -89,6 +91,7 @@ const softDeleteAccount = async (userId: string) => {
   });
 
   await clearUserCache(updatedUser.id);
+  await clearModerationCachesForUser(updatedUser.id);
 
   return updatedUser;
 };

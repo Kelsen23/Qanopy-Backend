@@ -130,6 +130,8 @@ const handleContentModerationBan = async ({
           strikedBy: "AI_MODERATION",
         },
       });
+
+      await clearStrikesCache();
     }
 
     return;
