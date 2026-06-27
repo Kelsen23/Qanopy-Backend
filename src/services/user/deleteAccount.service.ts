@@ -2,6 +2,7 @@ import {
   clearNotificationCache,
   clearUserBadgesCache,
 } from "../../utils/cache/clearCache.util.js";
+import clearModerationCachesForUser from "../../utils/cache/clearModerationCachesForUser.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
@@ -73,6 +74,7 @@ const deleteAccount = async ({ userId }: DeleteAccountInput) => {
     60 * 20,
   );
   await getRedisCacheClient().del(`auth:user:${userId}`);
+  await clearModerationCachesForUser(userId);
   await clearNotificationCache(userId);
   await clearUserBadgesCache(userId);
   await publishSocketDisconnect(userId);

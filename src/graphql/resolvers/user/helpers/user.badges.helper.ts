@@ -2,6 +2,8 @@ import { Redis } from "ioredis";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
 
+import { normalizeLimitCount, parseCachedPage } from "./user.shared.helper.js";
+
 type UserBadgeCursor = {
   awardedAt: string;
   badgeId: string;
@@ -55,13 +57,7 @@ type BadgeDetails = {
   updatedAt: Date;
 };
 
-const DEFAULT_LIMIT_COUNT = 5;
 const CACHE_TTL_SECONDS = 60 * 15;
-
-const normalizeLimitCount = (limitCount: number) =>
-  Number.isInteger(limitCount) && Number(limitCount) > 0
-    ? Number(limitCount)
-    : DEFAULT_LIMIT_COUNT;
 
 const buildUserBadgesCacheKey = (
   userId: string,
@@ -80,9 +76,6 @@ const validateCursor = (cursor: UserBadgeCursor) => {
     throw new HttpError("Invalid cursor", 400);
   }
 };
-
-const parseCachedPage = (cachedPage: string): CachedUserBadgePage =>
-  JSON.parse(cachedPage) as CachedUserBadgePage;
 
 const mapBadgeRecord = (
   assignment: UserBadgeAssignment,
@@ -108,7 +101,7 @@ const getUserBadges = async ({
   prisma,
   getRedisCacheClient,
 }: UserBadgesContext): Promise<UserBadgePage> => {
-  const normalizedLimitCount = normalizeLimitCount(limitCount);
+  const normalizedLimitCount = normalizeLimitCount(limitCount, 5);
 
   if (cursor) {
     validateCursor(cursor);
@@ -122,7 +115,7 @@ const getUserBadges = async ({
 
   const cachedBadges = await getRedisCacheClient().get(cacheKey);
   if (cachedBadges) {
-    return parseCachedPage(cachedBadges);
+    return parseCachedPage<CachedUserBadgePage>(cachedBadges);
   }
 
   const userBadgeAssignments = (await prisma.userBadge.findMany({

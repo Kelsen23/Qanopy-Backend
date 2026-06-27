@@ -373,8 +373,6 @@ model ModerationStrike {
   claimExpiresAt DateTime?
   claimToken     String?
 
-  expiresAt DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
