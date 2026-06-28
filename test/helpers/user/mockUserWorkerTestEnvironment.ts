@@ -19,8 +19,15 @@ const redisMessagingClientConnection = {
   port: 6379,
 };
 
+const redisCacheClientDelete = vi.fn(async () => 1);
+const connectMongoDB = vi.fn(async () => undefined);
 const awardBadge = vi.fn(async () => undefined);
 const updateProfilePictureService = vi.fn(async () => undefined);
+const processAccountDeletionService = vi.fn(async () => undefined);
+const updateUserStats = vi.fn(async () => undefined);
+const questionFindByIdAndUpdate = vi.fn(async () => undefined);
+const answerFindByIdAndUpdate = vi.fn(async () => undefined);
+const userInterestUpdateOne = vi.fn(async () => undefined);
 
 const buildWorkerInstance = (
   name: string,
@@ -60,6 +67,12 @@ export const mockUserWorkerModules = {
   },
   redisConfig: {
     redisMessagingClientConnection,
+    getRedisCacheClient: () => ({
+      del: redisCacheClientDelete,
+    }),
+  },
+  mongodbConfig: {
+    default: connectMongoDB,
   },
   awardBadgeService: {
     default: awardBadge,
@@ -67,14 +80,42 @@ export const mockUserWorkerModules = {
   updateProfilePictureService: {
     default: updateProfilePictureService,
   },
+  processAccountDeletionService: {
+    default: processAccountDeletionService,
+  },
+  updateUserStatsUtil: {
+    default: updateUserStats,
+  },
+  questionModel: {
+    default: {
+      findByIdAndUpdate: questionFindByIdAndUpdate,
+    },
+  },
+  answerModel: {
+    default: {
+      findByIdAndUpdate: answerFindByIdAndUpdate,
+    },
+  },
+  userInterestModel: {
+    default: {
+      updateOne: userInterestUpdateOne,
+    },
+  },
 };
 
 export const mockUserWorkerTestEnvironment = {
   workerInstances,
   workerConstructor,
   redisMessagingClientConnection,
+  redisCacheClientDelete,
+  connectMongoDB,
   awardBadge,
   updateProfilePictureService,
+  processAccountDeletionService,
+  updateUserStats,
+  questionFindByIdAndUpdate,
+  answerFindByIdAndUpdate,
+  userInterestUpdateOne,
 };
 
 export const resetUserWorkerTestEnvironment = () => {
@@ -91,6 +132,13 @@ export const resetUserWorkerTestEnvironment = () => {
     },
   );
 
+  redisCacheClientDelete.mockReset().mockResolvedValue(1);
+  connectMongoDB.mockReset().mockResolvedValue(undefined);
   awardBadge.mockReset().mockResolvedValue(undefined);
   updateProfilePictureService.mockReset().mockResolvedValue(undefined);
+  processAccountDeletionService.mockReset().mockResolvedValue(undefined);
+  updateUserStats.mockReset().mockResolvedValue(undefined);
+  questionFindByIdAndUpdate.mockReset().mockResolvedValue(undefined);
+  answerFindByIdAndUpdate.mockReset().mockResolvedValue(undefined);
+  userInterestUpdateOne.mockReset().mockResolvedValue(undefined);
 };
