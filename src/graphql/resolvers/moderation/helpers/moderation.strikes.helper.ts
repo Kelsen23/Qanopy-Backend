@@ -217,11 +217,7 @@ const getStrikes = async ({
     validateCursor(cursor);
   }
 
-  const cacheKey = buildStrikeCacheKey(
-    filter,
-    cursor,
-    normalizedLimitCount,
-  );
+  const cacheKey = buildStrikeCacheKey(filter, cursor, normalizedLimitCount);
 
   const cachedStrikes = await getRedisCacheClient().get(cacheKey);
   if (cachedStrikes) {

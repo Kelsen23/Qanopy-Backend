@@ -121,7 +121,9 @@ const isHighRiskCategory = (primaryCategory: string | null) =>
 const isLowConfidenceHighRiskCategory = (
   primaryCategory: string | null,
   topScore: number,
-) => isHighRiskCategory(primaryCategory) && topScore < HIGH_RISK_TEMP_BAN_MIN_SCORE;
+) =>
+  isHighRiskCategory(primaryCategory) &&
+  topScore < HIGH_RISK_TEMP_BAN_MIN_SCORE;
 
 const determineRecommendedAction = (
   primaryCategory: string | null,

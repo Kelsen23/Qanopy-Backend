@@ -12,7 +12,6 @@ import updateUserStats from "../../utils/user/updateUserStats.util.js";
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 
-
 const workerFilePath = fileURLToPath(import.meta.url);
 
 interface StatsUpdate {
