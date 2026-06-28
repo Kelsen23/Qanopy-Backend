@@ -43,7 +43,9 @@ const {
   default: deleteAccount,
   purgeAccountData,
   softDeleteAccount,
-} = await import("../../../../src/services/auth/deleteAccount.service.js");
+} = await import(
+  "../../../../src/services/user/processAccountDeletion.service.js"
+);
 
 describe("deleteAccount service", () => {
   beforeEach(() => {

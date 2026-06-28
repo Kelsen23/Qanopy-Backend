@@ -18,7 +18,7 @@ vi.mock(
   "../../../../src/utils/socket/publishSocketDisconnect.util.js",
   () => mockAuthUnitModules.publishSocketDisconnect,
 );
-vi.mock("../../../../src/services/auth/deleteAccount.service.js", () => ({
+vi.mock("../../../../src/services/user/processAccountDeletion.service.js", () => ({
   purgeAccountData: vi.fn(),
 }));
 
