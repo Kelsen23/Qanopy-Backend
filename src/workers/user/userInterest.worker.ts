@@ -1,11 +1,14 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
+import { fileURLToPath } from "node:url";
 
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 import connectMongoDB from "../../config/mongodb.config.js";
 
 import UserInterest from "../../models/userInterest.model.js";
 
 import type { UserInterestAction } from "../../utils/question/queueUserInterest.util.js";
+
+const workerFilePath = fileURLToPath(import.meta.url);
 
 const actionScores = {
   VIEW: 1,
@@ -69,7 +72,7 @@ async function applyInterestScore(userId: string, tag: string, score: number) {
   );
 }
 
-async function startWorker() {
+async function startUserInterestWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
 
   const worker = new Worker(
@@ -109,9 +112,17 @@ async function startWorker() {
   worker.on("error", (err) => {
     console.error("Worker crashed:", err);
   });
+
+  return worker;
 }
 
-startWorker().catch((error) => {
-  console.error("Failed to start user interest worker:", error);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === workerFilePath;
+
+if (isDirectRun) {
+  void startUserInterestWorker().catch((error) => {
+    console.error("Failed to start user interest worker:", error);
+    process.exit(1);
+  });
+}
+
+export { startUserInterestWorker };
