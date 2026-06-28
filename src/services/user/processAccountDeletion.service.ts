@@ -6,7 +6,6 @@ import UserInterest from "../../models/userInterest.model.js";
 import deleteSingleImageService from "../media/deleteSingleImage.service.js";
 
 import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
-
 import {
   clearNotificationCache,
   clearUserBadgesCache,
