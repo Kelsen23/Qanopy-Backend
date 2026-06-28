@@ -29,7 +29,7 @@
     "dev:imageDeletion-worker": "tsx src/workers/media/imageDeletion.worker.ts",
     "dev:moderationMetrics-worker": "tsx src/workers/moderation/moderationMetrics.worker.ts",
     "dev:deleteContent-worker": "tsx src/workers/question/deleteContent.worker.ts",
-    "dev:accountDeletion-worker": "tsx src/workers/auth/accountDeletion.worker.ts",
+    "dev:accountDeletion-worker": "tsx src/workers/user/accountDeletion.worker.ts",
     "dev:moderationAudit-worker": "tsx src/workers/moderation/moderationAudit.worker.ts",
     "dev:notification-worker": "tsx src/workers/notification/notification.worker.ts",
     "dev:badge-worker": "tsx src/workers/user/badge.worker.ts",
