@@ -121,7 +121,7 @@ vi.mock(
   "../../../../src/queues/contentPipelineRouter.queue.js",
   () => mockModerationUnitModules.contentPipelineRouterQueue,
 );
-vi.mock("../../../../generated/prisma/index.js", () => ({
+vi.mock("../../../../src/generated/prisma/index.js", () => ({
   ContentType: contentTypeEnum,
 }));
 
