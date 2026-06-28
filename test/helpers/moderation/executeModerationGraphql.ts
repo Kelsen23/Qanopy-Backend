@@ -6,21 +6,28 @@ import type { GraphQLFormattedError } from "graphql";
 import rootTypeDefs from "../../../src/graphql/typeDefs/root.typeDefs.js";
 import scalarsTypeDefs from "../../../src/graphql/typeDefs/common/scalars.typeDefs.js";
 import userTypeDefs from "../../../src/graphql/typeDefs/user.typeDefs.js";
+import moderationTypeDefs from "../../../src/graphql/typeDefs/moderation.typeDefs.js";
 
 import commonScalarsResolver from "../../../src/graphql/resolvers/common/scalars.resolver.js";
-import userResolver from "../../../src/graphql/resolvers/user.resolver.js";
+import moderationResolver from "../../../src/graphql/resolvers/moderation.resolver.js";
 
-const typeDefs = mergeTypeDefs([rootTypeDefs, scalarsTypeDefs, userTypeDefs]);
-const resolvers = mergeResolvers([commonScalarsResolver, userResolver]);
+const typeDefs = mergeTypeDefs([
+  rootTypeDefs,
+  scalarsTypeDefs,
+  userTypeDefs,
+  moderationTypeDefs,
+]);
+const resolvers = mergeResolvers([commonScalarsResolver, moderationResolver]);
 
 type RedisCacheClient = {
   get: (key: string) => Promise<string | null>;
   set: (...args: unknown[]) => Promise<unknown>;
 };
 
-export type UserGraphqlContext = {
+export type ModerationGraphqlContext = {
   user: {
     id: string;
+    role: string;
     [key: string]: unknown;
   };
   prisma: any;
@@ -28,12 +35,12 @@ export type UserGraphqlContext = {
   loaders: {
     userLoader: {
       loadMany: (keys: readonly string[]) => Promise<unknown[]>;
-    }
+    };
   };
 };
 
 const createServer = async () => {
-  const server = new ApolloServer<UserGraphqlContext>({
+  const server = new ApolloServer<ModerationGraphqlContext>({
     typeDefs,
     resolvers: resolvers as never,
   });
@@ -45,22 +52,24 @@ const createServer = async () => {
 
 const serverPromise = createServer();
 
-type ExecuteUserGraphqlParams = {
+type ExecuteModerationGraphqlParams = {
   query: string;
   variables?: Record<string, unknown>;
-  contextValue: UserGraphqlContext;
+  contextValue: ModerationGraphqlContext;
 };
 
-type ExecuteUserGraphqlResult<TData> = {
+type ExecuteModerationGraphqlResult<TData> = {
   data?: TData | null;
   errors?: readonly GraphQLFormattedError[];
 };
 
-const executeUserGraphql = async <TData>({
+const executeModerationGraphql = async <TData>({
   query,
   variables,
   contextValue,
-}: ExecuteUserGraphqlParams): Promise<ExecuteUserGraphqlResult<TData>> => {
+}: ExecuteModerationGraphqlParams): Promise<
+  ExecuteModerationGraphqlResult<TData>
+> => {
   const server = await serverPromise;
   const response = await server.executeOperation(
     {
@@ -76,7 +85,7 @@ const executeUserGraphql = async <TData>({
     throw new Error("Expected single GraphQL response body");
   }
 
-  return response.body.singleResult as ExecuteUserGraphqlResult<TData>;
+  return response.body.singleResult as ExecuteModerationGraphqlResult<TData>;
 };
 
-export default executeUserGraphql;
+export default executeModerationGraphql;
