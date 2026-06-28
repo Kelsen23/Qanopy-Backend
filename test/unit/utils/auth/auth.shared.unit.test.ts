@@ -14,16 +14,22 @@ vi.mock(
   "../../../../src/services/auth/unverifiedAccountCleanup.service.js",
   () => mockAuthUnitModules.unverifiedAccountCleanup,
 );
+vi.mock(
+  "../../../../src/config/prisma.config.js",
+  () => mockAuthUnitModules.prismaConfig,
+);
 
 const {
+  AUTH_CACHE_TTL_SECONDS,
   getDeviceIp,
   cacheUser,
   cacheAuthUser,
   removeResetPasswordAttempts,
+  getRegisteredStage,
   handleExpiredUnverifiedUser,
 } = await import("../../../../src/services/auth/auth.shared.js");
 
-describe("auth.shared", () => {
+describe("auth shared utils", () => {
   beforeEach(() => {
     resetAuthUnitTestEnvironment();
     authUnitTestEnvironment.cleanupExpiredUnverifiedUserById.mockReset();
@@ -55,6 +61,12 @@ describe("auth.shared", () => {
     expect(authUnitTestEnvironment.redisStore.get("user:user_1")).toContain(
       '"email":"alice@example.com"',
     );
+    expect(authUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
+      "user:user_1",
+      expect.any(String),
+      "EX",
+      AUTH_CACHE_TTL_SECONDS,
+    );
   });
 
   it("caches auth user records", async () => {
@@ -70,6 +82,12 @@ describe("auth.shared", () => {
     expect(
       authUnitTestEnvironment.redisStore.get("auth:user:user_1"),
     ).toContain('"role":"ADMIN"');
+    expect(authUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
+      "auth:user:user_1",
+      expect.any(String),
+      "EX",
+      AUTH_CACHE_TTL_SECONDS,
+    );
   });
 
   it("removes reset password attempts", async () => {
@@ -77,6 +95,35 @@ describe("auth.shared", () => {
 
     expect(authUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
       "auth:reset-password:attempts:user_1",
+    );
+  });
+
+  it("returns registered stage from cache before prisma", async () => {
+    authUnitTestEnvironment.redisStore.set("app:stage", "beta");
+
+    await expect(getRegisteredStage()).resolves.toBe("beta");
+    expect(
+      authUnitTestEnvironment.prismaAppConfigFindUnique,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("loads and caches registered stage from prisma when cache misses", async () => {
+    authUnitTestEnvironment.prismaAppConfigFindUnique.mockResolvedValueOnce({
+      value: "alpha",
+    });
+
+    await expect(getRegisteredStage()).resolves.toBe("alpha");
+    expect(
+      authUnitTestEnvironment.prismaAppConfigFindUnique,
+    ).toHaveBeenCalledWith({
+      where: { key: "appStage" },
+      select: { value: true },
+    });
+    expect(authUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
+      "app:stage",
+      "alpha",
+      "EX",
+      60,
     );
   });
 
