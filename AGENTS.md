@@ -45,3 +45,18 @@ Keep related imports together inside each group. Prefer stable, readable orderin
 - controller -> service for business logic
 - service -> utils for reusable low-level plumbing
 - keep HTTP-specific code in the controller
+
+## Code Review Severity Policy
+
+For all code reviews in this repository, apply the following severity guidance unless a repo-specific instruction says otherwise:
+
+- This repository is currently not in production and does not have existing production users or historical data compatibility requirements.
+- Do not raise P1/P2 findings solely for missing database backfills or prefills for existing user data.
+- Do not raise P1/P2 findings solely for breaking old clients after API, schema, or feature removal.
+- Do not raise P1/P2 findings solely for compatibility with stale clients or historical data that cannot exist yet.
+
+These cases may still be noted as comments, nits, or omitted entirely.
+
+Still raise P1/P2 findings for security issues, real data loss, migration or runtime failures, CI or test failures, launch blockers, or any case where production users or data may exist.
+
+If any AGENTS.md file states that the repo is in production or has compatibility requirements, follow that repo-specific instruction over this policy.
