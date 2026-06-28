@@ -6,7 +6,6 @@ import UserInterest from "../../models/userInterest.model.js";
 import deleteSingleImageService from "../media/deleteSingleImage.service.js";
 
 import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
-
 import {
   clearNotificationCache,
   clearUserBadgesCache,
@@ -96,12 +95,12 @@ const softDeleteAccount = async (userId: string) => {
   return updatedUser;
 };
 
-const deleteAccount = async (jobData: DeleteAccountJobData) => {
+const processAccountDeletion = async (jobData: DeleteAccountJobData) => {
   const { userId } = jobData;
 
   await purgeAccountData(jobData);
   await softDeleteAccount(userId);
 };
 
-export default deleteAccount;
+export default processAccountDeletion;
 export { purgeAccountData, softDeleteAccount };

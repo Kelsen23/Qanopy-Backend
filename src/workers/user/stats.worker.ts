@@ -1,15 +1,18 @@
 import { Worker } from "bullmq";
+import { fileURLToPath } from "node:url";
+
 import {
   getRedisCacheClient,
   redisMessagingClientConnection,
 } from "../../config/redis.config.js";
+import connectMongoDB from "../../config/mongodb.config.js";
 
 import updateUserStats from "../../utils/user/updateUserStats.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
 
-import connectMongoDB from "../../config/mongodb.config.js";
+const workerFilePath = fileURLToPath(import.meta.url);
 
 interface StatsUpdate {
   prisma?: any;
@@ -248,7 +251,7 @@ const actionMap: Record<string, StatsUpdate> = {
 const modelMap: Record<"Question" | "Answer", typeof Question | typeof Answer> =
   { Question, Answer };
 
-async function startWorker() {
+async function startStatsWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting stats worker...");
 
@@ -298,9 +301,17 @@ async function startWorker() {
   worker.on("error", (err) => {
     console.error("Worker crashed:", err);
   });
+
+  return worker;
 }
 
-startWorker().catch((error) => {
-  console.error("Failed to start stats worker:", error);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === workerFilePath;
+
+if (isDirectRun) {
+  void startStatsWorker().catch((error) => {
+    console.error("Failed to start stats worker:", error);
+    process.exit(1);
+  });
+}
+
+export { startStatsWorker };

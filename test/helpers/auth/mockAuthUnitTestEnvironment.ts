@@ -9,7 +9,9 @@ const bcryptCompareResults = new Map<BcryptCompareKey, boolean>();
 
 const prismaUserFindFirst = vi.fn();
 const prismaUserFindUnique = vi.fn();
-const prismaAppConfigFindUnique = vi.fn(async () => null);
+const prismaAppConfigFindUnique = vi.fn<
+  (args?: unknown) => Promise<{ value: string } | null>
+>(async () => null);
 const prismaUserFindMany = vi.fn();
 const prismaUserCreate = vi.fn();
 const prismaUserUpdate = vi.fn();

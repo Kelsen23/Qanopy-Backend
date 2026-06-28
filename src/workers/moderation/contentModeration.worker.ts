@@ -13,7 +13,7 @@ import {
 
 const workerFilePath = fileURLToPath(import.meta.url);
 
-async function startWorker() {
+async function startContentModerationWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting content moderation worker...");
 
@@ -55,10 +55,10 @@ async function startWorker() {
 const isDirectRun = process.argv[1] === workerFilePath;
 
 if (isDirectRun) {
-  void startWorker().catch((error) => {
+  void startContentModerationWorker().catch((error) => {
     console.error("Failed to start moderation worker:", error);
     process.exit(1);
   });
 }
 
-export { startWorker };
+export { startContentModerationWorker };

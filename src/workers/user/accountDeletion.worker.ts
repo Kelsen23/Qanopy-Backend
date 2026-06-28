@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
-import deleteAccount from "../../services/auth/deleteAccount.service.js";
+import processAccountDeletion from "../../services/user/processAccountDeletion.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -15,7 +15,7 @@ async function startAccountDeletionWorker() {
   const worker = new Worker(
     "accountDeletionQueue",
     async (job) => {
-      await deleteAccount(
+      await processAccountDeletion(
         job.data as { userId: string; profilePictureKey?: string | null },
       );
     },

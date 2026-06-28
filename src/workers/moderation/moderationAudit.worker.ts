@@ -9,7 +9,7 @@ import { createWorkerEventHandlers } from "./shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
 
-async function startWorker() {
+async function startModerationAuditWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting moderation audit worker...");
 
@@ -56,10 +56,10 @@ async function startWorker() {
 const isDirectRun = process.argv[1] === workerFilePath;
 
 if (isDirectRun) {
-  void startWorker().catch((error) => {
+  void startModerationAuditWorker().catch((error) => {
     console.error("Failed to start moderation audit worker:", error);
     process.exit(1);
   });
 }
 
-export { startWorker };
+export { startModerationAuditWorker };

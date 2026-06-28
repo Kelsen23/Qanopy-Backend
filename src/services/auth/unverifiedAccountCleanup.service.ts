@@ -3,7 +3,7 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 
-import { purgeAccountData } from "./deleteAccount.service.js";
+import { purgeAccountData } from "../user/processAccountDeletion.service.js";
 
 type UnverifiedLocalUser = {
   id: string;

@@ -17,7 +17,7 @@ const {
   removeEmailChangeAttempts,
 } = await import("../../../../src/services/user/emailChange.shared.js");
 
-describe("emailChange.shared", () => {
+describe("user email change shared utils", () => {
   beforeEach(() => {
     resetUserUnitTestEnvironment();
   });

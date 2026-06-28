@@ -5,7 +5,7 @@ type MockWorkerInstance = {
   processor: (job: {
     id?: string;
     name: string;
-    data?: unknown;
+    data?: any;
   }) => Promise<unknown>;
   options: Record<string, unknown>;
   on: ReturnType<typeof vi.fn>;
@@ -19,15 +19,11 @@ const redisMessagingClientConnection = {
   port: 6379,
 };
 
-const redisCacheClientDelete = vi.fn(async () => 1);
 const connectMongoDB = vi.fn(async () => undefined);
-const awardBadge = vi.fn(async () => undefined);
-const updateProfilePictureService = vi.fn(async () => undefined);
-const processAccountDeletionService = vi.fn(async () => undefined);
-const updateUserStats = vi.fn(async () => undefined);
-const questionFindByIdAndUpdate = vi.fn(async () => undefined);
-const answerFindByIdAndUpdate = vi.fn(async () => undefined);
-const userInterestUpdateOne = vi.fn(async () => undefined);
+const processContent = vi.fn(async () => undefined);
+const modActionLogCreate = vi.fn(async () => undefined);
+const moderationStatsFindUnique = vi.fn();
+const moderationStatsUpdate = vi.fn(async () => undefined);
 
 const buildWorkerInstance = (
   name: string,
@@ -61,64 +57,46 @@ function workerConstructorImpl(
 
 const workerConstructor = vi.fn(workerConstructorImpl);
 
-export const mockUserWorkerModules = {
+export const mockModerationWorkerModules = {
   bullmq: {
     Worker: workerConstructor,
   },
   redisConfig: {
     redisMessagingClientConnection,
-    getRedisCacheClient: () => ({
-      del: redisCacheClientDelete,
-    }),
   },
   mongodbConfig: {
     default: connectMongoDB,
   },
-  awardBadgeService: {
-    default: awardBadge,
+  processContentService: {
+    default: processContent,
   },
-  updateProfilePictureService: {
-    default: updateProfilePictureService,
-  },
-  processAccountDeletionService: {
-    default: processAccountDeletionService,
-  },
-  updateUserStatsUtil: {
-    default: updateUserStats,
-  },
-  questionModel: {
+  modActionLogModel: {
     default: {
-      findByIdAndUpdate: questionFindByIdAndUpdate,
+      create: modActionLogCreate,
     },
   },
-  answerModel: {
+  prismaConfig: {
     default: {
-      findByIdAndUpdate: answerFindByIdAndUpdate,
-    },
-  },
-  userInterestModel: {
-    default: {
-      updateOne: userInterestUpdateOne,
+      moderationStats: {
+        findUnique: moderationStatsFindUnique,
+        update: moderationStatsUpdate,
+      },
     },
   },
 };
 
-export const mockUserWorkerTestEnvironment = {
+export const mockModerationWorkerTestEnvironment = {
   workerInstances,
   workerConstructor,
   redisMessagingClientConnection,
-  redisCacheClientDelete,
   connectMongoDB,
-  awardBadge,
-  updateProfilePictureService,
-  processAccountDeletionService,
-  updateUserStats,
-  questionFindByIdAndUpdate,
-  answerFindByIdAndUpdate,
-  userInterestUpdateOne,
+  processContent,
+  modActionLogCreate,
+  moderationStatsFindUnique,
+  moderationStatsUpdate,
 };
 
-export const resetUserWorkerTestEnvironment = () => {
+export const resetModerationWorkerTestEnvironment = () => {
   workerInstances.splice(0, workerInstances.length);
 
   workerConstructor.mockReset().mockImplementation(
@@ -132,13 +110,9 @@ export const resetUserWorkerTestEnvironment = () => {
     },
   );
 
-  redisCacheClientDelete.mockReset().mockResolvedValue(1);
   connectMongoDB.mockReset().mockResolvedValue(undefined);
-  awardBadge.mockReset().mockResolvedValue(undefined);
-  updateProfilePictureService.mockReset().mockResolvedValue(undefined);
-  processAccountDeletionService.mockReset().mockResolvedValue(undefined);
-  updateUserStats.mockReset().mockResolvedValue(undefined);
-  questionFindByIdAndUpdate.mockReset().mockResolvedValue(undefined);
-  answerFindByIdAndUpdate.mockReset().mockResolvedValue(undefined);
-  userInterestUpdateOne.mockReset().mockResolvedValue(undefined);
+  processContent.mockReset().mockResolvedValue(undefined);
+  modActionLogCreate.mockReset().mockResolvedValue(undefined);
+  moderationStatsFindUnique.mockReset();
+  moderationStatsUpdate.mockReset().mockResolvedValue(undefined);
 };

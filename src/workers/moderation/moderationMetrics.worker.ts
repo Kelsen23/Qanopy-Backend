@@ -95,7 +95,7 @@ const updateModerationStats = async (
 };
 
 const handlers = createWorkerEventHandlers("moderationMetrics");
-const startWorker = () => {
+const startModerationMetricsWorker = () => {
   const worker = new Worker(
     "moderationMetricsQueue",
     async (job) => {
@@ -125,7 +125,7 @@ const startWorker = () => {
 const isDirectRun = process.argv[1] === workerFilePath;
 
 if (isDirectRun) {
-  void startWorker();
+  void startModerationMetricsWorker();
 }
 
-export { startWorker };
+export { startModerationMetricsWorker };
