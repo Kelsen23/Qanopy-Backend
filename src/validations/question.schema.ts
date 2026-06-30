@@ -37,6 +37,8 @@ const createQuestionSchema = z
     }
   });
 
+const editQuestionSchema = createQuestionSchema;
+
 const createAnswerOnQuestionSchema = z
   .object({
     body: z
@@ -158,6 +160,7 @@ const deleteAiFeedbackSchema = z.object({
 
 export {
   createQuestionSchema,
+  editQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
