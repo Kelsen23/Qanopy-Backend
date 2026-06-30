@@ -2,26 +2,26 @@ import express from "express";
 
 import {
   createReport,
-  moderate,
   getBan,
+  moderate,
   removeBan,
 } from "../controllers/moderation.controller.js";
+
+import isAuthenticated, {
+  isAdmin,
+  isVerified,
+  requireActiveUser,
+} from "../middlewares/auth.middleware.js";
+
+import { createReportLimiterMiddleware } from "../middlewares/rate-limiters/moderation.rate-limiters.js";
+
+import validate from "../middlewares/validate.middleware.js";
 
 import {
   moderateSchema,
   removeBanSchema,
   reportSchema,
 } from "../validations/moderation.schema.js";
-
-import { createReportLimiterMiddleware } from "../middlewares/rate-limiters/moderation.rate-limiters.js";
-
-import isAuthenticated, {
-  requireActiveUser,
-  isVerified,
-  isAdmin,
-} from "../middlewares/auth.middleware.js";
-
-import validate from "../middlewares/validate.middleware.js";
 
 const router = express.Router();
 

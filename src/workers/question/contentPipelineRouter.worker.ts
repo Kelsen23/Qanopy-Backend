@@ -1,12 +1,9 @@
 import { Worker } from "bullmq";
 
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
-import connectMongoDB from "../../config/mongodb.config.js";
+import processContentPipelineRouterJob from "../../services/question/worker/contentPipelineRouter.service.js";
 
-import questionPipelineRouterService from "../../services/question/pipelineRouters/questionPipelineRouter.service.js";
-import answerPipelineRouterService from "../../services/question/pipelineRouters/answerPipelineRouter.service.js";
-import replyPipelineRouterService from "../../services/question/pipelineRouters/replyPipelineRouter.service.js";
-import aiAnswerFeedbackPipelineRouterService from "../../services/question/pipelineRouters/aiAnswerFeedbackPipelineRouter.service.js";
+import connectMongoDB from "../../config/mongodb.config.js";
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -15,29 +12,11 @@ async function startWorker() {
   const worker = new Worker(
     "contentPipelineRouter",
     async (job) => {
-      const contentType = job.name as
-        | "QUESTION"
-        | "ANSWER"
-        | "REPLY"
-        | "AI_ANSWER_FEEDBACK";
-      const { contentId, version } = job.data;
-
-      switch (contentType) {
-        case "QUESTION":
-          await questionPipelineRouterService(contentId, version);
-          break;
-        case "ANSWER":
-          await answerPipelineRouterService(contentId);
-          break;
-        case "REPLY":
-          await replyPipelineRouterService(contentId);
-          break;
-        case "AI_ANSWER_FEEDBACK":
-          await aiAnswerFeedbackPipelineRouterService(contentId);
-          break;
-        default:
-          break;
-      }
+      await processContentPipelineRouterJob(
+        job.name as any,
+        job.data.contentId,
+        job.data.version,
+      );
     },
     {
       connection: redisMessagingClientConnection,

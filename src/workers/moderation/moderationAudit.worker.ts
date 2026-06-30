@@ -1,10 +1,10 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
+
+import processModerationAuditJob from "../../services/moderation/worker/moderationAudit.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
-
-import ModActionLog from "../../models/modActionLog.model.js";
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 import { createWorkerEventHandlers } from "./shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
@@ -16,27 +16,7 @@ async function startModerationAuditWorker() {
   const worker = new Worker(
     "moderationAuditQueue",
     async (job) => {
-      const {
-        decisionId,
-        targetType,
-        targetId,
-        targetUserId,
-        actorType,
-        adminId,
-        actionTaken,
-        meta,
-      } = job.data;
-
-      await ModActionLog.create({
-        decisionId,
-        targetType,
-        targetId,
-        targetUserId,
-        actorType,
-        adminId,
-        actionTaken,
-        meta,
-      });
+      await processModerationAuditJob(job.data);
     },
     {
       connection: redisMessagingClientConnection,

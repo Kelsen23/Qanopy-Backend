@@ -7,9 +7,9 @@ import {
   markNotificationsAsSeen,
   resendEmailChange,
   sendEmailChange,
+  updateNotificationSettings,
   updateProfile,
   updateProfilePicture,
-  updateNotificationSettings,
   verifyEmailChange,
 } from "../controllers/user.controller.js";
 
@@ -17,19 +17,20 @@ import isAuthenticated, {
   isVerified,
   requireActiveUser,
 } from "../middlewares/auth.middleware.js";
-import validate from "../middlewares/validate.middleware.js";
 
 import {
+  userAccountDeletionLimiterMiddleware,
   userEmailChangeResendLimiterMiddleware,
   userEmailChangeSendLimiterMiddleware,
   userEmailChangeVerifyLimiterMiddleware,
-  userAccountDeletionLimiterMiddleware,
   userNotificationSettingsLimiterMiddleware,
   userNotificationsSeenLimiterMiddleware,
   userProfilePictureDeleteLimiterMiddleware,
   userProfilePictureUpdateLimiterMiddleware,
   userProfileUpdateLimiterMiddleware,
 } from "../middlewares/rate-limiters/user.rate-limiters.js";
+
+import validate from "../middlewares/validate.middleware.js";
 
 import {
   markNotificationsAsSeenSchema,

@@ -1,18 +1,11 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
-import awardBadge from "../../services/user/badge/awardBadge.service.js";
-import {
-  badgeTriggers,
-  type BadgeTrigger,
-} from "../../services/user/badge/badge.shared.js";
+import processBadgeJob from "../../services/user/worker/badge.service.js";
 
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
-
-const isBadgeTrigger = (value: string): value is BadgeTrigger =>
-  Object.values(badgeTriggers).includes(value as BadgeTrigger);
 
 async function startBadgeWorker() {
   console.log("Starting badge worker...");
@@ -20,18 +13,7 @@ async function startBadgeWorker() {
   const worker = new Worker(
     "badgeQueue",
     async (job) => {
-      if (!isBadgeTrigger(job.name)) {
-        throw new Error(`Unsupported badge trigger: ${job.name}`);
-      }
-
-      const { userId } = job.data as {
-        userId: string;
-      };
-
-      return awardBadge({
-        userId,
-        trigger: job.name,
-      });
+      return processBadgeJob(job.name, job.data);
     },
     {
       connection: redisMessagingClientConnection,

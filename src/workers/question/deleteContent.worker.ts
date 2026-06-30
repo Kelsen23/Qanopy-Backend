@@ -1,11 +1,9 @@
 import { Worker } from "bullmq";
 
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
+import processDeleteContentJob from "../../services/question/worker/deleteContent.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
-
-import deleteContent from "../../services/question/deleteContent.service.js";
-import removeModeratedContent from "../../services/moderation/removeModeratedContent.service.js";
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -15,13 +13,7 @@ async function startWorker() {
     "deleteContentQueue",
     async (job) => {
       const { userId, targetType, targetId } = job.data;
-
-      if (job.name === "REMOVE_MODERATED_CONTENT") {
-        await removeModeratedContent(targetType, targetId);
-        return;
-      }
-
-      await deleteContent(userId, targetType, targetId);
+      await processDeleteContentJob(job.name, userId, targetType, targetId);
     },
     {
       connection: redisMessagingClientConnection,
