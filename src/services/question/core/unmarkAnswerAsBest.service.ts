@@ -1,15 +1,19 @@
-import HttpError from "../../utils/http/httpError.util.js";
+import HttpError from "../../../utils/http/httpError.util.js";
 
-import Question from "../../models/question.model.js";
-import Answer from "../../models/answer.model.js";
+import { getRedisCacheClient } from "../../../config/redis.config.js";
+import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-import { clearAnswerCache } from "../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../utils/job/makeJobId.util.js";
+import statsQueue from "../../../queues/stats.queue.js";
 
-import statsQueue from "../../queues/stats.queue.js";
+import Question from "../../../models/question.model.js";
+import Answer from "../../../models/answer.model.js";
+
+import { isObjectId } from "../question.shared.js";
 
 const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
+  if (!isObjectId(answerId)) throw new HttpError("Invalid answerId", 400);
+
   const foundAnswer = await Answer.findById(answerId).lean();
 
   if (!foundAnswer) throw new HttpError("Answer not found", 404);

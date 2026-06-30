@@ -1,10 +1,9 @@
-import { suggestionGenerationClient } from "../../config/deepseek.config.js";
+import { suggestionGenerationClient } from "../../../config/deepseek.config.js";
 
-import HttpError from "../../utils/http/httpError.util.js";
+import HttpError from "../../../utils/http/httpError.util.js";
+import interests from "../../../utils/question/interests.util.js";
 
-import interests from "../../utils/question/interests.util.js";
-
-import aiSuggestionSchema from "../../validations/aiSuggestion.schema.js";
+import aiSuggestionSchema from "../../../validations/aiSuggestion.schema.js";
 
 interface AISuggestion {
   suggestions: {
@@ -41,7 +40,7 @@ const generateSuggestion = async (questionText: string) => {
 
     Allowed tags:
 
-    ${interests.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
+    ${interests.map((i: string, idx: number) => `${idx + 1}. ${i}`).join("\n")}
 
     Rules:
 

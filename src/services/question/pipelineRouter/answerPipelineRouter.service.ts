@@ -2,8 +2,8 @@ import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import Answer from "../../../models/answer.model.js";
 
-import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
+import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 
 const answerPipelineRouter = async (answerId: string) => {
   const foundAnswer = await Answer.findById(answerId).select(

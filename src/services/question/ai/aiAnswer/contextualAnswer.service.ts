@@ -1,8 +1,8 @@
-import Answer from "../../../models/answer.model.js";
-import AiAnswer from "../../../models/aiAnswer.model.js";
+import Answer from "../../../../models/answer.model.js";
+import AiAnswer from "../../../../models/aiAnswer.model.js";
 
-import fullAnswerService from "./fullAnswer.service.js";
 import generateContextualAnswerService from "./generateContextualAnswer.service.js";
+import fullAnswerService from "./fullAnswer.service.js";
 
 const contextualAnswerService = async (
   similarQuestionIds: string[],

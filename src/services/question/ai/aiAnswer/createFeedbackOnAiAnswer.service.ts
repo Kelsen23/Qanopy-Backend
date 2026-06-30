@@ -1,14 +1,13 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/http/httpError.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
-import { makeJobId } from "../../utils/job/makeJobId.util.js";
+import AiAnswer from "../../../../models/aiAnswer.model.js";
+import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
+import QuestionVersion from "../../../../models/questionVersion.model.js";
 
-import AiAnswer from "../../models/aiAnswer.model.js";
-import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
-import QuestionVersion from "../../models/questionVersion.model.js";
-
-import contentModerationQueue from "../../queues/contentModeration.queue.js";
+import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
 
 const createFeedbackOnAiAnswerService = async (
   userId: string,

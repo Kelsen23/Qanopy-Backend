@@ -1,23 +1,23 @@
-import HttpError from "../../utils/http/httpError.util.js";
+import mongoose from "mongoose";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
+import routeNotification from "../../notification/routeNotification.service.js";
+
+import { getRedisCacheClient } from "../../../config/redis.config.js";
+
+import HttpError from "../../../utils/http/httpError.util.js";
 import {
   clearAnswerCache,
   clearReplyCache,
-} from "../../utils/cache/clearCache.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import queueUserInterest from "../../utils/question/queueUserInterest.util.js";
+} from "../../../utils/cache/clearCache.util.js";
+import { makeUniqueJobId } from "../../../utils/job/makeJobId.util.js";
+import queueUserInterest from "../../../utils/question/queueUserInterest.util.js";
 
-import mongoose from "mongoose";
+import Question from "../../../models/question.model.js";
+import Answer from "../../../models/answer.model.js";
+import Reply from "../../../models/reply.model.js";
+import Vote from "../../../models/vote.model.js";
 
-import Question from "../../models/question.model.js";
-import Answer from "../../models/answer.model.js";
-import Reply from "../../models/reply.model.js";
-import Vote from "../../models/vote.model.js";
-
-import statsQueue from "../../queues/stats.queue.js";
-
-import routeNotification from "../notification/routeNotification.service.js";
+import statsQueue from "../../../queues/stats.queue.js";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type VoteType = "UPVOTE" | "DOWNVOTE";

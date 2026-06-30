@@ -1,19 +1,19 @@
-import answerGenerationClient from "../../../config/anthropic.config.js";
-import { getRedisCacheClient } from "../../../config/redis.config.js";
+import answerGenerationClient from "../../../../config/anthropic.config.js";
 
+import routeNotification from "../../../notification/routeNotification.service.js";
 import {
   getAiAnswerCancelKey,
   getAiAnswerSessionSockets,
-} from "../../redis/aiAnswerSession.service.js";
+} from "../../../redis/aiAnswerSession.service.js";
 
-import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
-import HttpError from "../../../utils/http/httpError.util.js";
+import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
-import AiAnswer from "../../../models/aiAnswer.model.js";
+import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
 
-import aiAnswerSchema from "../../../validations/aiFullAnswer.schema.js";
+import AiAnswer from "../../../../models/aiAnswer.model.js";
 
-import routeNotification from "../../notification/routeNotification.service.js";
+import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
 
 const generateContextualAnswerService = async (
   userId: string,

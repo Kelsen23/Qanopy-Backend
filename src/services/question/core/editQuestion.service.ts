@@ -1,18 +1,21 @@
-import HttpError from "../../utils/http/httpError.util.js";
+import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import Question from "../../models/question.model.js";
+import HttpError from "../../../utils/http/httpError.util.js";
+import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
-import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../utils/job/makeJobId.util.js";
+import Question from "../../../models/question.model.js";
+import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
-import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
+import { isObjectId } from "../question.shared.js";
 
 const editQuestion = async (
   userId: string,
   questionId: string,
   reqBody: { title: string; body: string; tags: string[] },
 ) => {
+  if (!isObjectId(questionId)) throw new HttpError("Invalid questionId", 400);
+
   const { title, body, tags } = reqBody;
 
   const cachedQuestion = await getRedisCacheClient().get(

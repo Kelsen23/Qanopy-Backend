@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 
-import HttpError from "../../utils/http/httpError.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
 
-import Question from "../../models/question.model.js";
-import AiAnswer from "../../models/aiAnswer.model.js";
+import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
-import { getRedisCacheClient } from "../../config/redis.config.js";
+import Question from "../../../../models/question.model.js";
+import AiAnswer from "../../../../models/aiAnswer.model.js";
 
-const publishAiAnswer = async (
+const unpublishAiAnswer = async (
   userId: string,
   questionId: string,
   aiAnswerId: string,
@@ -33,7 +33,7 @@ const publishAiAnswer = async (
     throw new HttpError("Question not active", 410);
 
   if (foundQuestion.userId?.toString() !== userId)
-    throw new HttpError("Unauthorized to publish AI answer", 403);
+    throw new HttpError("Unauthorized to unpublish AI answer", 403);
 
   const foundAiAnswer = await AiAnswer.findOne({
     _id: aiAnswerId,
@@ -42,12 +42,12 @@ const publishAiAnswer = async (
 
   if (!foundAiAnswer) throw new HttpError("AI answer not found", 404);
 
-  if (foundAiAnswer.isPublished)
-    throw new HttpError("AI answer is already published", 409);
+  if (!foundAiAnswer.isPublished)
+    throw new HttpError("AI answer is already unpublished", 409);
 
   const session = await mongoose.startSession();
 
-  const publishedAnswer = await session.withTransaction(async () => {
+  const unpublishedAnswer = await session.withTransaction(async () => {
     const freshQuestion = await Question.findById(questionId)
       .select("_id userId isActive isDeleted")
       .session(session)
@@ -59,7 +59,7 @@ const publishAiAnswer = async (
       throw new HttpError("Question not active", 410);
 
     if (freshQuestion.userId?.toString() !== userId)
-      throw new HttpError("Unauthorized to publish AI answer", 403);
+      throw new HttpError("Unauthorized to unpublish AI answer", 403);
 
     const freshAiAnswer = await AiAnswer.findOne({
       _id: aiAnswerId,
@@ -70,19 +70,16 @@ const publishAiAnswer = async (
 
     if (!freshAiAnswer) throw new HttpError("AI answer not found", 404);
 
-    await AiAnswer.updateMany(
-      { questionId },
-      { $set: { isPublished: false } },
-      { session },
-    );
+    if (!freshAiAnswer.isPublished)
+      throw new HttpError("AI answer is already unpublished", 409);
 
     const answer = await AiAnswer.findByIdAndUpdate(
       aiAnswerId,
-      { $set: { isPublished: true } },
+      { $set: { isPublished: false } },
       { returnDocument: "after", session },
     ).lean();
 
-    if (!answer) throw new HttpError("Failed to publish AI answer", 500);
+    if (!answer) throw new HttpError("Failed to unpublish AI answer", 500);
 
     return answer;
   });
@@ -92,9 +89,9 @@ const publishAiAnswer = async (
   await getRedisCacheClient().del(`question:${questionId}`);
 
   return {
-    message: "Successfully published AI answer",
-    answer: publishedAnswer,
+    message: "Successfully unpublished AI answer",
+    answer: unpublishedAnswer,
   };
 };
 
-export default publishAiAnswer;
+export default unpublishAiAnswer;

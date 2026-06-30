@@ -1,20 +1,17 @@
-import QuestionVersion from "../../models/questionVersion.model.js";
-import AiSuggestion from "../../models/aiSuggestion.model.js";
-
-import prisma from "../../config/prisma.config.js";
-
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import { getEditSessionSockets } from "../redis/editSession.service.js";
-
-import HttpError from "../../utils/http/httpError.util.js";
-import convertQuestionToLLMText from "../../utils/question/convertQuestionToLLMText.util.js";
-import normalizeText from "../../utils/question/normalizeText.util.js";
-
-import publishSocketEvent from "../../utils/socket/publishSocketEvent.util.js";
-
+import routeNotification from "../../notification/routeNotification.service.js";
+import { getEditSessionSockets } from "../../redis/editSession.service.js";
 import generateSuggestion from "./generateSuggestion.service.js";
-import routeNotification from "../notification/routeNotification.service.js";
+
+import prisma from "../../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../../config/redis.config.js";
+
+import HttpError from "../../../utils/http/httpError.util.js";
+import convertQuestionToLLMText from "../../../utils/question/convertQuestionToLLMText.util.js";
+import normalizeText from "../../../utils/question/normalizeText.util.js";
+import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
+
+import QuestionVersion from "../../../models/questionVersion.model.js";
+import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
 const generateQuestionSuggestion = async ({
   userId,

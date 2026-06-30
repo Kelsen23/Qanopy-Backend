@@ -1,17 +1,17 @@
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import HttpError from "../../utils/http/httpError.util.js";
-
-import { clearVersionHistoryCache } from "../../utils/cache/clearCache.util.js";
-
-import { makeJobId } from "../../utils/job/makeJobId.util.js";
-
 import mongoose from "mongoose";
 
-import Question from "../../models/question.model.js";
-import QuestionVersion from "../../models/questionVersion.model.js";
+import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
+import HttpError from "../../../utils/http/httpError.util.js";
+import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+
+import Question from "../../../models/question.model.js";
+import QuestionVersion from "../../../models/questionVersion.model.js";
+
+import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
+
+import { isObjectId } from "../question.shared.js";
 
 const moderationSeverity = {
   PENDING: 0,
@@ -27,6 +27,8 @@ const rollbackVersion = async (
   questionId: string,
   version: number,
 ) => {
+  if (!isObjectId(questionId)) throw new HttpError("Invalid questionId", 400);
+
   const cachedQuestion = await getRedisCacheClient().get(
     `question:${questionId}`,
   );

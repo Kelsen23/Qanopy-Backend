@@ -1,4 +1,4 @@
-import embeddingClient from "../../config/voyage.config.js";
+import embeddingClient from "../../../config/voyage.config.js";
 
 const generateEmbedding = async (text: string) => {
   const res = await embeddingClient.embed({

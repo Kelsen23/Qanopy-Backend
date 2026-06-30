@@ -1,4 +1,4 @@
-import { topicDeterminerClient } from "../../config/openai.config.js";
+import { topicDeterminerClient } from "../../../config/openai.config.js";
 
 const determineTopicStatus = async (questionText: string) => {
   const prompt = `
