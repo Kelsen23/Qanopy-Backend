@@ -30,7 +30,7 @@ const createSocketTestServer = async (): Promise<SocketTestServer> => {
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.once("listening", resolve);
-    server.listen(0);
+    server.listen(0, "127.0.0.1");
   });
 
   const address = server.address() as AddressInfo;
