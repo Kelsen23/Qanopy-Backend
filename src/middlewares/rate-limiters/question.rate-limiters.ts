@@ -1,186 +1,258 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
+import type { Request } from "express";
+
 import { getRedisMessagingClient } from "../../config/redis.config.js";
 
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
 
+const userKeyResolver = (req: Request) =>
+  (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown";
+
 const createQuestionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "createQuestion",
-  points: 8,
-  duration: 60 * 30,
+  keyPrefix: "question:create",
+  points: 12,
+  duration: 60 * 60,
 });
 
 const createAnswerOnQuestionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "createAnswerOnQuestion",
-  points: 3,
-  duration: 60 * 30,
+  keyPrefix: "question:answer:create",
+  points: 24,
+  duration: 60 * 60,
 });
 
 const createReplyOnAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "createReplyOnAnswer",
-  points: 5,
-  duration: 60 * 15,
+  keyPrefix: "question:reply:create",
+  points: 45,
+  duration: 60 * 60,
 });
 
 const voteLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "vote",
-  points: 20,
+  keyPrefix: "question:vote",
+  points: 180,
+  duration: 60 * 15,
+});
+
+const unvoteLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "question:unvote",
+  points: 180,
   duration: 60 * 15,
 });
 
 const acceptAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "acceptAnswer",
-  points: 10,
-  duration: 60 * 30,
+  keyPrefix: "question:answer:accept",
+  points: 24,
+  duration: 60 * 60,
+});
+
+const unacceptAnswerLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "question:answer:unaccept",
+  points: 24,
+  duration: 60 * 60,
 });
 
 const markAnswerAsBestLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "markAnswerAsBest",
-  points: 5,
-  duration: 60 * 30,
+  keyPrefix: "question:answer:best",
+  points: 24,
+  duration: 60 * 60,
+});
+
+const unmarkAnswerAsBestLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "question:answer:unbest",
+  points: 24,
+  duration: 60 * 60,
 });
 
 const editQuestionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "editQuestion",
-  points: 5,
-  duration: 60 * 30,
+  keyPrefix: "question:edit",
+  points: 12,
+  duration: 60 * 60,
 });
 
 const rollbackVersionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "rollbackVersion",
-  points: 3,
-  duration: 60 * 30,
+  keyPrefix: "question:rollback",
+  points: 6,
+  duration: 60 * 60,
+});
+
+const deleteContentLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "question:delete",
+  points: 10,
+  duration: 60 * 60,
 });
 
 const generateSuggestionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "generateSuggestion",
-  points: 10,
+  keyPrefix: "question:ai:suggestion",
+  points: 12,
   duration: 60 * 30,
 });
 
 const generateAiAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "generateAiAnswer",
+  keyPrefix: "question:ai:answer",
   points: 10,
   duration: 60 * 30,
 });
 
 const publishAiAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "publishAiAnswer",
-  points: 15,
+  keyPrefix: "question:ai:answer:publish",
+  points: 20,
   duration: 60 * 30,
 });
 
 const unpublishAiAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "unpublishAiAnswer",
-  points: 15,
+  keyPrefix: "question:ai:answer:unpublish",
+  points: 20,
   duration: 60 * 30,
 });
 
 const createFeedbackOnAiAnswerLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "createFeedbackOnAiAnswer",
-  points: 10,
+  keyPrefix: "question:ai:feedback:create",
+  points: 15,
   duration: 60 * 15,
 });
 
 const editAiFeedbackLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "editAiFeedback",
-  points: 10,
+  keyPrefix: "question:ai:feedback:edit",
+  points: 15,
   duration: 60 * 15,
 });
 
 const deleteAiFeedbackLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
-  keyPrefix: "deleteAiFeedback",
-  points: 10,
+  keyPrefix: "question:ai:feedback:delete",
+  points: 15,
   duration: 60 * 15,
 });
 
 const createQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createQuestionLimiter,
-  "Too many questions created, try again after half an hour",
+  "Too many questions created, please try again later",
+  userKeyResolver,
 );
 
 const createAnswerOnQuestionLimiterMiddleware = createRateLimiterMiddleware(
   createAnswerOnQuestionLimiter,
-  "Too many answers created, try again after half an hour",
+  "Too many answers created, please try again later",
+  userKeyResolver,
 );
 
 const createReplyOnAnswerLimiterMiddleware = createRateLimiterMiddleware(
   createReplyOnAnswerLimiter,
-  "Too many replies created, try again after half 15 minutes",
+  "Too many replies created, please try again later",
+  userKeyResolver,
 );
 
 const voteLimiterMiddleware = createRateLimiterMiddleware(
   voteLimiter,
-  "Too many votes, try again after 15 minutes",
+  "Too many votes, please try again later",
+  userKeyResolver,
+);
+
+const unvoteLimiterMiddleware = createRateLimiterMiddleware(
+  unvoteLimiter,
+  "Too many vote removals, please try again later",
+  userKeyResolver,
 );
 
 const acceptAnswerLimiterMiddleware = createRateLimiterMiddleware(
   acceptAnswerLimiter,
-  "Too many answers accepted, try again after half an hour",
+  "Too many answer acceptance attempts, please try again later",
+  userKeyResolver,
+);
+
+const unacceptAnswerLimiterMiddleware = createRateLimiterMiddleware(
+  unacceptAnswerLimiter,
+  "Too many answer unacceptance attempts, please try again later",
+  userKeyResolver,
 );
 
 const markAnswerAsBestLimiterMiddleware = createRateLimiterMiddleware(
   markAnswerAsBestLimiter,
-  "Too many answers marked, try again after half an hour",
+  "Too many best-answer updates, please try again later",
+  userKeyResolver,
+);
+
+const unmarkAnswerAsBestLimiterMiddleware = createRateLimiterMiddleware(
+  unmarkAnswerAsBestLimiter,
+  "Too many best-answer updates, please try again later",
+  userKeyResolver,
 );
 
 const editQuestionLimiterMiddleware = createRateLimiterMiddleware(
   editQuestionLimiter,
-  "Too many edits, try again later",
+  "Too many edits, please try again later",
+  userKeyResolver,
 );
 
 const rollbackVersionLimiterMiddleware = createRateLimiterMiddleware(
   rollbackVersionLimiter,
-  "Too many rollbacks, try again later",
+  "Too many rollbacks, please try again later",
+  userKeyResolver,
+);
+
+const deleteContentLimiterMiddleware = createRateLimiterMiddleware(
+  deleteContentLimiter,
+  "Too many content deletions, please try again later",
+  userKeyResolver,
 );
 
 const generateSuggestionLimiterMiddleware = createRateLimiterMiddleware(
   generateSuggestionLimiter,
-  "Too many AI suggestions, try again later",
+  "Too many AI suggestions, please try again later",
+  userKeyResolver,
 );
 
 const generateAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   generateAiAnswerLimiter,
-  "Too many AI answer requests, try again later",
+  "Too many AI answer requests, please try again later",
+  userKeyResolver,
 );
 
 const publishAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   publishAiAnswerLimiter,
-  "Too many AI answer publish requests, try again later",
+  "Too many AI answer publish requests, please try again later",
+  userKeyResolver,
 );
 
 const unpublishAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   unpublishAiAnswerLimiter,
-  "Too many AI answer unpublish requests, try again later",
+  "Too many AI answer unpublish requests, please try again later",
+  userKeyResolver,
 );
 
 const createFeedbackOnAiAnswerLimiterMiddleware = createRateLimiterMiddleware(
   createFeedbackOnAiAnswerLimiter,
-  "Too many AI answer feedback requests, try again later",
+  "Too many AI answer feedback requests, please try again later",
+  userKeyResolver,
 );
 
 const editAiFeedbackLimiterMiddleware = createRateLimiterMiddleware(
   editAiFeedbackLimiter,
-  "Too many AI answer feedback edit requests, try again later",
+  "Too many AI answer feedback edit requests, please try again later",
+  userKeyResolver,
 );
 
 const deleteAiFeedbackLimiterMiddleware = createRateLimiterMiddleware(
   deleteAiFeedbackLimiter,
-  "Too many AI answer feedback delete requests, try again later",
+  "Too many AI answer feedback delete requests, please try again later",
+  userKeyResolver,
 );
 
 export {
@@ -188,10 +260,14 @@ export {
   createAnswerOnQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
   voteLimiterMiddleware,
+  unvoteLimiterMiddleware,
   acceptAnswerLimiterMiddleware,
+  unacceptAnswerLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
+  unmarkAnswerAsBestLimiterMiddleware,
   editQuestionLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
+  deleteContentLimiterMiddleware,
   generateSuggestionLimiterMiddleware,
   generateAiAnswerLimiterMiddleware,
   publishAiAnswerLimiterMiddleware,
