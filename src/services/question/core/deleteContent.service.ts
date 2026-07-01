@@ -5,6 +5,7 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../../utils/cache/clearCache.util.js";
+import { getContentTypeLabel } from "../../../utils/content/contentTypeLabel.util.js";
 import HttpError from "../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
@@ -69,15 +70,18 @@ const deleteContent = async (
   }
 
   if (!foundContent) {
-    throw new HttpError(`${targetType} not found`, 404);
+    throw new HttpError(`${getContentTypeLabel(targetType)} not found`, 404);
   }
 
   if (foundContent.userId?.toString() !== userId) {
-    throw new HttpError(`Unauthorized to delete ${targetType}`, 403);
+    throw new HttpError(
+      `Unauthorized to delete ${getContentTypeLabel(targetType)}`,
+      403,
+    );
   }
 
   if (foundContent.isDeleted || !foundContent.isActive) {
-    throw new HttpError(`${targetType} not active`, 410);
+    throw new HttpError(`${getContentTypeLabel(targetType)} not active`, 410);
   }
 
   await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
@@ -181,15 +185,15 @@ const deleteContent = async (
       .lean();
 
     if (!foundFeedback) {
-      throw new HttpError("AI_ANSWER_FEEDBACK not found", 404);
+      throw new HttpError("AI answer feedback not found", 404);
     }
 
     if (foundFeedback.userId?.toString() !== userId) {
-      throw new HttpError("Unauthorized to delete AI_ANSWER_FEEDBACK", 403);
+      throw new HttpError("Unauthorized to delete AI answer feedback", 403);
     }
 
     if (foundFeedback.isDeleted || !foundFeedback.isActive) {
-      throw new HttpError("AI_ANSWER_FEEDBACK not active", 410);
+      throw new HttpError("AI answer feedback not active", 410);
     }
 
     await Model.findByIdAndUpdate(foundFeedback._id || foundFeedback.id, {
@@ -211,7 +215,7 @@ const deleteContent = async (
   }
 
   return {
-    message: `Successfully deleted ${targetType}`,
+    message: `Successfully deleted ${getContentTypeLabel(targetType)}`,
   };
 };
 

@@ -1,3 +1,4 @@
+import { getContentTypeLabel } from "../../../utils/content/contentTypeLabel.util.js";
 import HttpError from "../../../utils/http/httpError.util.js";
 
 import Question from "../../../models/question.model.js";
@@ -35,7 +36,7 @@ const assertAdminModerationTargetReady = async ({
     .lean();
 
   if (!foundContent || !foundContent.isActive) {
-    throw new HttpError(`${targetType.toLowerCase()} not found`, 404);
+    throw new HttpError(`${getContentTypeLabel(targetType)} not found`, 404);
   }
 
   if (targetType !== "QUESTION") {
