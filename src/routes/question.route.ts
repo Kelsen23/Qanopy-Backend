@@ -77,7 +77,7 @@ router
   );
 
 router
-  .route("/:questionId/answers")
+  .route("/:questionId/answer")
   .post(
     isAuthenticated,
     isVerified,
@@ -88,7 +88,7 @@ router
   );
 
 router
-  .route("/answers/:answerId/replies")
+  .route("/answer/:answerId/reply")
   .post(
     isAuthenticated,
     isVerified,
@@ -99,7 +99,7 @@ router
   );
 
 router
-  .route("/votes")
+  .route("/vote")
   .post(
     isAuthenticated,
     isVerified,
@@ -110,7 +110,7 @@ router
   );
 
 router
-  .route("/votes/:targetType/:targetId")
+  .route("/vote/:targetType/:targetId")
   .delete(
     isAuthenticated,
     isVerified,
@@ -120,7 +120,7 @@ router
   );
 
 router
-  .route("/answers/:answerId/accept")
+  .route("/answer/:answerId/accept")
   .put(
     isAuthenticated,
     isVerified,
@@ -137,7 +137,7 @@ router
   );
 
 router
-  .route("/answers/:answerId/best")
+  .route("/answer/:answerId/best")
   .put(
     isAuthenticated,
     isVerified,
