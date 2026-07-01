@@ -16,7 +16,7 @@ import {
 import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
-  "_id questionId userId isDeleted isActive isAccepted isBestAnswerByAsker updatedAt createdAt";
+  "_id questionId userId isDeleted isActive isAccepted isBestAnswerByAsker upvoteCount downvoteCount replyCount updatedAt createdAt";
 const questionSelect = "_id userId isActive isDeleted";
 
 const unacceptAnswer = async (userId: string, answerId: string) => {
