@@ -9,6 +9,7 @@ const toPublicQuestion = (question: any) => ({
   answerCount: question.answerCount ?? 0,
   acceptedAnswerCount: question.acceptedAnswerCount ?? 0,
   currentVersion: question.currentVersion,
+  basedOnVersion: question.basedOnVersion,
   similarQuestionsReady:
     question.similarQuestionsReady ??
     question.similarQuestionsStatus === "READY",
