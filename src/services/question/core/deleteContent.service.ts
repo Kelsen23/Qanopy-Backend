@@ -1,21 +1,21 @@
-import HttpError from "../../../utils/http/httpError.util.js";
-
-import mongoose from "mongoose";
-
 import { getRedisCacheClient } from "../../../config/redis.config.js";
+
 import {
+  clearAiAnswerFeedbackCache,
   clearAnswerCache,
   clearReplyCache,
 } from "../../../utils/cache/clearCache.util.js";
+import HttpError from "../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+
+import AiAnswer from "../../../models/aiAnswer.model.js";
+import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
+import Answer from "../../../models/answer.model.js";
+import Question from "../../../models/question.model.js";
+import Reply from "../../../models/reply.model.js";
 
 import imageDeletionQueue from "../../../queues/imageDeletion.queue.js";
 import statsQueue from "../../../queues/stats.queue.js";
-
-import Question from "../../../models/question.model.js";
-import Answer from "../../../models/answer.model.js";
-import Reply from "../../../models/reply.model.js";
-import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 
 import { isObjectId } from "../question.shared.js";
 
@@ -176,7 +176,38 @@ const deleteContent = async (
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
   } else if (targetType === "AI_ANSWER_FEEDBACK") {
-    // Cache invalidation for AI answer feedbacks goes here after it gets added
+    const foundFeedback = await Model.findById(targetId)
+      .select("_id userId aiAnswerId isDeleted isActive")
+      .lean();
+
+    if (!foundFeedback) {
+      throw new HttpError("AI_ANSWER_FEEDBACK not found", 404);
+    }
+
+    if (foundFeedback.userId?.toString() !== userId) {
+      throw new HttpError("Unauthorized to delete AI_ANSWER_FEEDBACK", 403);
+    }
+
+    if (foundFeedback.isDeleted || !foundFeedback.isActive) {
+      throw new HttpError("AI_ANSWER_FEEDBACK not active", 410);
+    }
+
+    await Model.findByIdAndUpdate(foundFeedback._id || foundFeedback.id, {
+      $set: { isDeleted: true, isActive: false },
+    });
+
+    await clearAiAnswerFeedbackCache(
+      String(foundFeedback.aiAnswerId),
+      String(foundFeedback._id || foundFeedback.id),
+    );
+
+    const foundAiAnswer = await AiAnswer.findById(foundFeedback.aiAnswerId)
+      .select("questionId")
+      .lean();
+
+    if (foundAiAnswer) {
+      await getRedisCacheClient().del(`question:${foundAiAnswer.questionId}`);
+    }
   }
 
   return {

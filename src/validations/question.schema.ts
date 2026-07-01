@@ -154,10 +154,6 @@ const editAiFeedbackSchema = z
     }
   });
 
-const deleteAiFeedbackSchema = z.object({
-  feedbackId: z.string().min(1, "feedbackId is required"),
-});
-
 export {
   createQuestionSchema,
   editQuestionSchema,
@@ -170,5 +166,4 @@ export {
   unpublishAiAnswerSchema,
   createFeedbackOnAiAnswerSchema,
   editAiFeedbackSchema,
-  deleteAiFeedbackSchema,
 };

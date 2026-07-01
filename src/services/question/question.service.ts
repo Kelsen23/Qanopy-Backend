@@ -4,7 +4,6 @@ export { default as createFeedbackOnAiAnswer } from "./ai/aiAnswer/createFeedbac
 export { default as createQuestion } from "./core/createQuestion.service.js";
 export { default as createReplyOnAnswer } from "./core/createReplyOnAnswer.service.js";
 export { default as deleteContent } from "./core/deleteContent.service.js";
-export { default as deleteFeedbackOnAiAnswer } from "./ai/aiAnswer/deleteFeedbackOnAiAnswer.service.js";
 export { default as editFeedbackOnAiAnswer } from "./ai/aiAnswer/editFeedbackOnAiAnswer.service.js";
 export { default as editQuestion } from "./core/editQuestion.service.js";
 export { default as generateAiAnswerRequest } from "./ai/aiAnswer/generateAiAnswerRequest.service.js";

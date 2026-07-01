@@ -7,7 +7,6 @@ import {
   createQuestion,
   createReplyOnAnswer,
   deleteContent,
-  deleteFeedbackOnAiAnswer,
   editFeedbackOnAiAnswer,
   editQuestion,
   rollbackVersion,
@@ -30,7 +29,6 @@ import isAuthenticated, {
 import {
   createAnswerOnQuestionSchema,
   createFeedbackOnAiAnswerSchema,
-  deleteAiFeedbackSchema,
   editAiFeedbackSchema,
   generateAiAnswerSchema,
   generateSuggestionSchema,
@@ -48,7 +46,6 @@ import {
   createFeedbackOnAiAnswerLimiterMiddleware,
   createQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
-  deleteAiFeedbackLimiterMiddleware,
   deleteContentLimiterMiddleware,
   editAiFeedbackLimiterMiddleware,
   editQuestionLimiterMiddleware,
@@ -251,17 +248,6 @@ router
     editAiFeedbackLimiterMiddleware,
     validate(editAiFeedbackSchema),
     editFeedbackOnAiAnswer,
-  );
-
-router
-  .route("/ai/answer/feedback/delete")
-  .delete(
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    deleteAiFeedbackLimiterMiddleware,
-    validate(deleteAiFeedbackSchema),
-    deleteFeedbackOnAiAnswer,
   );
 
 export default router;

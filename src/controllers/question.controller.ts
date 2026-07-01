@@ -11,7 +11,6 @@ import {
   createQuestion as createQuestionService,
   createReplyOnAnswer as createReplyOnAnswerService,
   deleteContent as deleteContentService,
-  deleteFeedbackOnAiAnswer as deleteFeedbackOnAiAnswerService,
   editFeedbackOnAiAnswer as editFeedbackOnAiAnswerService,
   editQuestion as editQuestionService,
   generateAiAnswerRequest as generateAiAnswerRequestService,
@@ -233,16 +232,6 @@ const editFeedbackOnAiAnswer = asyncHandler(
   },
 );
 
-const deleteFeedbackOnAiAnswer = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const { id: userId } = req.user;
-
-    const result = await deleteFeedbackOnAiAnswerService(userId, req.body);
-
-    return res.status(200).json(result);
-  },
-);
-
 const deleteContent = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const { id: userId } = req.user;
@@ -276,6 +265,5 @@ export {
   unpublishAiAnswer,
   createFeedbackOnAiAnswer,
   editFeedbackOnAiAnswer,
-  deleteFeedbackOnAiAnswer,
   deleteContent,
 };
