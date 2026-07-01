@@ -12,6 +12,7 @@ import QuestionVersion from "../../../models/questionVersion.model.js";
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import { isObjectId } from "../question.shared.js";
+import { toPublicQuestionVersion } from "../question.response.js";
 
 const moderationSeverity = {
   PENDING: 0,
@@ -47,6 +48,9 @@ const rollbackVersion = async (
 
   if (foundQuestion.currentVersion <= version)
     throw new HttpError("Cannot rollback to same or newer version", 400);
+
+  if (Number(foundQuestion.lastRollbackVersion ?? 0) === version)
+    throw new HttpError("Cannot rollback to the same version twice", 400);
 
   const cachedVersion = await getRedisCacheClient().get(
     `v:${version}:question:${questionId}`,
@@ -121,6 +125,8 @@ const rollbackVersion = async (
           body: foundVersion.body,
           tags: foundVersion.tags,
           currentVersion: nextVersion,
+          basedOnVersion: foundVersion.version,
+          lastRollbackVersion: foundVersion.version,
           moderationStatus: rolledBackVersionIsPending
             ? "PENDING"
             : rolledBackVersionIsWorse
@@ -172,7 +178,7 @@ const rollbackVersion = async (
 
   return {
     message: "Successfully rolled back",
-    newVersion: createdNewVersion,
+    newVersion: toPublicQuestionVersion(createdNewVersion),
   };
 };
 
