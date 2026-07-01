@@ -1,96 +1,99 @@
 import express from "express";
 
 import {
-  createQuestion,
-  createAnswerOnQuestion,
-  createReplyOnAnswer,
-  vote,
-  unvote,
   acceptAnswer,
-  unacceptAnswer,
-  markAnswerAsBest,
-  unmarkAnswerAsBest,
+  createAnswerOnQuestion,
+  createFeedbackOnAiAnswer,
+  createQuestion,
+  createReplyOnAnswer,
+  deleteContent,
+  editFeedbackOnAiAnswer,
   editQuestion,
   rollbackVersion,
-  deleteContent,
-  generateSuggestion,
   generateAiAnswer,
+  generateSuggestion,
+  markAnswerAsBest,
   publishAiAnswer,
+  unacceptAnswer,
+  unmarkAnswerAsBest,
   unpublishAiAnswer,
-  createFeedbackOnAiAnswer,
-  editFeedbackOnAiAnswer,
-  deleteFeedbackOnAiAnswer,
+  unvote,
+  vote,
 } from "../controllers/question.controller.js";
 
+import isAuthenticated, {
+  isVerified,
+  requireActiveUser,
+} from "../middlewares/auth.middleware.js";
+
 import {
-  createQuestionSchema,
   createAnswerOnQuestionSchema,
-  createReplyOnAnswerSchema,
-  voteSchema,
-  generateSuggestionSchema,
-  generateAiAnswerSchema,
-  publishAiAnswerSchema,
-  unpublishAiAnswerSchema,
   createFeedbackOnAiAnswerSchema,
   editAiFeedbackSchema,
-  deleteAiFeedbackSchema,
+  generateAiAnswerSchema,
+  generateSuggestionSchema,
+  createQuestionSchema,
+  editQuestionSchema,
+  createReplyOnAnswerSchema,
+  publishAiAnswerSchema,
+  unpublishAiAnswerSchema,
+  voteSchema,
 } from "../validations/question.schema.js";
 
 import {
-  createQuestionLimiterMiddleware,
-  editQuestionLimiterMiddleware,
+  acceptAnswerLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
+  createFeedbackOnAiAnswerLimiterMiddleware,
+  createQuestionLimiterMiddleware,
   createReplyOnAnswerLimiterMiddleware,
-  voteLimiterMiddleware,
+  deleteContentLimiterMiddleware,
+  editAiFeedbackLimiterMiddleware,
+  editQuestionLimiterMiddleware,
+  generateAiAnswerLimiterMiddleware,
+  generateSuggestionLimiterMiddleware,
   markAnswerAsBestLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
-  generateSuggestionLimiterMiddleware,
-  generateAiAnswerLimiterMiddleware,
+  unmarkAnswerAsBestLimiterMiddleware,
+  unacceptAnswerLimiterMiddleware,
+  unvoteLimiterMiddleware,
+  voteLimiterMiddleware,
   publishAiAnswerLimiterMiddleware,
   unpublishAiAnswerLimiterMiddleware,
-  createFeedbackOnAiAnswerLimiterMiddleware,
-  editAiFeedbackLimiterMiddleware,
-  deleteAiFeedbackLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
-
-import isAuthenticated, {
-  requireActiveUser,
-  isVerified,
-} from "../middlewares/auth.middleware.js";
 
 import validate from "../middlewares/validate.middleware.js";
 
 const router = express.Router();
 
 router
-  .route("/create")
+  .route("/")
   .post(
-    createQuestionLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createQuestionLimiterMiddleware,
     validate(createQuestionSchema),
     createQuestion,
   );
 
 router
-  .route("/create/:questionId/answer")
+  .route("/:questionId/answer")
   .post(
-    createAnswerOnQuestionLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createAnswerOnQuestionLimiterMiddleware,
     validate(createAnswerOnQuestionSchema),
     createAnswerOnQuestion,
   );
 
 router
-  .route("/create/:answerId/reply")
+  .route("/answer/:answerId/reply")
   .post(
-    createReplyOnAnswerLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createReplyOnAnswerLimiterMiddleware,
     validate(createReplyOnAnswerSchema),
     createReplyOnAnswer,
   );
@@ -98,58 +101,96 @@ router
 router
   .route("/vote")
   .post(
-    voteLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    voteLimiterMiddleware,
     validate(voteSchema),
     vote,
   );
 
 router
-  .route("/unvote/:targetType/:targetId")
-  .delete(isAuthenticated, isVerified, requireActiveUser, unvote);
-
-router
-  .route("/answer/:answerId/accept")
-  .patch(isAuthenticated, isVerified, requireActiveUser, acceptAnswer);
-
-router
-  .route("/answer/:answerId/unaccept")
-  .patch(isAuthenticated, isVerified, requireActiveUser, unacceptAnswer);
-
-router
-  .route("/answer/:answerId/mark/asBest")
-  .patch(
-    markAnswerAsBestLimiterMiddleware,
+  .route("/vote/:targetType/:targetId")
+  .delete(
     isAuthenticated,
     isVerified,
     requireActiveUser,
-    markAnswerAsBest,
+    unvoteLimiterMiddleware,
+    unvote,
   );
 
 router
-  .route("/answer/:answerId/unmark/asBest")
-  .patch(isAuthenticated, isVerified, requireActiveUser, unmarkAnswerAsBest);
-
-router
-  .route("/:questionId/edit")
-  .patch(
-    editQuestionLimiterMiddleware,
+  .route("/answer/:answerId/accept")
+  .put(
     isAuthenticated,
     isVerified,
     requireActiveUser,
-    validate(createQuestionSchema),
+    acceptAnswerLimiterMiddleware,
+    acceptAnswer,
+  )
+  .delete(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    unacceptAnswerLimiterMiddleware,
+    unacceptAnswer,
+  );
+
+router
+  .route("/answer/:answerId/best")
+  .put(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    markAnswerAsBestLimiterMiddleware,
+    markAnswerAsBest,
+  )
+  .delete(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    unmarkAnswerAsBestLimiterMiddleware,
+    unmarkAnswerAsBest,
+  );
+
+router
+  .route("/:questionId")
+  .patch(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    editQuestionLimiterMiddleware,
+    validate(editQuestionSchema),
     editQuestion,
+  );
+
+router
+  .route("/:questionId/versions/:version/rollback")
+  .post(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    rollbackVersionLimiterMiddleware,
+    rollbackVersion,
+  );
+
+router
+  .route("/content/:targetType/:targetId")
+  .delete(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    deleteContentLimiterMiddleware,
+    deleteContent,
   );
 
 router
   .route("/:questionId/ai/suggestion")
   .post(
-    generateSuggestionLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    generateSuggestionLimiterMiddleware,
     validate(generateSuggestionSchema),
     generateSuggestion,
   );
@@ -157,10 +198,10 @@ router
 router
   .route("/:questionId/ai/answer")
   .post(
-    generateAiAnswerLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    generateAiAnswerLimiterMiddleware,
     validate(generateAiAnswerSchema),
     generateAiAnswer,
   );
@@ -168,10 +209,10 @@ router
 router
   .route("/:questionId/ai/answer/publish")
   .patch(
-    publishAiAnswerLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    publishAiAnswerLimiterMiddleware,
     validate(publishAiAnswerSchema),
     publishAiAnswer,
   );
@@ -179,10 +220,10 @@ router
 router
   .route("/:questionId/ai/answer/unpublish")
   .patch(
-    unpublishAiAnswerLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    unpublishAiAnswerLimiterMiddleware,
     validate(unpublishAiAnswerSchema),
     unpublishAiAnswer,
   );
@@ -190,10 +231,10 @@ router
 router
   .route("/ai/answer/feedback/create")
   .post(
-    createFeedbackOnAiAnswerLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    createFeedbackOnAiAnswerLimiterMiddleware,
     validate(createFeedbackOnAiAnswerSchema),
     createFeedbackOnAiAnswer,
   );
@@ -201,37 +242,12 @@ router
 router
   .route("/ai/answer/feedback/edit")
   .patch(
-    editAiFeedbackLimiterMiddleware,
     isAuthenticated,
     isVerified,
     requireActiveUser,
+    editAiFeedbackLimiterMiddleware,
     validate(editAiFeedbackSchema),
     editFeedbackOnAiAnswer,
   );
-
-router
-  .route("/ai/answer/feedback/delete")
-  .delete(
-    deleteAiFeedbackLimiterMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    validate(deleteAiFeedbackSchema),
-    deleteFeedbackOnAiAnswer,
-  );
-
-router
-  .route("/:questionId/versions/:version/rollback")
-  .post(
-    rollbackVersionLimiterMiddleware,
-    isAuthenticated,
-    isVerified,
-    requireActiveUser,
-    rollbackVersion,
-  );
-
-router
-  .route("/:targetType/:targetId")
-  .delete(isAuthenticated, isVerified, requireActiveUser, deleteContent);
 
 export default router;

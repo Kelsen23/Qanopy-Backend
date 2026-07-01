@@ -1,6 +1,7 @@
 import express from "express";
 
 import {
+  changePassword,
   isAuth,
   login,
   logout,
@@ -9,7 +10,6 @@ import {
   resendResetPasswordEmail,
   resendVerificationEmail,
   resetPassword,
-  changePassword,
   sendResetPasswordEmail,
   verifyEmail,
   verifyResetPasswordOtp,
@@ -18,20 +18,21 @@ import {
 import isAuthenticated, {
   requireLoggedOut,
 } from "../middlewares/auth.middleware.js";
-import validate from "../middlewares/validate.middleware.js";
 
 import {
   emailVerificationLimiterMiddleware,
   loginLimiterMiddleware,
   oauthLimiterMiddleware,
   registerLimiterMiddleware,
-  resendEmailLimiterMiddleware,
   passwordResetLimiterMiddleware,
+  resendEmailLimiterMiddleware,
   sessionLimiterMiddleware,
   userEmailVerificationLimiterMiddleware,
   userPasswordChangeLimiterMiddleware,
   userResendEmailLimiterMiddleware,
 } from "../middlewares/rate-limiters/auth.rate-limiters.js";
+
+import validate from "../middlewares/validate.middleware.js";
 
 import {
   changePasswordSchema,

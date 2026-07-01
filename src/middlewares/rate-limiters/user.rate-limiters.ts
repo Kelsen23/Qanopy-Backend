@@ -1,9 +1,10 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
-import type { Request } from "express";
 
 import { getRedisMessagingClient } from "../../config/redis.config.js";
 
 import createRateLimiterMiddleware from "../createRateLimiter.middleware.js";
+
+import type { Request } from "express";
 
 const userKeyResolver = (req: Request) =>
   (req as Request & { user?: { id?: string } }).user?.id || req.ip || "unknown";

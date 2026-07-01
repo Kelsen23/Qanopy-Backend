@@ -47,4 +47,16 @@ const AnswerSchema: Schema = new Schema(
   },
 );
 
+AnswerSchema.index(
+  { questionId: 1, isBestAnswerByAsker: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      isBestAnswerByAsker: true,
+      isDeleted: false,
+      isActive: true,
+    },
+  },
+);
+
 export default mongoose.model("Answer", AnswerSchema);

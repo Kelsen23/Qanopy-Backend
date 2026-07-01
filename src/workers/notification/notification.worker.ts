@@ -1,16 +1,9 @@
 import { Worker } from "bullmq";
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
-import prisma from "../../config/prisma.config.js";
+import processNotificationJob from "../../services/notification/worker/notification.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
-
-import Notification from "../../models/notification.model.js";
-
-import publishSocketEvent from "../../utils/socket/publishSocketEvent.util.js";
-import { clearNotificationCache } from "../../utils/cache/clearCache.util.js";
-
-import { getUserSockets } from "../../services/redis/presence.service.js";
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
@@ -19,55 +12,7 @@ async function startWorker() {
   const worker = new Worker(
     "notificationQueue",
     async (job) => {
-      const { recipientId, actorId, event, target, meta } = job.data;
-      const normalizedMeta = meta ?? {};
-
-      try {
-        const notification = await Notification.create({
-          recipientId,
-          actorId,
-          event,
-          target,
-          meta: normalizedMeta,
-        });
-
-        const sockets = await getUserSockets(recipientId);
-
-        let actor = null;
-
-        if (sockets.length > 0) {
-          if (actorId) {
-            actor = await prisma.user.findUnique({
-              where: { id: actorId },
-              select: {
-                id: true,
-                username: true,
-                displayName: true,
-                profilePictureKey: true,
-                profilePictureUrl: true,
-                isDeleted: true,
-              },
-            });
-          }
-
-          await publishSocketEvent(recipientId, "notification", {
-            id: notification._id,
-            actorId,
-            actor,
-            event,
-            target,
-            meta: normalizedMeta,
-            seen: false,
-            createdAt: notification.createdAt,
-            updatedAt: notification.updatedAt,
-          });
-        }
-
-        await clearNotificationCache(recipientId);
-      } catch (error) {
-        console.error("Failed to process notification job:", error);
-        throw error;
-      }
+      await processNotificationJob(job.data);
     },
     {
       connection: redisMessagingClientConnection,

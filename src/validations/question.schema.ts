@@ -37,6 +37,8 @@ const createQuestionSchema = z
     }
   });
 
+const editQuestionSchema = createQuestionSchema;
+
 const createAnswerOnQuestionSchema = z
   .object({
     body: z
@@ -152,12 +154,9 @@ const editAiFeedbackSchema = z
     }
   });
 
-const deleteAiFeedbackSchema = z.object({
-  feedbackId: z.string().min(1, "feedbackId is required"),
-});
-
 export {
   createQuestionSchema,
+  editQuestionSchema,
   createAnswerOnQuestionSchema,
   createReplyOnAnswerSchema,
   voteSchema,
@@ -167,5 +166,4 @@ export {
   unpublishAiAnswerSchema,
   createFeedbackOnAiAnswerSchema,
   editAiFeedbackSchema,
-  deleteAiFeedbackSchema,
 };

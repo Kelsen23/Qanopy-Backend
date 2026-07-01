@@ -12,13 +12,28 @@ export const createTestApp = async ({
   includeModerationRoutes = true,
 }: CreateTestAppOptions = {}) => {
   const { default: createApp } = await import("../../src/app.js");
-
-  return createApp({
+  const app = await createApp({
     includeAuthRoutes,
     includeUserRoutes,
     includeQuestionRoutes,
     includeModerationRoutes,
   });
+
+  const originalListen = app.listen.bind(app);
+  app.listen = ((...args: any[]) => {
+    const callback =
+      typeof args[0] === "function"
+        ? (args[0] as (error?: Error) => void)
+        : typeof args[1] === "function"
+          ? (args[1] as (error?: Error) => void)
+          : undefined;
+
+    return callback
+      ? originalListen(0, "127.0.0.1", callback)
+      : originalListen(0, "127.0.0.1");
+  }) as typeof app.listen;
+
+  return app;
 };
 
 export const createAuthTestApp = async () =>

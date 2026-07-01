@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import { syncQuestionModerationStatusFromVersions } from "./questionModerationStatus.service.js";
 
+import { getContentTypeLabel } from "../../utils/content/contentTypeLabel.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import clearModeratedContentCache from "../../utils/moderation/clearModeratedContentCache.util.js";
 
@@ -79,7 +80,10 @@ const applyAdminContentModerationDecisionService = async (
         .session(session);
 
       if (!existingContent || !existingContent.isActive) {
-        throw new HttpError(`${contentType} not found`, 404);
+        throw new HttpError(
+          `${getContentTypeLabel(contentType)} not found`,
+          404,
+        );
       }
 
       if (effectiveVersion === undefined) {
@@ -97,7 +101,10 @@ const applyAdminContentModerationDecisionService = async (
       );
 
       if (!updatedContent || !updatedContent.isActive) {
-        throw new HttpError(`${contentType} not found`, 404);
+        throw new HttpError(
+          `${getContentTypeLabel(contentType)} not found`,
+          404,
+        );
       }
     });
 

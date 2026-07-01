@@ -5,6 +5,7 @@ import {
   clearReplyCache,
   clearVersionHistoryCache,
 } from "../../utils/cache/clearCache.util.js";
+import { getContentTypeLabel } from "../../utils/content/contentTypeLabel.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import Question from "../../models/question.model.js";
@@ -47,7 +48,7 @@ const removeModeratedContent = async (
   const foundContent = await Model.findById(targetId).lean();
 
   if (!foundContent) {
-    throw new HttpError(`${targetType} not found`, 404);
+    throw new HttpError(`${getContentTypeLabel(targetType)} not found`, 404);
   }
 
   if (
@@ -69,7 +70,7 @@ const removeModeratedContent = async (
 
   if (!foundContent.isActive) {
     return {
-      message: `${targetType} already inactive`,
+      message: `${getContentTypeLabel(targetType)} already inactive`,
       removed: false,
     };
   }
@@ -118,7 +119,7 @@ const removeModeratedContent = async (
   }
 
   return {
-    message: `Successfully removed moderated ${targetType}`,
+    message: `Successfully removed moderated ${getContentTypeLabel(targetType)}`,
     removed: true,
   };
 };

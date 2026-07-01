@@ -297,7 +297,7 @@ describe("moderation content state services", () => {
     expect(env.redisDel).toHaveBeenCalledWith("question:question_1");
     expect(env.clearAnswerCache).toHaveBeenCalledWith("question_1");
     expect(result).toEqual({
-      message: "Successfully removed moderated ANSWER",
+      message: "Successfully removed moderated Answer",
       removed: true,
     });
   });
