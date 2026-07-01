@@ -156,6 +156,7 @@ const processContentFinalizeJob = async (
           "questionVersioning",
           "CREATE_NEW_QUESTION_VERSION",
           entity._id,
+          version,
         ),
       },
     );
