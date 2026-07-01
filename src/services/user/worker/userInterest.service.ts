@@ -6,6 +6,7 @@ const actionScores = {
   VIEW: 1,
   UPVOTE: 3,
   ANSWER: 5,
+  AI_ANSWER_FEEDBACK: 4,
 } as const;
 
 const isUserInterestAction = (action: string): action is UserInterestAction =>

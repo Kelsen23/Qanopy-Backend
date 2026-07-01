@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import queueUserInterest from "../../../../utils/question/queueUserInterest.util.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
+import Question from "../../../../models/question.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
 import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
@@ -80,6 +82,28 @@ const createFeedbackOnAiAnswerService = async (
       ),
     },
   );
+
+  const foundQuestion = (await Question.findById(foundAiAnswer.questionId)
+    .select("_id tags isActive isDeleted")
+    .lean()) as
+    | {
+        tags?: string[] | null;
+        isActive?: boolean;
+        isDeleted?: boolean;
+      }
+    | null;
+
+  if (
+    foundQuestion?.isActive &&
+    !foundQuestion.isDeleted &&
+    foundQuestion.tags?.length
+  ) {
+    queueUserInterest({
+      userId,
+      tags: foundQuestion.tags,
+      action: "AI_ANSWER_FEEDBACK",
+    }).catch(() => {});
+  }
 
   return {
     message: "Successfully created AI answer feedback",
