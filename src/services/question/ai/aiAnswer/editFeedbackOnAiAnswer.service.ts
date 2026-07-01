@@ -9,6 +9,8 @@ import QuestionVersion from "../../../../models/questionVersion.model.js";
 
 import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
 
+import { toPublicAiAnswerFeedback } from "../../question.response.js";
+
 const editFeedbackOnAiAnswer = async (
   userId: string,
   {
@@ -94,7 +96,7 @@ const editFeedbackOnAiAnswer = async (
 
   return {
     message: "Successfully edited AI answer feedback",
-    feedback: editedFeedback,
+    feedback: toPublicAiAnswerFeedback(editedFeedback),
   };
 };
 

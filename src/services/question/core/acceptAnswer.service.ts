@@ -15,6 +15,7 @@ import {
   makeQuestionAnswerStateEventId,
   queueQuestionStats,
 } from "../question.shared.js";
+import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
   "_id questionId userId isDeleted isActive isAccepted updatedAt createdAt";
@@ -93,7 +94,7 @@ const acceptAnswer = async (userId: string, answerId: string) => {
     if (!result.didMutate) {
       return {
         message: result.message,
-        answer: result.answer,
+        answer: toPublicAnswer(result.answer),
       };
     }
 
@@ -151,7 +152,7 @@ const acceptAnswer = async (userId: string, answerId: string) => {
 
     return {
       message: result.message,
-      acceptedAnswer: mutatedResult.answer,
+      acceptedAnswer: toPublicAnswer(mutatedResult.answer),
     };
   } finally {
     session.endSession();

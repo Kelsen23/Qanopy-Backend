@@ -7,6 +7,8 @@ import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import Question from "../../../../models/question.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
+import { toPublicAiAnswer } from "../../question.response.js";
+
 const publishAiAnswer = async (
   userId: string,
   questionId: string,
@@ -93,7 +95,7 @@ const publishAiAnswer = async (
 
   return {
     message: "Successfully published AI answer",
-    answer: publishedAnswer,
+    answer: toPublicAiAnswer(publishedAnswer),
   };
 };
 

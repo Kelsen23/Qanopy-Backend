@@ -13,6 +13,7 @@ import {
   makeQuestionAnswerStateEventId,
   queueQuestionStats,
 } from "../question.shared.js";
+import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
   "_id questionId userId isDeleted isActive isBestAnswerByAsker updatedAt createdAt";
@@ -93,7 +94,7 @@ const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
     if (!result.didMutate) {
       return {
         message: result.message,
-        answer: result.answer,
+        answer: toPublicAnswer(result.answer),
       };
     }
 
@@ -135,7 +136,7 @@ const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
 
     return {
       message: mutatedResult.message,
-      answer: mutatedResult.answer,
+      answer: toPublicAnswer(mutatedResult.answer),
     };
   } finally {
     session.endSession();

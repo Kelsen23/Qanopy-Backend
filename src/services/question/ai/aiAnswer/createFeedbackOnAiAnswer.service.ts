@@ -11,6 +11,8 @@ import QuestionVersion from "../../../../models/questionVersion.model.js";
 
 import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
 
+import { toPublicAiAnswerFeedback } from "../../question.response.js";
+
 const createFeedbackOnAiAnswerService = async (
   userId: string,
   {
@@ -107,7 +109,7 @@ const createFeedbackOnAiAnswerService = async (
 
   return {
     message: "Successfully created AI answer feedback",
-    feedback: newFeedback,
+    feedback: toPublicAiAnswerFeedback(newFeedback),
   };
 };
 

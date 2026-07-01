@@ -15,6 +15,7 @@ import {
   makeQuestionAnswerStateEventId,
   queueQuestionStats,
 } from "../question.shared.js";
+import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
   "_id questionId userId isDeleted isActive isAccepted isBestAnswerByAsker updatedAt createdAt";
@@ -131,7 +132,7 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
       if (!result.didMutate) {
         return {
           message: result.message,
-          answer: result.answer,
+          answer: toPublicAnswer(result.answer),
         };
       }
 
@@ -215,7 +216,7 @@ const markAnswerAsBest = async (userId: string, answerId: string) => {
 
       return {
         message: mutatedResult.message,
-        answer: mutatedResult.answer,
+        answer: toPublicAnswer(mutatedResult.answer),
       };
     } catch (error) {
       if (isDuplicateKeyError(error) && attempt === 0) {

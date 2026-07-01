@@ -16,6 +16,7 @@ import {
   isObjectId,
   queueQuestionStats,
 } from "../question.shared.js";
+import { toPublicAnswer } from "../question.response.js";
 
 const createAnswerOnQuestion = async ({
   userId,
@@ -94,7 +95,7 @@ const createAnswerOnQuestion = async ({
 
   return {
     message: "Successfully created answer",
-    answer: newAnswer,
+    answer: toPublicAnswer(newAnswer),
   };
 };
 

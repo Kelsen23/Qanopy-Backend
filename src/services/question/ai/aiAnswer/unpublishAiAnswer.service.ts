@@ -7,6 +7,8 @@ import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import Question from "../../../../models/question.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
+import { toPublicAiAnswer } from "../../question.response.js";
+
 const unpublishAiAnswer = async (
   userId: string,
   questionId: string,
@@ -90,7 +92,7 @@ const unpublishAiAnswer = async (
 
   return {
     message: "Successfully unpublished AI answer",
-    answer: unpublishedAnswer,
+    answer: toPublicAiAnswer(unpublishedAnswer),
   };
 };
 

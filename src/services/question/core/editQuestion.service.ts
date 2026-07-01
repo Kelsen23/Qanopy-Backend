@@ -8,6 +8,7 @@ import Question from "../../../models/question.model.js";
 import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
 import { isObjectId } from "../question.shared.js";
+import { toPublicQuestion } from "../question.response.js";
 
 const editQuestion = async (
   userId: string,
@@ -51,6 +52,8 @@ const editQuestion = async (
       body,
       tags,
       currentVersion: newVersion,
+      basedOnVersion: foundQuestion.currentVersion,
+      lastRollbackVersion: null,
       moderationStatus: "PENDING",
       moderationUpdatedAt: null,
       moderationSourceVersion: newVersion,
@@ -94,7 +97,7 @@ const editQuestion = async (
 
   return {
     message: "Successfully edited question",
-    editedQuestion,
+    editedQuestion: toPublicQuestion(editedQuestion),
   };
 };
 

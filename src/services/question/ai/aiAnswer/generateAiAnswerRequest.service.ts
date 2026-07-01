@@ -11,6 +11,8 @@ import AiAnswer from "../../../../models/aiAnswer.model.js";
 
 import aiAnswerQueue from "../../../../queues/aiAnswer.queue.js";
 
+import { toPublicAiAnswer } from "../../question.response.js";
+
 const generateAiAnswerRequest = async (
   userId: string,
   questionId: string,
@@ -64,7 +66,7 @@ const generateAiAnswerRequest = async (
   if (foundAiAnswer) {
     return {
       message: "AI answer successfully received",
-      answer: foundAiAnswer,
+      answer: toPublicAiAnswer(foundAiAnswer),
     };
   }
 

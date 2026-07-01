@@ -17,6 +17,7 @@ import {
   getCachedQuestion,
   isObjectId,
 } from "../question.shared.js";
+import { toPublicReply } from "../question.response.js";
 
 const createReplyOnAnswer = async ({
   userId,
@@ -89,7 +90,7 @@ const createReplyOnAnswer = async ({
 
   return {
     message: "Successfully created reply",
-    reply: newReply,
+    reply: toPublicReply(newReply),
   };
 };
 

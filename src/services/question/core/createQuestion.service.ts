@@ -4,6 +4,7 @@ import Question from "../../../models/question.model.js";
 import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
 import { queueQuestionStats } from "../question.shared.js";
+import { toPublicQuestion } from "../question.response.js";
 
 const createQuestion = async ({
   userId,
@@ -54,7 +55,7 @@ const createQuestion = async ({
 
   return {
     message: "Successfully created question",
-    question: newQuestion,
+    question: toPublicQuestion(newQuestion),
   };
 };
 
