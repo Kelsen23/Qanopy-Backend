@@ -239,12 +239,6 @@ const actionMap: Record<string, StatsUpdate> = {
     },
   },
   DELETE_REPLY: {
-    prisma: {
-      userIdKey: "userId",
-      data: {
-        reputationPoints: { decrement: 1 },
-      },
-    },
     mongo: {
       model: "Answer",
       idKey: "answerId",
