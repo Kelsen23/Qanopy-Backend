@@ -15,7 +15,7 @@ async function startStatsWorker() {
   const worker = new Worker(
     "statsQueue",
     async (job) => {
-      await processStatsJob(job.name, job.data);
+      await processStatsJob(job.name, job.data, job.id);
     },
     {
       connection: redisMessagingClientConnection,

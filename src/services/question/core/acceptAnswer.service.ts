@@ -1,92 +1,161 @@
+import mongoose from "mongoose";
+
+import routeNotification from "../../notification/routeNotification.service.js";
+
 import HttpError from "../../../utils/http/httpError.util.js";
 
-import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
+import Question from "../../../models/question.model.js";
 
 import {
   clearQuestionThreadCache,
   ensureActiveAnswer,
   ensureActiveQuestion,
-  getCachedAnswer,
-  getCachedQuestion,
   isObjectId,
-  queueQuestionNotification,
+  makeQuestionAnswerStateEventId,
   queueQuestionStats,
 } from "../question.shared.js";
+
+const answerSelect =
+  "_id questionId userId isDeleted isActive isAccepted updatedAt createdAt";
+const questionSelect = "_id userId isDeleted isActive";
 
 const acceptAnswer = async (userId: string, answerId: string) => {
   if (!isObjectId(answerId)) throw new HttpError("Invalid answerId", 400);
 
-  const foundAnswer =
-    (await getCachedAnswer(
-      answerId,
-      "_id questionId userId isDeleted isActive isAccepted",
-    )) ??
-    (await Answer.findById(answerId)
-      .select("_id questionId userId isDeleted isActive isAccepted")
-      .lean());
+  const session = await mongoose.startSession();
 
-  ensureActiveAnswer(foundAnswer);
+  try {
+    const result = await session.withTransaction(async () => {
+      const foundAnswer = await Answer.findById(answerId)
+        .session(session)
+        .select(answerSelect)
+        .lean();
 
-  const foundQuestion =
-    (await getCachedQuestion(
-      foundAnswer.questionId as string,
-      "_id userId isActive isDeleted",
-    )) ??
-    (await Question.findById(foundAnswer.questionId)
-      .select("_id userId isActive isDeleted")
-      .lean());
+      if (!foundAnswer) throw new HttpError("Answer not found", 404);
+      ensureActiveAnswer(foundAnswer);
 
-  ensureActiveQuestion(foundQuestion);
+      const foundQuestion = await Question.findById(foundAnswer.questionId)
+        .session(session)
+        .select(questionSelect)
+        .lean();
 
-  if (foundQuestion.userId?.toString() !== userId)
-    throw new HttpError("Unauthorized to accept answer", 403);
+      if (!foundQuestion) throw new HttpError("Question not found", 404);
+      ensureActiveQuestion(foundQuestion);
 
-  if (foundAnswer.isAccepted) {
-    return {
-      message: "Answer already accepted",
-      answer: foundAnswer,
-    };
-  }
+      if (foundQuestion.userId?.toString() !== userId)
+        throw new HttpError("Unauthorized to accept answer", 403);
 
-  const acceptedAnswer = await Answer.findByIdAndUpdate(
-    answerId,
-    { isAccepted: true },
-    { returnDocument: "after" },
-  );
+      if (foundAnswer.isAccepted) {
+        return {
+          didMutate: false,
+          message: "Answer already accepted",
+          answer: foundAnswer,
+        };
+      }
 
-  if (!acceptedAnswer) {
-    throw new HttpError("Answer acceptance failed", 500);
-  }
+      const acceptedAnswer = await Answer.findOneAndUpdate(
+        {
+          _id: answerId,
+          isAccepted: { $ne: true },
+        },
+        { $set: { isAccepted: true } },
+        { returnDocument: "after", session },
+      )
+        .select(answerSelect)
+        .lean();
 
-  await queueQuestionStats({
-    name: "ACCEPT_ANSWER",
-    action: "ACCEPT_ANSWER",
-    userId,
-    mongoTargetId: String(foundQuestion._id || foundQuestion.id || answerId),
-    jobIdParts: ["acceptAnswer", answerId],
-  });
+      if (!acceptedAnswer) {
+        const authoritativeAnswer = await Answer.findById(answerId)
+          .session(session)
+          .select(answerSelect)
+          .lean();
 
-  await clearQuestionThreadCache(foundAnswer.questionId as string);
+        if (authoritativeAnswer?.isAccepted) {
+          return {
+            didMutate: false,
+            message: "Answer already accepted",
+            answer: authoritativeAnswer,
+          };
+        }
 
-  if (acceptedAnswer.userId?.toString() !== userId) {
-    await queueQuestionNotification({
-      recipientId: acceptedAnswer.userId as string,
-      actorId: userId,
-      event: "ANSWER_ACCEPTED",
-      target: {
-        entityType: "ANSWER",
-        entityId: String(acceptedAnswer._id),
-        parentId: String(foundQuestion._id ?? foundQuestion.id ?? answerId),
-      },
-      meta: {},
+        throw new HttpError("Answer acceptance failed", 500);
+      }
+
+      return {
+        didMutate: true,
+        message: "Successfully accepted answer",
+        answer: acceptedAnswer,
+        question: foundQuestion,
+      };
     });
-  }
 
-  return {
-    message: "Successfully accepted answer",
-    acceptedAnswer,
-  };
+    if (!result.didMutate) {
+      return {
+        message: result.message,
+        answer: result.answer,
+      };
+    }
+
+    const mutatedResult = result as {
+      didMutate: true;
+      message: string;
+      answer: any;
+      question: any;
+    };
+    const questionId = String(
+      mutatedResult.question._id ?? mutatedResult.question.id,
+    );
+    const answerIdString = String(
+      mutatedResult.answer._id ?? mutatedResult.answer.id,
+    );
+    const answerStateVersion = String(
+      mutatedResult.answer.updatedAt ?? mutatedResult.answer.createdAt ?? "",
+    );
+    const eventId = makeQuestionAnswerStateEventId(
+      "accept",
+      questionId,
+      answerIdString,
+      answerStateVersion,
+    );
+
+    await queueQuestionStats({
+      name: "ACCEPT_ANSWER",
+      action: "ACCEPT_ANSWER",
+      userId: mutatedResult.answer.userId as string,
+      mongoTargetId: questionId,
+      eventId,
+      jobIdParts: [
+        "acceptAnswer",
+        questionId,
+        answerIdString,
+        answerStateVersion,
+      ],
+    });
+
+    await clearQuestionThreadCache(questionId);
+
+    if (mutatedResult.answer.userId?.toString() !== userId) {
+      await routeNotification({
+        recipientId: mutatedResult.answer.userId as string,
+        actorId: userId,
+        event: "ANSWER_ACCEPTED",
+        target: {
+          entityType: "ANSWER",
+          entityId: answerIdString,
+          parentId: questionId,
+        },
+        meta: {},
+      });
+    }
+
+    return {
+      message: result.message,
+      acceptedAnswer: mutatedResult.answer,
+    };
+  } finally {
+    session.endSession();
+  }
 };
 
 export default acceptAnswer;

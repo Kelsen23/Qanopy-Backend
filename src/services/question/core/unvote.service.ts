@@ -2,9 +2,10 @@ import mongoose from "mongoose";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
+import { getContentTypeLabel } from "../../../utils/content/contentTypeLabel.util.js";
 import HttpError from "../../../utils/http/httpError.util.js";
 import invalidateCacheOnUnvote from "../../../utils/cache/invalidateCacheOnUnvote.util.js";
-import { makeUniqueJobId } from "../../../utils/job/makeJobId.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
@@ -76,11 +77,17 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
   }
 
   if (!foundContent) {
-    throw new HttpError(`${normalizedTargetType} not found`, 404);
+    throw new HttpError(
+      `${getContentTypeLabel(normalizedTargetType)} not found`,
+      404,
+    );
   }
 
   if (foundContent.isDeleted || !foundContent.isActive) {
-    throw new HttpError(`${normalizedTargetType} not active`, 410);
+    throw new HttpError(
+      `${getContentTypeLabel(normalizedTargetType)} not active`,
+      410,
+    );
   }
 
   const normalizedVoteType = String(foundVote.voteType).toUpperCase() as
@@ -114,15 +121,23 @@ const unvote = async (userId: string, targetType: string, targetId: string) => {
     {
       userId: foundContent.userId as string,
       action: actionMap[normalizedTargetType][normalizedVoteType],
+      eventId: makeJobId(
+        "vote",
+        "unvote",
+        normalizedTargetType,
+        foundVote._id,
+        foundVote.updatedAt ?? foundVote.createdAt ?? "",
+      ),
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeUniqueJobId(
+      jobId: makeJobId(
         "stats",
         "unvote",
         normalizedTargetType,
-        targetId,
+        foundVote._id,
+        foundVote.updatedAt ?? foundVote.createdAt ?? "",
         normalizedVoteType,
         userId,
       ),

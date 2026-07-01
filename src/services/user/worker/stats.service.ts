@@ -14,6 +14,15 @@ type StatsUpdate = {
   };
 };
 
+const STATS_JOB_IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24 * 7;
+
+const getStatsJobIdempotencyKey = (
+  _jobName: string,
+  jobData: Record<string, any>,
+  jobId?: string,
+) =>
+  jobData.eventId ? `stats:processed:${jobData.eventId}` : null;
+
 const actionMap: Record<string, StatsUpdate> = {
   ASK_QUESTION: {
     prisma: { userIdKey: "userId", data: { questionsAsked: { increment: 1 } } },
@@ -245,7 +254,19 @@ const actionMap: Record<string, StatsUpdate> = {
   },
 };
 
-const processStatsJob = async (jobName: string, jobData: any) => {
+const processStatsJob = async (
+  jobName: string,
+  jobData: any,
+  jobId?: string,
+) => {
+  const idempotencyKey = getStatsJobIdempotencyKey(jobName, jobData, jobId);
+
+  if (idempotencyKey) {
+    const cachedResult = await getRedisCacheClient().get(idempotencyKey);
+
+    if (cachedResult) return;
+  }
+
   const actionName = (jobName in actionMap ? jobName : jobData.action) as
     | keyof typeof actionMap
     | undefined;
@@ -262,7 +283,18 @@ const processStatsJob = async (jobName: string, jobData: any) => {
     await getRedisCacheClient().del(`user:${jobData.userId}`);
   }
 
-  if (!action.mongo) return;
+  if (!action.mongo) {
+    if (idempotencyKey) {
+      await getRedisCacheClient().set(
+        idempotencyKey,
+        "1",
+        "EX",
+        STATS_JOB_IDEMPOTENCY_TTL_SECONDS,
+      );
+    }
+
+    return;
+  }
 
   const model = action.mongo.model === "Question" ? Question : Answer;
   const id = jobData.mongoTargetId || jobData[action.mongo.idKey];
@@ -273,6 +305,15 @@ const processStatsJob = async (jobName: string, jobData: any) => {
 
   if (action.mongo.model === "Question") {
     await getRedisCacheClient().del(`question:${id}`);
+  }
+
+  if (idempotencyKey) {
+    await getRedisCacheClient().set(
+      idempotencyKey,
+      "1",
+      "EX",
+      STATS_JOB_IDEMPOTENCY_TTL_SECONDS,
+    );
   }
 };
 

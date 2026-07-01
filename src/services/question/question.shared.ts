@@ -4,15 +4,15 @@ import routeNotification from "../notification/routeNotification.service.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import HttpError from "../../utils/http/httpError.util.js";
 import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../utils/cache/clearCache.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
-import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
+import Question from "../../models/question.model.js";
 import Reply from "../../models/reply.model.js";
 
 import statsQueue from "../../queues/stats.queue.js";
@@ -110,12 +110,14 @@ const queueQuestionStats = async ({
   action,
   userId,
   mongoTargetId,
+  eventId,
   jobIdParts,
 }: {
   name: string;
   action: string;
   userId?: string;
   mongoTargetId?: string;
+  eventId?: string;
   jobIdParts: Array<string | number | undefined | null>;
 }) => {
   await statsQueue.add(
@@ -124,6 +126,7 @@ const queueQuestionStats = async ({
       ...(userId ? { userId } : {}),
       action,
       ...(mongoTargetId ? { mongoTargetId } : {}),
+      ...(eventId ? { eventId } : {}),
     },
     {
       removeOnComplete: true,
@@ -134,6 +137,13 @@ const queueQuestionStats = async ({
 };
 
 const queueQuestionNotification = routeNotification;
+
+const makeQuestionAnswerStateEventId = (
+  action: string,
+  questionId: string,
+  answerId: string,
+  state: string | Date | number,
+) => makeJobId("questionAnswerState", action, questionId, answerId, state);
 
 export type { QuestionTargetType };
 
@@ -150,4 +160,5 @@ export {
   clearQuestionReplyCache,
   queueQuestionStats,
   queueQuestionNotification,
+  makeQuestionAnswerStateEventId,
 };

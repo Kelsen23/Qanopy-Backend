@@ -1,70 +1,145 @@
+import mongoose from "mongoose";
+
 import HttpError from "../../../utils/http/httpError.util.js";
 
-import { getRedisCacheClient } from "../../../config/redis.config.js";
-import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
-
-import statsQueue from "../../../queues/stats.queue.js";
-
-import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
+import Question from "../../../models/question.model.js";
 
-import { isObjectId } from "../question.shared.js";
+import {
+  clearQuestionThreadCache,
+  ensureActiveAnswer,
+  ensureActiveQuestion,
+  isObjectId,
+  makeQuestionAnswerStateEventId,
+  queueQuestionStats,
+} from "../question.shared.js";
+
+const answerSelect =
+  "_id questionId userId isDeleted isActive isBestAnswerByAsker updatedAt createdAt";
+const questionSelect = "_id userId isDeleted isActive";
 
 const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
   if (!isObjectId(answerId)) throw new HttpError("Invalid answerId", 400);
 
-  const foundAnswer = await Answer.findById(answerId).lean();
+  const session = await mongoose.startSession();
 
-  if (!foundAnswer) throw new HttpError("Answer not found", 404);
+  try {
+    const result = await session.withTransaction(async () => {
+      const foundAnswer = await Answer.findById(answerId)
+        .session(session)
+        .select(answerSelect)
+        .lean();
 
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${foundAnswer.questionId}`,
-  );
-  const foundQuestion = cachedQuestion
-    ? JSON.parse(cachedQuestion)
-    : await Question.findById(foundAnswer.questionId).lean();
+      if (!foundAnswer) throw new HttpError("Answer not found", 404);
+      ensureActiveAnswer(foundAnswer);
 
-  if (!foundQuestion) throw new HttpError("Question not found", 404);
+      const foundQuestion = await Question.findById(foundAnswer.questionId)
+        .session(session)
+        .select(questionSelect)
+        .lean();
 
-  if (foundQuestion.userId.toString() !== userId)
-    throw new HttpError("Unauthorized to unmark best answer", 403);
+      if (!foundQuestion) throw new HttpError("Question not found", 404);
+      ensureActiveQuestion(foundQuestion);
 
-  if (!foundAnswer.isBestAnswerByAsker) {
-    return {
-      message: "Answer is already unmarked as best",
-      answer: foundAnswer,
+      if (foundQuestion.userId?.toString() !== userId)
+        throw new HttpError("Unauthorized to unmark best answer", 403);
+
+      if (!foundAnswer.isBestAnswerByAsker) {
+        return {
+          didMutate: false,
+          message: "Answer is already unmarked as best",
+          answer: foundAnswer,
+        };
+      }
+
+      const updatedAnswer = await Answer.findOneAndUpdate(
+        {
+          _id: answerId,
+          isBestAnswerByAsker: true,
+        },
+        {
+          $set: { isBestAnswerByAsker: false },
+        },
+        { returnDocument: "after", session },
+      )
+        .select(answerSelect)
+        .lean();
+
+      if (!updatedAnswer) {
+        const authoritativeAnswer = await Answer.findById(answerId)
+          .session(session)
+          .select(answerSelect)
+          .lean();
+
+        if (authoritativeAnswer && !authoritativeAnswer.isBestAnswerByAsker) {
+          return {
+            didMutate: false,
+            message: "Answer is already unmarked as best",
+            answer: authoritativeAnswer,
+          };
+        }
+
+        throw new HttpError("Error unmarking answer as best", 500);
+      }
+
+      return {
+        didMutate: true,
+        message: "Successfully unmarked answer as best",
+        answer: updatedAnswer,
+        question: foundQuestion,
+      };
+    });
+
+    if (!result.didMutate) {
+      return {
+        message: result.message,
+        answer: result.answer,
+      };
+    }
+
+    const mutatedResult = result as {
+      didMutate: true;
+      message: string;
+      answer: any;
+      question: any;
     };
-  }
+    const questionId = String(
+      mutatedResult.question._id ?? mutatedResult.question.id,
+    );
+    const answerIdString = String(
+      mutatedResult.answer._id ?? mutatedResult.answer.id,
+    );
+    const answerStateVersion = String(
+      mutatedResult.answer.updatedAt ?? mutatedResult.answer.createdAt ?? "",
+    );
 
-  const updatedAnswer = await Answer.findByIdAndUpdate(
-    foundAnswer._id,
-    {
-      $set: { isBestAnswerByAsker: false },
-    },
-    { returnDocument: "after" },
-  );
-
-  await statsQueue.add(
-    "UNMARK_AS_BEST",
-    {
-      userId: foundAnswer.userId as string,
+    await queueQuestionStats({
+      name: "UNMARK_AS_BEST",
       action: "UNMARK_ANSWER_AS_BEST",
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("stats", "unmarkAsBest", foundAnswer._id),
-    },
-  );
+      userId: mutatedResult.answer.userId as string,
+      eventId: makeQuestionAnswerStateEventId(
+        "unmark-best",
+        questionId,
+        answerIdString,
+        answerStateVersion,
+      ),
+      jobIdParts: [
+        "unmarkAsBest",
+        questionId,
+        answerIdString,
+        answerStateVersion,
+      ],
+    });
 
-  await getRedisCacheClient().del(`question:${foundAnswer.questionId}`);
-  await clearAnswerCache(foundAnswer.questionId as string);
+    await clearQuestionThreadCache(questionId);
 
-  return {
-    message: "Successfully unmarked answer as best",
-    answer: updatedAnswer,
-  };
+    return {
+      message: mutatedResult.message,
+      answer: mutatedResult.answer,
+    };
+  } finally {
+    session.endSession();
+  }
 };
 
 export default unmarkAnswerAsBest;

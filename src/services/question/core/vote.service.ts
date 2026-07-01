@@ -9,7 +9,7 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../../utils/cache/clearCache.util.js";
-import { makeUniqueJobId } from "../../../utils/job/makeJobId.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import queueUserInterest from "../../../utils/question/queueUserInterest.util.js";
 
 import Question from "../../../models/question.model.js";
@@ -21,6 +21,171 @@ import statsQueue from "../../../queues/stats.queue.js";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type VoteType = "UPVOTE" | "DOWNVOTE";
+
+type VoteMutationResult = {
+  vote: any;
+  previousVoteType: VoteType | null;
+  currentVoteType: VoteType;
+  didMutate: boolean;
+};
+
+const voteModelMap = {
+  QUESTION: Question,
+  ANSWER: Answer,
+  REPLY: Reply,
+} as const;
+
+const getVoteCountUpdate = (
+  fromVoteType: VoteType | null,
+  toVoteType: VoteType,
+) => {
+  if (!fromVoteType) {
+    return toVoteType === "UPVOTE"
+      ? { $inc: { upvoteCount: 1 } }
+      : { $inc: { downvoteCount: 1 } };
+  }
+
+  if (fromVoteType === toVoteType) return null;
+
+  return fromVoteType === "UPVOTE"
+    ? { $inc: { upvoteCount: -1, downvoteCount: 1 } }
+    : { $inc: { upvoteCount: 1, downvoteCount: -1 } };
+};
+
+const getVoteStatsAction = (
+  targetType: TargetType,
+  previousVoteType: VoteType | null,
+  currentVoteType: VoteType,
+) => {
+  if (!previousVoteType) {
+    return currentVoteType === "UPVOTE"
+      ? `RECEIVE_UPVOTE_${targetType}`
+      : `RECEIVE_DOWNVOTE_${targetType}`;
+  }
+
+  return previousVoteType === "UPVOTE"
+    ? `CHANGE_UPVOTE_TO_DOWNVOTE_${targetType}`
+    : `CHANGE_DOWNVOTE_TO_UPVOTE_${targetType}`;
+};
+
+const isDuplicateKeyError = (error: unknown) =>
+  error instanceof Error &&
+  ("code" in error
+    ? (error as { code?: number }).code === 11000
+    : /E11000/.test(error.message));
+
+const getVoteEventId = (vote: any, targetType: TargetType) =>
+  makeJobId(
+    "vote",
+    targetType,
+    vote._id,
+    vote.updatedAt ?? vote.createdAt ?? "",
+  );
+
+const mutateVote = async ({
+  userId,
+  targetType,
+  targetId,
+  voteType,
+  targetDocument,
+}: {
+  userId: string;
+  targetType: TargetType;
+  targetId: string;
+  voteType: VoteType;
+  targetDocument: any;
+}): Promise<VoteMutationResult> => {
+  const Model = voteModelMap[targetType];
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const session = await mongoose.startSession();
+
+    try {
+      const result = await session.withTransaction(async () => {
+        const currentVote = await Vote.findOne({
+          userId,
+          targetType,
+          targetId,
+        }).session(session);
+
+        const currentVoteType = currentVote
+          ? (String(currentVote.voteType).toUpperCase() as VoteType)
+          : null;
+
+        if (currentVoteType === voteType) {
+          return {
+            vote: currentVote,
+            previousVoteType: currentVoteType,
+            currentVoteType,
+            didMutate: false,
+          };
+        }
+
+        if (currentVote) {
+          const updatedVote = await Vote.findByIdAndUpdate(
+            currentVote._id,
+            { voteType },
+            { returnDocument: "after", session },
+          );
+
+          const updateField = getVoteCountUpdate(currentVoteType, voteType);
+
+          if (!updateField)
+            throw new Error("Vote update field missing for vote transition");
+
+          await Model.findByIdAndUpdate(
+            targetDocument._id || targetDocument.id,
+            updateField,
+            { session },
+          );
+
+          return {
+            vote: updatedVote,
+            previousVoteType: currentVoteType,
+            currentVoteType: voteType,
+            didMutate: true,
+          };
+        }
+
+        const [createdVote] = await Vote.create(
+          [{ userId, targetType, targetId, voteType }],
+          { session },
+        );
+
+        const updateField = getVoteCountUpdate(null, voteType);
+
+        if (!updateField)
+          throw new Error("Vote update field missing for vote creation");
+
+        await Model.findByIdAndUpdate(
+          targetDocument._id || targetDocument.id,
+          updateField,
+          { session },
+        );
+
+        return {
+          vote: createdVote,
+          previousVoteType: null,
+          currentVoteType: voteType,
+          didMutate: true,
+        };
+      });
+
+      session.endSession();
+      return result;
+    } catch (error) {
+      session.endSession();
+
+      if (isDuplicateKeyError(error) && attempt === 0) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Vote mutation retry exhausted");
+};
 
 const bestEffortRouteNotification = async (
   params: Parameters<typeof routeNotification>[0],
@@ -48,22 +213,6 @@ const vote = async (
     voteType: VoteType;
   },
 ) => {
-  const existingVote = await Vote.findOne({
-    userId,
-    targetType,
-    targetId,
-  });
-  const existingVoteType = existingVote
-    ? String(existingVote.voteType).toUpperCase()
-    : null;
-
-  if (existingVote && existingVoteType === voteType) {
-    return {
-      message: `This ${targetType.toLowerCase()} is already ${voteType.toLowerCase()}d`,
-      vote: existingVote,
-    };
-  }
-
   if (targetType === "QUESTION") {
     const cachedQuestion = await getRedisCacheClient().get(
       `question:${targetId}`,
@@ -76,69 +225,42 @@ const vote = async (
     if (foundQuestion.isDeleted || !foundQuestion.isActive)
       throw new HttpError("Question not active", 410);
 
-    const session = await mongoose.startSession();
-    let resultVote;
-
-    await session.withTransaction(async () => {
-      if (existingVote) {
-        resultVote = await Vote.findByIdAndUpdate(
-          existingVote._id,
-          { voteType },
-          { returnDocument: "after", session },
-        );
-
-        await Question.findByIdAndUpdate(
-          foundQuestion._id || foundQuestion.id,
-          {
-            $inc:
-              voteType === "UPVOTE"
-                ? { upvoteCount: 1, downvoteCount: -1 }
-                : { upvoteCount: -1, downvoteCount: 1 },
-          },
-          { session },
-        );
-      } else {
-        const [createdVote] = await Vote.create(
-          [{ userId, targetType, targetId, voteType }],
-          { session },
-        );
-        resultVote = createdVote;
-
-        await Question.findByIdAndUpdate(
-          foundQuestion._id || foundQuestion.id,
-          {
-            $inc:
-              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
-          },
-          { session },
-        );
-      }
+    const voteMutation = await mutateVote({
+      userId,
+      targetType,
+      targetId,
+      voteType,
+      targetDocument: foundQuestion,
     });
 
-    session.endSession();
+    if (!voteMutation.didMutate) {
+      return {
+        message: `This ${targetType.toLowerCase()} is already ${voteType.toLowerCase()}d`,
+        vote: voteMutation.vote,
+      };
+    }
 
     await statsQueue.add(
       "CHANGE_REPUTATION_POINTS",
       {
         userId: foundQuestion.userId as string,
-        action: existingVote
-          ? voteType === "UPVOTE"
-            ? "CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION"
-            : "CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION"
-          : voteType === "UPVOTE"
-            ? "RECEIVE_UPVOTE_QUESTION"
-            : "RECEIVE_DOWNVOTE_QUESTION",
+        action: getVoteStatsAction(
+          targetType,
+          voteMutation.previousVoteType,
+          voteMutation.currentVoteType,
+        ),
+        eventId: getVoteEventId(voteMutation.vote, targetType),
       },
       {
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: makeUniqueJobId(
+        jobId: makeJobId(
           "stats",
           "changeReputationPoints",
-          "QUESTION",
+          targetType,
           targetId,
-          voteType,
-          userId,
+          voteMutation.vote._id,
+          voteMutation.vote.updatedAt ?? voteMutation.vote.createdAt,
         ),
       },
     );
@@ -177,7 +299,7 @@ const vote = async (
 
     return {
       message: "Vote processed",
-      vote: resultVote,
+      vote: voteMutation.vote,
     };
   }
 
@@ -187,69 +309,42 @@ const vote = async (
     if (foundAnswer.isDeleted || !foundAnswer.isActive)
       throw new HttpError("Answer not active", 410);
 
-    const session = await mongoose.startSession();
-    let resultVote;
-
-    await session.withTransaction(async () => {
-      if (existingVote) {
-        resultVote = await Vote.findByIdAndUpdate(
-          existingVote._id,
-          { voteType },
-          { returnDocument: "after", session },
-        );
-
-        await Answer.findByIdAndUpdate(
-          foundAnswer._id,
-          {
-            $inc:
-              voteType === "UPVOTE"
-                ? { upvoteCount: 1, downvoteCount: -1 }
-                : { upvoteCount: -1, downvoteCount: 1 },
-          },
-          { session },
-        );
-      } else {
-        const [createdVote] = await Vote.create(
-          [{ userId, targetType, targetId, voteType }],
-          { session },
-        );
-        resultVote = createdVote;
-
-        await Answer.findByIdAndUpdate(
-          foundAnswer._id,
-          {
-            $inc:
-              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
-          },
-          { session },
-        );
-      }
+    const voteMutation = await mutateVote({
+      userId,
+      targetType,
+      targetId,
+      voteType,
+      targetDocument: foundAnswer,
     });
 
-    session.endSession();
+    if (!voteMutation.didMutate) {
+      return {
+        message: `This ${targetType.toLowerCase()} is already ${voteType.toLowerCase()}d`,
+        vote: voteMutation.vote,
+      };
+    }
 
     await statsQueue.add(
       "CHANGE_REPUTATION_POINTS",
       {
         userId: foundAnswer.userId as string,
-        action: existingVote
-          ? voteType === "UPVOTE"
-            ? "CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER"
-            : "CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER"
-          : voteType === "UPVOTE"
-            ? "RECEIVE_UPVOTE_ANSWER"
-            : "RECEIVE_DOWNVOTE_ANSWER",
+        action: getVoteStatsAction(
+          targetType,
+          voteMutation.previousVoteType,
+          voteMutation.currentVoteType,
+        ),
+        eventId: getVoteEventId(voteMutation.vote, targetType),
       },
       {
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: makeUniqueJobId(
+        jobId: makeJobId(
           "stats",
           "changeReputationPoints",
-          "ANSWER",
+          targetType,
           targetId,
-          voteType,
-          userId,
+          voteMutation.vote._id,
+          voteMutation.vote.updatedAt ?? voteMutation.vote.createdAt,
         ),
       },
     );
@@ -283,7 +378,7 @@ const vote = async (
 
     return {
       message: "Vote processed",
-      vote: resultVote,
+      vote: voteMutation.vote,
     };
   }
 
@@ -293,69 +388,42 @@ const vote = async (
     if (foundReply.isDeleted || !foundReply.isActive)
       throw new HttpError("Reply not active", 410);
 
-    const session = await mongoose.startSession();
-    let resultVote;
-
-    await session.withTransaction(async () => {
-      if (existingVote) {
-        resultVote = await Vote.findByIdAndUpdate(
-          existingVote._id,
-          { voteType },
-          { returnDocument: "after", session },
-        );
-
-        await Reply.findByIdAndUpdate(
-          foundReply._id,
-          {
-            $inc:
-              voteType === "UPVOTE"
-                ? { upvoteCount: 1, downvoteCount: -1 }
-                : { upvoteCount: -1, downvoteCount: 1 },
-          },
-          { session },
-        );
-      } else {
-        const [createdVote] = await Vote.create(
-          [{ userId, targetType, targetId, voteType }],
-          { session },
-        );
-        resultVote = createdVote;
-
-        await Reply.findByIdAndUpdate(
-          foundReply._id,
-          {
-            $inc:
-              voteType === "UPVOTE" ? { upvoteCount: 1 } : { downvoteCount: 1 },
-          },
-          { session },
-        );
-      }
+    const voteMutation = await mutateVote({
+      userId,
+      targetType,
+      targetId,
+      voteType,
+      targetDocument: foundReply,
     });
 
-    session.endSession();
+    if (!voteMutation.didMutate) {
+      return {
+        message: `This ${targetType.toLowerCase()} is already ${voteType.toLowerCase()}d`,
+        vote: voteMutation.vote,
+      };
+    }
 
     await statsQueue.add(
       "CHANGE_REPUTATION_POINTS",
       {
         userId: foundReply.userId as string,
-        action: existingVote
-          ? voteType === "UPVOTE"
-            ? "CHANGE_DOWNVOTE_TO_UPVOTE_REPLY"
-            : "CHANGE_UPVOTE_TO_DOWNVOTE_REPLY"
-          : voteType === "UPVOTE"
-            ? "RECEIVE_UPVOTE_REPLY"
-            : "RECEIVE_DOWNVOTE_REPLY",
+        action: getVoteStatsAction(
+          targetType,
+          voteMutation.previousVoteType,
+          voteMutation.currentVoteType,
+        ),
+        eventId: getVoteEventId(voteMutation.vote, targetType),
       },
       {
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: makeUniqueJobId(
+        jobId: makeJobId(
           "stats",
           "changeReputationPoints",
-          "REPLY",
+          targetType,
           targetId,
-          voteType,
-          userId,
+          voteMutation.vote._id,
+          voteMutation.vote.updatedAt ?? voteMutation.vote.createdAt,
         ),
       },
     );
@@ -388,7 +456,7 @@ const vote = async (
 
     return {
       message: "Vote processed",
-      vote: resultVote,
+      vote: voteMutation.vote,
     };
   }
 
