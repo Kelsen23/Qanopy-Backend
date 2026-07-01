@@ -14,6 +14,8 @@ const QuestionSchema: Schema = new Schema(
     acceptedAnswerCount: { type: Number, default: 0, min: 0 },
 
     currentVersion: { type: Number, default: 1, min: 1 },
+    basedOnVersion: { type: Number, default: 1, min: 1 },
+    lastRollbackVersion: { type: Number, default: null, required: false },
 
     similarQuestionIds: {
       type: [mongoose.Schema.Types.ObjectId],
