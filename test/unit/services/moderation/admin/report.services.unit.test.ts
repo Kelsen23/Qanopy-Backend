@@ -631,7 +631,7 @@ describe("moderation admin report services", () => {
         targetId: "answer_1",
       }),
     ).rejects.toMatchObject({
-      message: "answer not found",
+      message: "Answer not found",
       statusCode: 404,
     });
   });

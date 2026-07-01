@@ -46,10 +46,21 @@ const rollbackVersion = async (
   if (foundQuestion.userId?.toString() !== userId)
     throw new HttpError("Unauthorized to edit question", 403);
 
-  if (foundQuestion.currentVersion <= version)
+  const authoritativeQuestion = (await Question.findById(questionId)
+    .select("_id currentVersion lastRollbackVersion")
+    .lean()) as
+    | {
+        currentVersion: number;
+        lastRollbackVersion?: number | null;
+      }
+    | null;
+
+  if (!authoritativeQuestion) throw new HttpError("Question not found", 404);
+
+  if (authoritativeQuestion.currentVersion <= version)
     throw new HttpError("Cannot rollback to same or newer version", 400);
 
-  if (Number(foundQuestion.lastRollbackVersion ?? 0) === version)
+  if (Number(authoritativeQuestion.lastRollbackVersion ?? 0) === version)
     throw new HttpError("Cannot rollback to the same version twice", 400);
 
   const cachedVersion = await getRedisCacheClient().get(

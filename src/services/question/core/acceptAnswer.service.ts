@@ -18,7 +18,7 @@ import {
 import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
-  "_id questionId userId isDeleted isActive isAccepted upvoteCount downvoteCount replyCount updatedAt createdAt";
+  "_id questionId userId body questionVersion isDeleted isActive isAccepted upvoteCount downvoteCount replyCount updatedAt createdAt";
 const questionSelect = "_id userId isDeleted isActive";
 
 const acceptAnswer = async (userId: string, answerId: string) => {
