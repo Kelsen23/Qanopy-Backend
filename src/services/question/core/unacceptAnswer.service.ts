@@ -13,6 +13,7 @@ import {
   makeQuestionAnswerStateEventId,
   queueQuestionStats,
 } from "../question.shared.js";
+import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
   "_id questionId userId isDeleted isActive isAccepted isBestAnswerByAsker updatedAt createdAt";
@@ -97,7 +98,7 @@ const unacceptAnswer = async (userId: string, answerId: string) => {
     if (!result.didMutate) {
       return {
         message: result.message,
-        answer: result.answer,
+        answer: toPublicAnswer(result.answer),
       };
     }
 
@@ -146,7 +147,7 @@ const unacceptAnswer = async (userId: string, answerId: string) => {
 
     return {
       message: mutatedResult.message,
-      unacceptedAnswer: mutatedResult.answer,
+      unacceptedAnswer: toPublicAnswer(mutatedResult.answer),
     };
   } finally {
     session.endSession();
