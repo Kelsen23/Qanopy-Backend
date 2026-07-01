@@ -84,11 +84,11 @@ const deleteContent = async (
     throw new HttpError(`${getContentTypeLabel(targetType)} not active`, 410);
   }
 
-  await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
-    $set: { isDeleted: true, isActive: false },
-  });
-
   if (targetType === "QUESTION") {
+    await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
+      $set: { isDeleted: true, isActive: false },
+    });
+
     await statsQueue.add(
       "DELETE_QUESTION",
       {
@@ -122,6 +122,10 @@ const deleteContent = async (
 
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "ANSWER") {
+    await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
+      $set: { isDeleted: true, isActive: false },
+    });
+
     await statsQueue.add(
       "DELETE_ANSWER",
       {
@@ -157,6 +161,10 @@ const deleteContent = async (
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
   } else if (targetType === "REPLY") {
+    await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
+      $set: { isDeleted: true, isActive: false },
+    });
+
     const foundAnswer = await Answer.findById(foundContent.answerId).lean();
 
     if (!foundAnswer) {
@@ -180,32 +188,16 @@ const deleteContent = async (
     await clearAnswerCache(foundAnswer.questionId as string);
     await clearReplyCache(foundAnswer._id as string);
   } else if (targetType === "AI_ANSWER_FEEDBACK") {
-    const foundFeedback = await Model.findById(targetId)
-      .select("_id userId aiAnswerId isDeleted isActive")
-      .lean();
-
-    if (!foundFeedback) {
-      throw new HttpError("AI answer feedback not found", 404);
-    }
-
-    if (foundFeedback.userId?.toString() !== userId) {
-      throw new HttpError("Unauthorized to delete AI answer feedback", 403);
-    }
-
-    if (foundFeedback.isDeleted || !foundFeedback.isActive) {
-      throw new HttpError("AI answer feedback not active", 410);
-    }
-
-    await Model.findByIdAndUpdate(foundFeedback._id || foundFeedback.id, {
+    await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
       $set: { isDeleted: true, isActive: false },
     });
 
     await clearAiAnswerFeedbackCache(
-      String(foundFeedback.aiAnswerId),
-      String(foundFeedback._id || foundFeedback.id),
+      String(foundContent.aiAnswerId),
+      String(foundContent._id || foundContent.id),
     );
 
-    const foundAiAnswer = await AiAnswer.findById(foundFeedback.aiAnswerId)
+    const foundAiAnswer = await AiAnswer.findById(foundContent.aiAnswerId)
       .select("questionId")
       .lean();
 
