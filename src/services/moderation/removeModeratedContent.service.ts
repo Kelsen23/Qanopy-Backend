@@ -62,7 +62,8 @@ const removeModeratedContent = async (
     await clearVersionHistoryCache(targetId);
 
     return {
-      message: "Question version is no longer current, parent question left active",
+      message:
+        "Question version is no longer current, parent question left active",
       removed: false,
     };
   }

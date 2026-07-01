@@ -136,7 +136,9 @@ const unacceptAnswer = async (userId: string, answerId: string) => {
       mongoTargetId: questionId,
       eventId,
       jobIdParts: [
-        mutatedResult.wasBestAnswerByAsker ? "unacceptBestAnswer" : "unacceptAnswer",
+        mutatedResult.wasBestAnswerByAsker
+          ? "unacceptBestAnswer"
+          : "unacceptAnswer",
         questionId,
         answerIdString,
         answerStateVersion,

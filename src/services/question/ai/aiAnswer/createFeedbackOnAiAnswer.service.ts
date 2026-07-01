@@ -87,13 +87,11 @@ const createFeedbackOnAiAnswerService = async (
 
   const foundQuestion = (await Question.findById(foundAiAnswer.questionId)
     .select("_id tags isActive isDeleted")
-    .lean()) as
-    | {
-        tags?: string[] | null;
-        isActive?: boolean;
-        isDeleted?: boolean;
-      }
-    | null;
+    .lean()) as {
+    tags?: string[] | null;
+    isActive?: boolean;
+    isDeleted?: boolean;
+  } | null;
 
   if (
     foundQuestion?.isActive &&

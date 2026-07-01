@@ -20,8 +20,7 @@ const getStatsJobIdempotencyKey = (
   _jobName: string,
   jobData: Record<string, any>,
   jobId?: string,
-) =>
-  jobData.eventId ? `stats:processed:${jobData.eventId}` : null;
+) => (jobData.eventId ? `stats:processed:${jobData.eventId}` : null);
 
 const actionMap: Record<string, StatsUpdate> = {
   ASK_QUESTION: {
