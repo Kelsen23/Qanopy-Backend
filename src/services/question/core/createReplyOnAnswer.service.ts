@@ -16,6 +16,7 @@ import {
   getCachedAnswer,
   getCachedQuestion,
   isObjectId,
+  queueQuestionStats,
 } from "../question.shared.js";
 import { toPublicReply } from "../question.response.js";
 
@@ -53,6 +54,15 @@ const createReplyOnAnswer = async ({
   ensureActiveQuestion(foundQuestion);
 
   const newReply = await Reply.create({ answerId, userId, body });
+
+  await queueQuestionStats({
+    name: "GIVE_REPLY",
+    action: "GIVE_REPLY",
+    userId,
+    mongoTargetId: String(foundAnswer._id || answerId),
+    eventId: makeJobId("reply", "giveReply", String(newReply._id)),
+    jobIdParts: ["giveReply", String(newReply._id)],
+  });
 
   await clearQuestionReplyCache(
     foundAnswer.questionId as string,
