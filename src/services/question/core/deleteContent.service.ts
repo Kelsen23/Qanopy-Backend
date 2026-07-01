@@ -174,6 +174,7 @@ const deleteContent = async (
     await statsQueue.add(
       "DELETE_REPLY",
       {
+        userId: foundContent.userId as string,
         action: actionMap.REPLY,
         mongoTargetId: foundAnswer._id,
       },
