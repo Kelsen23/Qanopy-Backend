@@ -11,7 +11,7 @@ import Question from "../../../models/question.model.js";
 
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
-import { resolveQuestionVersionSeedState } from "./questionVersioning.shared.js";
+import { resolveQuestionVersionSeedState } from "../questionVersioning.shared.js";
 
 const QUESTION_VERSION_LOCK_TTL_MS = 30000;
 const QUESTION_VERSION_LOCK_WAIT_MS = 10000;
