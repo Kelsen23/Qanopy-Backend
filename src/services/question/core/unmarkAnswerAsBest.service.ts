@@ -16,7 +16,7 @@ import {
 import { toPublicAnswer } from "../question.response.js";
 
 const answerSelect =
-  "_id questionId userId isDeleted isActive isBestAnswerByAsker updatedAt createdAt";
+  "_id questionId userId isDeleted isActive isAccepted isBestAnswerByAsker updatedAt createdAt";
 const questionSelect = "_id userId isDeleted isActive";
 
 const unmarkAnswerAsBest = async (userId: string, answerId: string) => {
