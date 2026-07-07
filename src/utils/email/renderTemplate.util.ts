@@ -3,6 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mjml2html from "mjml";
 
+import { cloudfrontDomain } from "../../config/s3.config.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -15,7 +17,6 @@ export function renderTemplate(
 
   const { html } = mjml2html(mjml);
 
-  const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN?.replace(/\/$/, "");
   const supportEmail = process.env.SUPPORT_EMAIL as string;
 
   const logoUrl = cloudfrontDomain
