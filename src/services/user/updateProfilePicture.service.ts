@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import { DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
+import moderateFileService from "../../services/moderation/fileModeration.service.js";
+import routeNotification from "../notification/routeNotification.service.js";
+
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
-
-import moderateFileService from "../../services/moderation/fileModeration.service.js";
 
 import moveS3Object from "../../utils/media/moveS3Object.util.js";
 import { cacheUser } from "../auth/auth.shared.js";
@@ -27,15 +28,35 @@ const updateProfilePicture = async (
 
   if (!foundUser) throw new Error("User not found");
 
-  const { safe } = await moderateFileService(
+  const moderationResult = await moderateFileService(
     userId,
     objectKey,
     "PROFILE_PICTURE",
   );
 
-  if (!safe) {
+  if (!moderationResult.safe) {
+    if (moderationResult.deleted) {
+      await routeNotification({
+        recipientId: userId,
+        event: "REMOVE_CONTENT",
+        target: {
+          entityType: "USER",
+          entityId: userId,
+        },
+        meta: {
+          removalScope: "IMAGE",
+          removalReason: "UNSAFE_IMAGE",
+          removedResourceType: "PROFILE_PICTURE",
+          objectKey,
+          contentType: "PROFILE_PICTURE",
+        },
+      });
+    }
+
     return {
-      message: "Profile picture contains unsafe content",
+      message: moderationResult.missing
+        ? "Profile picture update skipped"
+        : "Profile picture contains unsafe content",
       profilePictureUrl: null,
     };
   }
