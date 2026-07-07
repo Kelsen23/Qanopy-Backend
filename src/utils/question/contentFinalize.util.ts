@@ -44,14 +44,20 @@ const queueQuestionContentPipeline = async (
 const queueNonQuestionContentPipeline = async (
   jobName: "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   entityId: string,
+  moderationRevision?: number,
 ) =>
   contentPipelineRouter.add(
     jobName,
-    { contentId: entityId },
+    { contentId: entityId, moderationRevision },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentPipelineRoute", jobName, entityId),
+      jobId: makeJobId(
+        "contentPipelineRoute",
+        jobName,
+        entityId,
+        moderationRevision,
+      ),
     },
   );
 

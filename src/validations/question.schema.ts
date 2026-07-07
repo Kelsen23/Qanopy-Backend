@@ -69,8 +69,7 @@ const createAnswerOnQuestionSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["body"],
-        message:
-          "Answer needs at least 20 characters of text besides images",
+        message: "Answer needs at least 20 characters of text besides images",
       });
     }
   });

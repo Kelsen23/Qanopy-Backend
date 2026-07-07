@@ -16,6 +16,7 @@ async function startWorker() {
         job.name as any,
         job.data.contentId,
         job.data.version,
+        job.data.moderationRevision,
       );
     },
     {

@@ -22,6 +22,7 @@ type ContentFinalizeJobData = {
 type MutableBodyEntity = {
   _id: string;
   body?: string | null;
+  moderationRevision?: number | null;
   save: () => Promise<unknown>;
 };
 

@@ -1,10 +1,6 @@
 import { extractTempContentImageMatches } from "../media/contentImageMarkdown.util.js";
 
-type ContentBodyType =
-  | "QUESTION"
-  | "ANSWER"
-  | "REPLY"
-  | "AI_ANSWER_FEEDBACK";
+type ContentBodyType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 
 const minimumBodyLengthByType: Record<ContentBodyType, number> = {
   QUESTION: 20,

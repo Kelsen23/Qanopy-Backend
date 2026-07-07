@@ -35,11 +35,13 @@ const loadEntity = async (
 ): Promise<MutableBodyEntity | null> => {
   switch (jobName) {
     case "ANSWER":
-      return Answer.findById(entityId).select("body");
+      return Answer.findById(entityId).select("body moderationRevision");
     case "REPLY":
-      return Reply.findById(entityId).select("body");
+      return Reply.findById(entityId).select("body moderationRevision");
     case "AI_ANSWER_FEEDBACK":
-      return AiAnswerFeedback.findById(entityId).select("body");
+      return AiAnswerFeedback.findById(entityId).select(
+        "body moderationRevision",
+      );
     case "QUESTION":
     case "QUESTION_EXISTING_VERSION":
       return null;
@@ -166,7 +168,13 @@ const processContentFinalizeJob = async (
     return;
   }
 
-  await queueNonQuestionContentPipeline(jobName, entityId);
+  await queueNonQuestionContentPipeline(
+    jobName,
+    entityId,
+    typeof entity?.moderationRevision === "number"
+      ? entity.moderationRevision
+      : undefined,
+  );
 };
 
 export default processContentFinalizeJob;
