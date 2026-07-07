@@ -5,12 +5,21 @@ import Answer from "../../../models/answer.model.js";
 import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
 import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 
-const answerPipelineRouter = async (answerId: string) => {
+const answerPipelineRouter = async (
+  answerId: string,
+  moderationRevision?: number,
+) => {
   const foundAnswer = await Answer.findById(answerId).select(
     "_id questionId moderationStatus moderationRevision",
   );
 
-  if (!foundAnswer || foundAnswer.moderationStatus !== "PENDING") return;
+  if (
+    !foundAnswer ||
+    foundAnswer.moderationStatus !== "PENDING" ||
+    (moderationRevision !== undefined &&
+      foundAnswer.moderationRevision !== moderationRevision)
+  )
+    return;
 
   await contentModerationQueue.add(
     "ANSWER",
@@ -21,7 +30,12 @@ const answerPipelineRouter = async (answerId: string) => {
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentModeration", "ANSWER", foundAnswer._id),
+      jobId: makeJobId(
+        "contentModeration",
+        "ANSWER",
+        foundAnswer._id,
+        foundAnswer.moderationRevision,
+      ),
     },
   );
 

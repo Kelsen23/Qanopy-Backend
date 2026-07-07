@@ -7,7 +7,7 @@ import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import contentModerationQueue from "../../../queues/contentModeration.queue.js";
+import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
 import {
   clearQuestionReplyCache,
@@ -69,16 +69,16 @@ const createReplyOnAnswer = async ({
     String(foundAnswer._id || answerId),
   );
 
-  await contentModerationQueue.add(
+  await contentFinalizeQueue.add(
     "REPLY",
     {
-      contentId: newReply._id,
-      moderationRevision: newReply.moderationRevision,
+      userId,
+      entityId: String(newReply._id),
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentModeration", "REPLY", String(newReply._id)),
+      jobId: makeJobId("contentFinalize", "REPLY", String(newReply._id)),
     },
   );
 

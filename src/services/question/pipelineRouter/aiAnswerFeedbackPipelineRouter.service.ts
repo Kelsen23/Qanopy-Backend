@@ -4,14 +4,19 @@ import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 
 import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 
-const aiAnswerFeedbackPipelineRouter = async (aiAnswerFeedbackId: string) => {
+const aiAnswerFeedbackPipelineRouter = async (
+  aiAnswerFeedbackId: string,
+  moderationRevision?: number,
+) => {
   const foundAiAnswerFeedback = await AiAnswerFeedback.findById(
     aiAnswerFeedbackId,
   ).select("_id moderationStatus moderationRevision");
 
   if (
     !foundAiAnswerFeedback ||
-    foundAiAnswerFeedback.moderationStatus !== "PENDING"
+    foundAiAnswerFeedback.moderationStatus !== "PENDING" ||
+    (moderationRevision !== undefined &&
+      foundAiAnswerFeedback.moderationRevision !== moderationRevision)
   )
     return;
 
@@ -28,6 +33,7 @@ const aiAnswerFeedbackPipelineRouter = async (aiAnswerFeedbackId: string) => {
         "contentModeration",
         "AI_ANSWER_FEEDBACK",
         foundAiAnswerFeedback._id,
+        foundAiAnswerFeedback.moderationRevision,
       ),
     },
   );

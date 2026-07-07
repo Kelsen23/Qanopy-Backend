@@ -7,7 +7,7 @@ import AiAnswer from "../../../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
-import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
+import contentFinalizeQueue from "../../../../queues/contentFinalize.queue.js";
 
 import { toPublicAiAnswerFeedback } from "../../question.response.js";
 
@@ -76,17 +76,17 @@ const editFeedbackOnAiAnswer = async (
     { returnDocument: "after" },
   );
 
-  await contentModerationQueue.add(
+  await contentFinalizeQueue.add(
     "AI_ANSWER_FEEDBACK",
     {
-      contentId: feedbackId,
-      moderationRevision: editedFeedback?.moderationRevision,
+      userId,
+      entityId: feedbackId,
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
       jobId: makeJobId(
-        "contentModeration",
+        "contentFinalize",
         "AI_ANSWER_FEEDBACK",
         feedbackId,
         editedFeedback?.moderationRevision,

@@ -9,7 +9,7 @@ import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 import Question from "../../../../models/question.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
-import contentModerationQueue from "../../../../queues/contentModeration.queue.js";
+import contentFinalizeQueue from "../../../../queues/contentFinalize.queue.js";
 
 import { toPublicAiAnswerFeedback } from "../../question.response.js";
 
@@ -68,17 +68,17 @@ const createFeedbackOnAiAnswerService = async (
     questionVersionAtFeedback,
   });
 
-  await contentModerationQueue.add(
+  await contentFinalizeQueue.add(
     "AI_ANSWER_FEEDBACK",
     {
-      contentId: newFeedback._id,
-      moderationRevision: newFeedback.moderationRevision,
+      userId,
+      entityId: String(newFeedback._id),
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
       jobId: makeJobId(
-        "contentModeration",
+        "contentFinalize",
         "AI_ANSWER_FEEDBACK",
         newFeedback._id,
       ),

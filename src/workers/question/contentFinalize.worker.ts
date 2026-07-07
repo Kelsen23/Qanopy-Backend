@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 
-import processContentFinalizeJob from "../../services/question/worker/contentFinalize.service.js";
+import processContentFinalizeJob, {
+  assertContentFinalizeJobName,
+} from "../../services/question/worker/contentFinalize.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -12,7 +14,10 @@ async function startWorker() {
   const worker = new Worker(
     "contentFinalizeQueue",
     async (job) => {
-      await processContentFinalizeJob(job.name, job.data);
+      await processContentFinalizeJob(
+        assertContentFinalizeJobName(job.name),
+        job.data,
+      );
     },
     {
       connection: redisMessagingClientConnection,

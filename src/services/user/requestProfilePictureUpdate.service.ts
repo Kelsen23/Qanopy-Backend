@@ -25,7 +25,7 @@ const requestProfilePictureUpdate = async ({
 }: RequestProfilePictureUpdateInput) => {
   if (
     !new RegExp(
-      `^temp\\/profilePictures\\/${userId}\\/[a-zA-Z0-9_.-]+\\.(png|jpg|jpeg)$`,
+      `^profilePictures\\/temp\\/${userId}\\/[a-zA-Z0-9_.-]+\\.(png|jpg|jpeg)$`,
       "i",
     ).test(objectKey)
   ) {

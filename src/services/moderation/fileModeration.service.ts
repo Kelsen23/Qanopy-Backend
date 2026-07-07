@@ -11,12 +11,13 @@ import getS3, {
   secretAccessKey,
 } from "../../config/s3.config.js";
 
-import routeNotification from "../notification/routeNotification.service.js";
-
 import dotenv from "dotenv";
 dotenv.config();
 
 type ModeratedContentType = "PROFILE_PICTURE" | "CONTENT_IMAGE";
+type FileModerationResult =
+  | { safe: true }
+  | { safe: false; deleted: boolean; missing?: boolean };
 
 const rekognition = new Rekognition({
   region: bucketRegion as string,
@@ -30,13 +31,56 @@ const moderateFile = async (
   userId: string,
   objectKey: string,
   contentType: ModeratedContentType,
-) => {
+): Promise<FileModerationResult> => {
   const rekognitionCommand = new DetectModerationLabelsCommand({
     Image: { S3Object: { Bucket: bucketName, Name: objectKey } },
     MinConfidence: 70,
   });
 
-  const result = await rekognition.send(rekognitionCommand);
+  let result;
+
+  try {
+    result = await rekognition.send(rekognitionCommand);
+  } catch (error) {
+    const errorDetails = error as {
+      name?: string;
+      Code?: string;
+      code?: string;
+    };
+    const errorName = errorDetails.name;
+    const errorCode = errorDetails.Code ?? errorDetails.code;
+    const isMissingSourceObject =
+      errorName === "InvalidS3ObjectException" ||
+      errorName === "ResourceNotFoundException" ||
+      errorCode === "NoSuchKey" ||
+      errorCode === "NotFound";
+
+    if (isMissingSourceObject) {
+      if (contentType === "CONTENT_IMAGE") {
+        console.info("[fileModeration] Source content image unavailable", {
+          userId,
+          objectKey,
+          errorName,
+          errorCode,
+        });
+      } else {
+        console.warn(
+          "[fileModeration] Source image unavailable for moderation",
+          {
+            userId,
+            objectKey,
+            contentType,
+            errorName,
+            errorCode,
+          },
+        );
+      }
+
+      return { safe: false, deleted: false, missing: true };
+    }
+
+    throw error;
+  }
 
   const labels = result.ModerationLabels || [];
 
@@ -61,20 +105,7 @@ const moderateFile = async (
       throw new Error(`Couldn't delete an object: ${error}`);
     }
 
-    await routeNotification({
-      recipientId: userId,
-      event: "REMOVE_CONTENT",
-      target: {
-        entityType: "USER",
-        entityId: userId,
-      },
-      meta: {
-        objectKey,
-        contentType,
-      },
-    });
-
-    return { safe: false };
+    return { safe: false, deleted: true };
   }
 
   return { safe: true };

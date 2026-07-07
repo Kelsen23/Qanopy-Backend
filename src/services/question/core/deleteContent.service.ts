@@ -15,7 +15,6 @@ import Answer from "../../../models/answer.model.js";
 import Question from "../../../models/question.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import imageDeletionQueue from "../../../queues/imageDeletion.queue.js";
 import statsQueue from "../../../queues/stats.queue.js";
 
 import { isObjectId } from "../question.shared.js";
@@ -101,25 +100,6 @@ const deleteContent = async (
         jobId: makeJobId("stats", "deleteQuestion", targetId),
       },
     );
-    await imageDeletionQueue.add(
-      "DELETE_FROM_BODY",
-      {
-        body: foundContent.body,
-        entityType: targetType,
-        entityId: targetId,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "imageDeletion",
-          "DELETE_FROM_BODY",
-          targetType,
-          targetId,
-        ),
-      },
-    );
-
     await getRedisCacheClient().del(`question:${targetId}`);
   } else if (targetType === "ANSWER") {
     await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
@@ -139,25 +119,6 @@ const deleteContent = async (
         jobId: makeJobId("stats", "deleteAnswer", targetId),
       },
     );
-    await imageDeletionQueue.add(
-      "DELETE_FROM_BODY",
-      {
-        body: foundContent.body,
-        entityType: targetType,
-        entityId: targetId,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "imageDeletion",
-          "DELETE_FROM_BODY",
-          targetType,
-          targetId,
-        ),
-      },
-    );
-
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
   } else if (targetType === "REPLY") {
