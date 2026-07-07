@@ -3,6 +3,7 @@ import { createRequire } from "module";
 import z from "zod";
 
 import { Interest } from "../generated/prisma/index.js";
+import { hasMinimumBodyLengthAfterTempImageRemoval } from "../utils/content/contentBodyValidation.util.js";
 
 const require = createRequire(import.meta.url);
 const leoProfanity = require("leo-profanity");
@@ -35,6 +36,15 @@ const createQuestionSchema = z
         message: "Question contains inappropriate language",
       });
     }
+
+    if (!hasMinimumBodyLengthAfterTempImageRemoval(data.body, "QUESTION")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message:
+          "Question body needs at least 20 characters of text besides images",
+      });
+    }
   });
 
 const editQuestionSchema = createQuestionSchema;
@@ -54,6 +64,15 @@ const createAnswerOnQuestionSchema = z
         message: "Answer contains inappropriate language",
       });
     }
+
+    if (!hasMinimumBodyLengthAfterTempImageRemoval(data.body, "ANSWER")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message:
+          "Answer needs at least 20 characters of text besides images",
+      });
+    }
   });
 
 const createReplyOnAnswerSchema = z
@@ -69,6 +88,14 @@ const createReplyOnAnswerSchema = z
         code: z.ZodIssueCode.custom,
         path: ["body"],
         message: "Reply contains inappropriate language",
+      });
+    }
+
+    if (!hasMinimumBodyLengthAfterTempImageRemoval(data.body, "REPLY")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message: "Reply cannot contain only images",
       });
     }
   });
@@ -129,6 +156,20 @@ const createFeedbackOnAiAnswerSchema = z
         message: "Feedback contains inappropriate language",
       });
     }
+
+    if (
+      data.body &&
+      !hasMinimumBodyLengthAfterTempImageRemoval(
+        data.body,
+        "AI_ANSWER_FEEDBACK",
+      )
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message: "Feedback cannot contain only images",
+      });
+    }
   });
 
 const editAiFeedbackSchema = z
@@ -150,6 +191,19 @@ const editAiFeedbackSchema = z
         code: z.ZodIssueCode.custom,
         path: ["body"],
         message: "Feedback contains inappropriate language",
+      });
+    }
+
+    if (
+      !hasMinimumBodyLengthAfterTempImageRemoval(
+        data.body,
+        "AI_ANSWER_FEEDBACK",
+      )
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message: "Feedback cannot contain only images",
       });
     }
   });
