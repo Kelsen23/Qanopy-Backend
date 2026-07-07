@@ -127,7 +127,7 @@ const updateProfilePicture = async (
 
   const randomImageName = crypto.randomUUID();
 
-  const newObjectKey = `profilePictures/${randomImageName}.png`;
+  const newObjectKey = `profilePictures/perm/${userId}/${randomImageName}.png`;
 
   const moved = await moveS3Object(objectKey, newObjectKey);
 
