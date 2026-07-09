@@ -5,19 +5,8 @@ type ContentModerationJobName =
   | "AI_ANSWER_FEEDBACK";
 
 type ModerationActionJobName = "BAN_PERM" | "BAN_TEMP" | "WARN" | "IGNORE";
-type ModerationReviewer = "AI_MODERATION" | "ADMIN_MODERATION";
 
-const createWorkerEventHandlers = (workerName: string) => ({
-  completed: (job: { id?: string | number }) => {
-    console.log(`[${workerName}] Job ${job.id} completed`);
-  },
-  failed: (job: { id?: string | number } | undefined, err: unknown) => {
-    console.error(`[${workerName}] Job ${job?.id} failed:`, err);
-  },
-  error: (err: unknown) => {
-    console.error(`[${workerName}] Worker crashed:`, err);
-  },
-});
+type ModerationReviewer = "AI_MODERATION" | "ADMIN_MODERATION";
 
 const assertContentModerationJobName = (
   name: string,
@@ -70,7 +59,6 @@ export type {
 };
 
 export {
-  createWorkerEventHandlers,
   assertContentModerationJobName,
   assertModerationActionJobName,
   assertModerationReviewer,
