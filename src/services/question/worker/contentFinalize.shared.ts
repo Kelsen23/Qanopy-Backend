@@ -28,7 +28,12 @@ type MutableBodyEntity = {
 const assertContentFinalizeJobName = (
   jobName: string,
 ): ContentFinalizeJobName => {
-  if (jobName === "QUESTION" || jobName === "ANSWER" || jobName === "REPLY" || jobName === "AI_ANSWER_FEEDBACK") {
+  if (
+    jobName === "QUESTION" ||
+    jobName === "ANSWER" ||
+    jobName === "REPLY" ||
+    jobName === "AI_ANSWER_FEEDBACK"
+  ) {
     return jobName;
   }
 
@@ -52,7 +57,4 @@ export type {
   MutableBodyEntity,
 };
 
-export {
-  assertContentFinalizeJobName,
-  assertQuestionFinalizeSnapshot,
-};
+export { assertContentFinalizeJobName, assertQuestionFinalizeSnapshot };
