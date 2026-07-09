@@ -1,8 +1,12 @@
 type QueueWithJobs = {
-  getJob: (jobId: string) => Promise<{
-    getState: () => Promise<string>;
-    retry: () => Promise<unknown>;
-  } | null | undefined>;
+  getJob: (jobId: string) => Promise<
+    | {
+        getState: () => Promise<string>;
+        retry: () => Promise<unknown>;
+      }
+    | null
+    | undefined
+  >;
 };
 
 const ensureJobIsQueued = async ({
