@@ -90,8 +90,6 @@ const finalizeQuestionContent = async ({
     tags,
     moderationStatus,
     moderationUpdatedAt,
-    topicStatus,
-    embeddingStatus,
   } = data;
 
   await updateLiveQuestionBodyIfCurrent({
@@ -112,8 +110,6 @@ const finalizeQuestionContent = async ({
     tags,
     moderationStatus,
     moderationUpdatedAt,
-    topicStatus,
-    embeddingStatus,
   });
 };
 
