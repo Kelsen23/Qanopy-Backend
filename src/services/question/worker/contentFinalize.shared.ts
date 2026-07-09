@@ -1,6 +1,5 @@
 type ContentFinalizeJobName =
   | "QUESTION"
-  | "QUESTION_EXISTING_VERSION"
   | "ANSWER"
   | "REPLY"
   | "AI_ANSWER_FEEDBACK";
@@ -26,21 +25,10 @@ type MutableBodyEntity = {
   save: () => Promise<unknown>;
 };
 
-const QUESTION_LIKE_JOB_NAMES = new Set<ContentFinalizeJobName>([
-  "QUESTION",
-  "QUESTION_EXISTING_VERSION",
-]);
-
 const assertContentFinalizeJobName = (
   jobName: string,
 ): ContentFinalizeJobName => {
-  if (
-    jobName === "QUESTION" ||
-    jobName === "QUESTION_EXISTING_VERSION" ||
-    jobName === "ANSWER" ||
-    jobName === "REPLY" ||
-    jobName === "AI_ANSWER_FEEDBACK"
-  ) {
+  if (jobName === "QUESTION" || jobName === "ANSWER" || jobName === "REPLY" || jobName === "AI_ANSWER_FEEDBACK") {
     return jobName;
   }
 
@@ -67,5 +55,4 @@ export type {
 export {
   assertContentFinalizeJobName,
   assertQuestionFinalizeSnapshot,
-  QUESTION_LIKE_JOB_NAMES,
 };

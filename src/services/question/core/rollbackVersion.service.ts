@@ -5,12 +5,10 @@ import { getRedisCacheClient } from "../../../config/redis.config.js";
 import HttpError from "../../../utils/http/httpError.util.js";
 import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
-import { hasTempContentImageUrls } from "../../../utils/media/contentImageMarkdown.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
 
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import { isObjectId } from "../question.shared.js";
@@ -174,44 +172,18 @@ const rollbackVersion = async (
 
   await clearVersionHistoryCache(questionId);
 
-  if (hasTempContentImageUrls(String(createdNewVersion.body ?? ""))) {
-    await contentFinalizeQueue.add(
-      "QUESTION_EXISTING_VERSION",
-      {
-        userId: String(createdNewVersion.userId),
-        entityId: questionId,
-        version: nextVersion,
-        title: String(createdNewVersion.title),
-        body: String(createdNewVersion.body ?? ""),
-        tags: Array.isArray(createdNewVersion.tags)
-          ? createdNewVersion.tags
-          : [],
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "contentFinalize",
-          "QUESTION_EXISTING_VERSION",
-          questionId,
-          nextVersion,
-        ),
-      },
-    );
-  } else {
-    await contentPipelineRouter.add(
-      "QUESTION",
-      {
-        contentId: questionId,
-        version: nextVersion,
-      },
-      {
-        jobId: makeJobId("contentPipelineRoute", questionId, nextVersion),
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
-  }
+  await contentPipelineRouter.add(
+    "QUESTION",
+    {
+      contentId: questionId,
+      version: nextVersion,
+    },
+    {
+      jobId: makeJobId("contentPipelineRoute", questionId, nextVersion),
+      removeOnComplete: true,
+      removeOnFail: false,
+    },
+  );
 
   return {
     message: "Successfully rolled back",
