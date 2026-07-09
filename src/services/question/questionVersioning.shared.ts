@@ -1,21 +1,56 @@
 type ModerationStatus = "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED";
-type TopicStatus = "PENDING" | "PROCESSING" | "VALID" | "OFF_TOPIC";
-type EmbeddingStatus = "NONE" | "PENDING" | "PROCESSING" | "READY";
+
+type ProcessQuestionVersioningJobData = {
+  questionId: string;
+  intendedVersion: number;
+  userId: string;
+  title: string;
+  body: string;
+  tags: string[];
+  moderationStatus: ModerationStatus;
+  moderationUpdatedAt: Date | null;
+  basedOnVersion?: number;
+};
 
 type CurrentQuestionVersionState = {
   currentVersion: number;
   moderationStatus: ModerationStatus;
   moderationUpdatedAt: Date | null;
   moderationSourceVersion: number | null;
-  topicStatus: TopicStatus;
-  embeddingStatus: EmbeddingStatus;
 };
 
 type QueuedQuestionVersionSnapshot = {
   moderationStatus?: ModerationStatus;
   moderationUpdatedAt?: Date | null;
-  topicStatus?: TopicStatus;
-  embeddingStatus?: EmbeddingStatus;
+};
+
+const assertProcessQuestionVersioningJobData = (
+  data: ProcessQuestionVersioningJobData,
+) => {
+  if (!data.questionId) throw new Error("Missing questionId");
+  if (!data.userId) throw new Error("Missing userId");
+  if (!data.title) throw new Error("Missing title");
+  if (data.body === undefined) throw new Error("Missing body");
+  if (!Array.isArray(data.tags)) throw new Error("Missing tags");
+  if (data.intendedVersion === undefined || Number(data.intendedVersion) < 1) {
+    throw new Error("Invalid intendedVersion");
+  }
+};
+
+const isRetryableQuestionVersioningError = (error: unknown) => {
+  const code = (error as { code?: number })?.code;
+  if (code === 11000) return true;
+
+  const hasErrorLabel = (
+    error as { hasErrorLabel?: (label: string) => boolean }
+  )?.hasErrorLabel;
+
+  if (typeof hasErrorLabel === "function") {
+    if (hasErrorLabel("TransientTransactionError")) return true;
+    if (hasErrorLabel("UnknownTransactionCommitResult")) return true;
+  }
+
+  return false;
 };
 
 const resolveQuestionVersionSeedState = ({
@@ -44,17 +79,17 @@ const resolveQuestionVersionSeedState = ({
         queuedSnapshot.moderationUpdatedAt ??
         null)
       : (queuedSnapshot.moderationUpdatedAt ?? null),
-    topicStatus: isCurrentLiveVersion
-      ? (currentQuestion.topicStatus ?? queuedSnapshot.topicStatus ?? "PENDING")
-      : (queuedSnapshot.topicStatus ?? "PENDING"),
-    embeddingStatus: isCurrentLiveVersion
-      ? (currentQuestion.embeddingStatus ??
-        queuedSnapshot.embeddingStatus ??
-        "NONE")
-      : (queuedSnapshot.embeddingStatus ?? "NONE"),
   };
 };
 
-export { resolveQuestionVersionSeedState };
+export {
+  assertProcessQuestionVersioningJobData,
+  isRetryableQuestionVersioningError,
+  resolveQuestionVersionSeedState,
+};
 
-export type { CurrentQuestionVersionState, QueuedQuestionVersionSnapshot };
+export type {
+  CurrentQuestionVersionState,
+  ProcessQuestionVersioningJobData,
+  QueuedQuestionVersionSnapshot,
+};
