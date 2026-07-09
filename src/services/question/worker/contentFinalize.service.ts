@@ -159,6 +159,10 @@ const processContentFinalizeJob = async (
     sourceBody = String(entity.body ?? "");
   }
 
+  if (isQuestionJob) {
+    assertQuestionFinalizeSnapshot(data);
+  }
+
   const { body: newBody, removedUnsafeImage } =
     await rewriteFinalizeBody(sourceBody);
 
@@ -172,8 +176,6 @@ const processContentFinalizeJob = async (
   }
 
   if (isQuestionJob) {
-    assertQuestionFinalizeSnapshot(data);
-
     await finalizeQuestionContent({
       data,
       body: newBody,
