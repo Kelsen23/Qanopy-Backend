@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import processModerationMetricsJob from "../../services/moderation/worker/moderationMetrics.service.js";
 
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
-import { createWorkerEventHandlers } from "./shared.js";
+
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
 
@@ -13,7 +14,7 @@ const startModerationMetricsWorker = () => {
   const worker = new Worker(
     "moderationMetricsQueue",
     async (job) => {
-      await processModerationMetricsJob(job.name as any, job.data);
+      await processModerationMetricsJob(job.name, job.data);
     },
     {
       connection: redisMessagingClientConnection,

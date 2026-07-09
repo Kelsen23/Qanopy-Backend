@@ -1,15 +1,16 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
-import { redisMessagingClientConnection } from "../../config/redis.config.js";
-import connectMongoDB from "../../config/mongodb.config.js";
-
 import processContent from "../../services/moderation/ai/processContent.service.js";
+
+import connectMongoDB from "../../config/mongodb.config.js";
+import { redisMessagingClientConnection } from "../../config/redis.config.js";
+
 import {
   assertContentModerationJobName,
-  createWorkerEventHandlers,
   getModerationRevisionFromJob,
-} from "./shared.js";
+} from "../../utils/moderation/shared.js";
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
 

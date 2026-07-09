@@ -1,4 +1,5 @@
 import { Worker } from "bullmq";
+import { fileURLToPath } from "node:url";
 
 import processContentFinalizeJob, {
   assertContentFinalizeJobName,
@@ -7,7 +8,12 @@ import processContentFinalizeJob, {
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
-async function startWorker() {
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
+
+const workerFilePath = fileURLToPath(import.meta.url);
+const handlers = createWorkerEventHandlers("contentFinalize");
+
+async function startContentFinalizeWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting content image finalization worker...");
 
@@ -29,14 +35,20 @@ async function startWorker() {
     },
   );
 
-  worker.on("completed", (job) => console.log(`Job ${job.id} completed`));
-  worker.on("failed", (job, err) =>
-    console.error(`Job ${job?.id} failed:`, err),
-  );
-  worker.on("error", (err) => console.error("Worker crashed:", err));
+  worker.on("completed", handlers.completed);
+  worker.on("failed", handlers.failed);
+  worker.on("error", handlers.error);
+
+  return worker;
 }
 
-startWorker().catch((error) => {
-  console.error("Failed to start content image finalization worker:", error);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === workerFilePath;
+
+if (isDirectRun) {
+  void startContentFinalizeWorker().catch((error) => {
+    console.error("Failed to start content image finalization worker:", error);
+    process.exit(1);
+  });
+}
+
+export { startContentFinalizeWorker };

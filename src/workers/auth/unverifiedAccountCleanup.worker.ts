@@ -2,7 +2,10 @@ import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
 import { cleanupAllExpiredUnverifiedUsers } from "../../services/auth/unverifiedAccountCleanup.service.js";
+
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
+
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 import unverifiedAccountCleanupQueue from "../../queues/unverifiedAccountCleanup.queue.js";
 
@@ -10,6 +13,7 @@ const CLEANUP_JOB_NAME = "CLEANUP_EXPIRED_UNVERIFIED_ACCOUNTS";
 const CLEANUP_REPEAT_EVERY_MS = 60 * 60 * 1000;
 
 const workerFilePath = fileURLToPath(import.meta.url);
+const handlers = createWorkerEventHandlers("unverifiedAccountCleanup");
 
 async function startUnverifiedAccountCleanupWorker() {
   const initialCleanedCount = await cleanupAllExpiredUnverifiedUsers();
@@ -51,17 +55,9 @@ async function startUnverifiedAccountCleanupWorker() {
     },
   );
 
-  worker.on("completed", (job) => {
-    console.log(`Job ${job.id} completed`);
-  });
-
-  worker.on("failed", (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err);
-  });
-
-  worker.on("error", (err) => {
-    console.error("Worker crashed:", err);
-  });
+  worker.on("completed", handlers.completed);
+  worker.on("failed", handlers.failed);
+  worker.on("error", handlers.error);
 
   return worker;
 }
