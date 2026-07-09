@@ -184,11 +184,6 @@ const processQuestionVersioningJob = async (
             );
           }
 
-          const latestVersion = await QuestionVersion.findOne({ questionId })
-            .sort({ version: -1 })
-            .session(session)
-            .lean();
-
           const existingTargetVersion = await QuestionVersion.findOne({
             questionId,
             version: nextVersion,
