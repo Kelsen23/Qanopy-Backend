@@ -1,4 +1,5 @@
 import { makeJobId } from "../job/makeJobId.util.js";
+import ensureJobIsQueued from "../job/ensureJobIsQueued.util.js";
 
 import Question from "../../models/question.model.js";
 
@@ -30,36 +31,54 @@ const updateLiveQuestionBodyIfCurrent = async ({
 const queueQuestionContentPipeline = async (
   entityId: string,
   version?: number,
-) =>
-  contentPipelineRouter.add(
+) => {
+  const jobId = makeJobId("contentPipelineRoute", entityId, version);
+  const alreadyQueued = await ensureJobIsQueued({
+    queue: contentPipelineRouter,
+    jobId,
+  });
+
+  if (alreadyQueued) return;
+
+  return contentPipelineRouter.add(
     "QUESTION",
     { contentId: entityId, version },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId("contentPipelineRoute", entityId, version),
+      jobId,
     },
   );
+};
 
 const queueNonQuestionContentPipeline = async (
   jobName: "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK",
   entityId: string,
   moderationRevision?: number,
-) =>
-  contentPipelineRouter.add(
+) => {
+  const jobId = makeJobId(
+    "contentPipelineRoute",
+    jobName,
+    entityId,
+    moderationRevision,
+  );
+  const alreadyQueued = await ensureJobIsQueued({
+    queue: contentPipelineRouter,
+    jobId,
+  });
+
+  if (alreadyQueued) return;
+
+  return contentPipelineRouter.add(
     jobName,
     { contentId: entityId, moderationRevision },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId(
-        "contentPipelineRoute",
-        jobName,
-        entityId,
-        moderationRevision,
-      ),
+      jobId,
     },
   );
+};
 
 const queueQuestionVersionCreation = async ({
   questionId,
@@ -71,8 +90,6 @@ const queueQuestionVersionCreation = async ({
   tags,
   moderationStatus,
   moderationUpdatedAt,
-  topicStatus,
-  embeddingStatus,
 }: {
   questionId: string;
   intendedVersion?: number;
@@ -83,10 +100,21 @@ const queueQuestionVersionCreation = async ({
   tags?: string[];
   moderationStatus?: string;
   moderationUpdatedAt?: Date | null;
-  topicStatus?: string;
-  embeddingStatus?: string;
-}) =>
-  questionVersioningQueue.add(
+}) => {
+  const jobId = makeJobId(
+    "questionVersioning",
+    "CREATE_NEW_QUESTION_VERSION",
+    questionId,
+    intendedVersion,
+  );
+  const alreadyQueued = await ensureJobIsQueued({
+    queue: questionVersioningQueue,
+    jobId,
+  });
+
+  if (alreadyQueued) return;
+
+  return questionVersioningQueue.add(
     "CREATE_NEW_QUESTION_VERSION",
     {
       questionId,
@@ -98,20 +126,14 @@ const queueQuestionVersionCreation = async ({
       tags,
       moderationStatus,
       moderationUpdatedAt,
-      topicStatus,
-      embeddingStatus,
     },
     {
       removeOnComplete: true,
       removeOnFail: false,
-      jobId: makeJobId(
-        "questionVersioning",
-        "CREATE_NEW_QUESTION_VERSION",
-        questionId,
-        intendedVersion,
-      ),
+      jobId,
     },
   );
+};
 
 export {
   queueNonQuestionContentPipeline,
