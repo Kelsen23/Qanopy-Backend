@@ -1,53 +1,46 @@
+import {
+  type ContentPipelineRouterJobData,
+  type NonQuestionContentPipelineRouterJob,
+  type QuestionContentPipelineRouterJob,
+} from "../../../utils/question/contentPipelineRouter.shared.js";
+
 import answerPipelineRouterService from "../pipelineRouter/answerPipelineRouter.service.js";
 import aiAnswerFeedbackPipelineRouterService from "../pipelineRouter/aiAnswerFeedbackPipelineRouter.service.js";
 import questionPipelineRouterService from "../pipelineRouter/questionPipelineRouter.service.js";
 import replyPipelineRouterService from "../pipelineRouter/replyPipelineRouter.service.js";
 
-type ContentPipelineRouterJobName =
-  | "QUESTION"
-  | "ANSWER"
-  | "REPLY"
-  | "AI_ANSWER_FEEDBACK";
+const processQuestionPipelineRoute = async (
+  job: QuestionContentPipelineRouterJob,
+) => questionPipelineRouterService(job.contentId, job.version);
 
-const assertContentPipelineRouterJobName = (
-  jobName: string,
-): ContentPipelineRouterJobName => {
-  if (
-    jobName === "QUESTION" ||
-    jobName === "ANSWER" ||
-    jobName === "REPLY" ||
-    jobName === "AI_ANSWER_FEEDBACK"
-  ) {
-    return jobName;
-  }
+const processAnswerPipelineRoute = async (
+  job: NonQuestionContentPipelineRouterJob,
+) => answerPipelineRouterService(job.contentId, job.moderationRevision);
 
-  throw new Error(`Invalid content pipeline router job type: ${jobName}`);
-};
+const processReplyPipelineRoute = async (
+  job: NonQuestionContentPipelineRouterJob,
+) => replyPipelineRouterService(job.contentId, job.moderationRevision);
+
+const processAiAnswerFeedbackPipelineRoute = async (
+  job: NonQuestionContentPipelineRouterJob,
+) =>
+  aiAnswerFeedbackPipelineRouterService(job.contentId, job.moderationRevision);
+
+const contentPipelineRouteHandlers = {
+  QUESTION: processQuestionPipelineRoute,
+  ANSWER: processAnswerPipelineRoute,
+  REPLY: processReplyPipelineRoute,
+  AI_ANSWER_FEEDBACK: processAiAnswerFeedbackPipelineRoute,
+} as const;
 
 const processContentPipelineRouterJob = async (
-  contentType: ContentPipelineRouterJobName,
-  contentId: string,
-  version?: number,
-  moderationRevision?: number,
+  job: ContentPipelineRouterJobData,
 ) => {
-  switch (contentType) {
-    case "QUESTION":
-      await questionPipelineRouterService(contentId, version as number);
-      break;
-    case "ANSWER":
-      await answerPipelineRouterService(contentId, moderationRevision);
-      break;
-    case "REPLY":
-      await replyPipelineRouterService(contentId, moderationRevision);
-      break;
-    case "AI_ANSWER_FEEDBACK":
-      await aiAnswerFeedbackPipelineRouterService(
-        contentId,
-        moderationRevision,
-      );
-      break;
-  }
+  const handler = contentPipelineRouteHandlers[job.contentType] as (
+    routeJob: typeof job,
+  ) => Promise<void>;
+
+  await handler(job);
 };
 
 export default processContentPipelineRouterJob;
-export { assertContentPipelineRouterJobName };
