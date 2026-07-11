@@ -1,8 +1,6 @@
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { queueQuestionContentFinalize } from "../../../utils/question/contentFinalize.util.js";
 
 import Question from "../../../models/question.model.js";
-
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
 import { queueQuestionStats } from "../question.shared.js";
 import { toPublicQuestion } from "../question.response.js";
@@ -32,27 +30,24 @@ const createQuestion = async ({
     jobIdParts: ["askQuestion", String(newQuestion._id)],
   });
 
-  await contentFinalizeQueue.add(
-    "QUESTION",
-    {
-      userId,
-      entityId: String(newQuestion._id),
-      version: 1,
-      basedOnVersion: 1,
-      title,
-      body,
-      tags,
-      moderationStatus: newQuestion.moderationStatus,
-      moderationUpdatedAt: newQuestion.moderationUpdatedAt,
-      topicStatus: newQuestion.topicStatus,
-      embeddingStatus: newQuestion.embeddingStatus,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId("contentFinalize", "QUESTION", String(newQuestion._id)),
-    },
-  );
+  const moderationUpdatedAt =
+    newQuestion.moderationUpdatedAt instanceof Date
+      ? newQuestion.moderationUpdatedAt
+      : null;
+
+  await queueQuestionContentFinalize({
+    userId,
+    entityId: String(newQuestion._id),
+    version: 1,
+    basedOnVersion: 1,
+    title,
+    body,
+    tags,
+    moderationStatus: String(newQuestion.moderationStatus),
+    moderationUpdatedAt,
+    topicStatus: String(newQuestion.topicStatus),
+    embeddingStatus: String(newQuestion.embeddingStatus),
+  });
 
   return {
     message: "Successfully created question",

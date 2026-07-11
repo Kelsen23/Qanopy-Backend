@@ -2,10 +2,9 @@ import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
 import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { queueQuestionContentFinalize } from "../../../utils/question/contentFinalize.util.js";
 
 import Question from "../../../models/question.model.js";
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
 
 import { isObjectId } from "../question.shared.js";
 import { toPublicQuestion } from "../question.response.js";
@@ -65,32 +64,19 @@ const editQuestion = async (
     { returnDocument: "after" },
   );
 
-  await contentFinalizeQueue.add(
-    "QUESTION",
-    {
-      userId,
-      entityId: editedQuestion?._id,
-      version: newVersion,
-      basedOnVersion: newVersion - 1,
-      title,
-      body,
-      tags,
-      moderationStatus: "PENDING",
-      moderationUpdatedAt: null,
-      topicStatus: "PENDING",
-      embeddingStatus: "NONE",
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId(
-        "contentFinalize",
-        "QUESTION",
-        editedQuestion?._id,
-        newVersion,
-      ),
-    },
-  );
+  await queueQuestionContentFinalize({
+    userId,
+    entityId: String(editedQuestion?._id),
+    version: newVersion,
+    basedOnVersion: newVersion - 1,
+    title,
+    body,
+    tags,
+    moderationStatus: "PENDING",
+    moderationUpdatedAt: null,
+    topicStatus: "PENDING",
+    embeddingStatus: "NONE",
+  });
 
   await getRedisCacheClient().del(`question:${editedQuestion?._id}`);
   await clearVersionHistoryCache(questionId);
