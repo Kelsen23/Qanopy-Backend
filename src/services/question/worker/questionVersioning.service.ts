@@ -10,13 +10,10 @@ import {
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import Question from "../../../models/question.model.js";
-
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import { withQuestionVersionLock } from "./questionVersioning.lock.js";
 
@@ -184,28 +181,12 @@ const loadTargetQuestionVersion = async (questionId: string, version: number) =>
 const queueQuestionContentPipeline = async (
   questionId: string,
   version: number,
-) => {
-  const jobId = makeJobId("contentPipelineRoute", questionId, version);
-  const alreadyQueued = await ensureJobIsQueued({
-    queue: contentPipelineRouter,
-    jobId,
+) =>
+  queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version,
   });
-
-  if (alreadyQueued) return;
-
-  return contentPipelineRouter.add(
-    "QUESTION",
-    {
-      contentId: questionId,
-      version,
-    },
-    {
-      jobId,
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  );
-};
 
 const clearQuestionVersionCaches = async ({
   questionId,
@@ -231,29 +212,26 @@ const processQuestionVersioningJob = async (
 ) => {
   assertProcessQuestionVersioningJobData(data);
 
-  await withQuestionVersionLock(
-    data.questionId,
-    async ({ assertLockHeld }) => {
-      const { nextVersion, targetVersionExists } =
-        await ensureQuestionVersionExistsWithRetry(data);
+  await withQuestionVersionLock(data.questionId, async ({ assertLockHeld }) => {
+    const { nextVersion, targetVersionExists } =
+      await ensureQuestionVersionExistsWithRetry(data);
 
-      if (!targetVersionExists) return;
+    if (!targetVersionExists) return;
 
-      const targetVersion = await loadTargetQuestionVersion(
-        data.questionId,
-        nextVersion,
-      );
+    const targetVersion = await loadTargetQuestionVersion(
+      data.questionId,
+      nextVersion,
+    );
 
-      if (!targetVersion) return;
+    if (!targetVersion) return;
 
-      await assertLockHeld();
-      await queueQuestionContentPipeline(data.questionId, nextVersion);
-      await clearQuestionVersionCaches({
-        questionId: data.questionId,
-        targetVersion,
-      });
-    },
-  );
+    await assertLockHeld();
+    await queueQuestionContentPipeline(data.questionId, nextVersion);
+    await clearQuestionVersionCaches({
+      questionId: data.questionId,
+      targetVersion,
+    });
+  });
 };
 
 export default processQuestionVersioningJob;
