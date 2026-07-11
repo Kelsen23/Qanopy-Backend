@@ -8,6 +8,13 @@ const QUESTION_VERSION_LOCK_WAIT_MS = 10000;
 const QUESTION_VERSION_LOCK_RETRY_DELAY_MS = 100;
 const QUESTION_VERSION_LOCK_RENEW_INTERVAL_MS = 10000;
 
+class QuestionVersionLockLostError extends Error {
+  constructor(questionId: string) {
+    super(`Question version lock lost for question ${questionId}`);
+    this.name = "QuestionVersionLockLostError";
+  }
+}
+
 const acquireQuestionVersionLock = async (questionId: string) => {
   const redis = getRedisCacheClient();
   const lockKey = `lock:questionVersioning:${questionId}`;
@@ -71,18 +78,75 @@ const renewQuestionVersionLock = async (lockKey: string, lockToken: string) => {
   return Number(renewed) === 1;
 };
 
+const isQuestionVersionLockHeld = async (
+  lockKey: string,
+  lockToken: string,
+) => {
+  const redis = getRedisCacheClient();
+
+  const isHeld = await redis.eval(
+    `
+      if redis.call("GET", KEYS[1]) == ARGV[1] then
+        return 1
+      end
+      return 0
+    `,
+    1,
+    lockKey,
+    lockToken,
+  );
+
+  return Number(isHeld) === 1;
+};
+
+const waitForRenewalToSettle = async (
+  renewalInFlight: Promise<void> | null,
+) => {
+  if (!renewalInFlight) return;
+
+  await Promise.allSettled([renewalInFlight]);
+};
+
 const withQuestionVersionLock = async <T>(
   questionId: string,
-  action: () => Promise<T>,
+  action: (helpers: { assertLockHeld: () => Promise<void> }) => Promise<T>,
 ) => {
   const { lockKey, lockToken } = await acquireQuestionVersionLock(questionId);
+  let lockError: Error | null = null;
+  let renewalInFlight: Promise<void> | null = null;
+
+  const markLockLost = (error?: unknown) => {
+    if (lockError) return;
+
+    if (error instanceof Error) {
+      lockError = error;
+      return;
+    }
+
+    lockError = new QuestionVersionLockLostError(questionId);
+  };
+
+  const assertLockHeld = async () => {
+    await waitForRenewalToSettle(renewalInFlight);
+
+    if (lockError) throw lockError;
+
+    const stillHeld = await isQuestionVersionLockHeld(lockKey, lockToken);
+
+    if (!stillHeld) {
+      const error = new QuestionVersionLockLostError(questionId);
+      markLockLost(error);
+      throw error;
+    }
+  };
+
   const lockRenewer = setInterval(() => {
-    void renewQuestionVersionLock(lockKey, lockToken)
+    renewalInFlight = renewQuestionVersionLock(lockKey, lockToken)
       .then((renewed) => {
         if (!renewed) {
-          console.error(
-            `Question version lock lost before renewal for question ${questionId}`,
-          );
+          const error = new QuestionVersionLockLostError(questionId);
+          console.error(error.message);
+          markLockLost(error);
         }
       })
       .catch((error) => {
@@ -90,15 +154,22 @@ const withQuestionVersionLock = async <T>(
           `Failed to renew question version lock for question ${questionId}:`,
           error,
         );
+        markLockLost(error);
+      })
+      .finally(() => {
+        renewalInFlight = null;
       });
   }, QUESTION_VERSION_LOCK_RENEW_INTERVAL_MS);
 
   try {
-    return await action();
+    const result = await action({ assertLockHeld });
+    await assertLockHeld();
+    return result;
   } finally {
     clearInterval(lockRenewer);
+    await waitForRenewalToSettle(renewalInFlight);
     await releaseQuestionVersionLock(lockKey, lockToken);
   }
 };
 
-export { withQuestionVersionLock };
+export { QuestionVersionLockLostError, withQuestionVersionLock };
