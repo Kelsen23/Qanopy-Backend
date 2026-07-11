@@ -2,6 +2,7 @@ import prisma from "../../../config/prisma.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
+import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
 import routeNotification from "../../notification/routeNotification.service.js";
@@ -9,7 +10,6 @@ import { type ModeratableContentType } from "./contentModeration.shared.js";
 
 import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
@@ -104,18 +104,11 @@ const handleContentModerationWarn = async ({
   );
 
   if (contentType === "QUESTION")
-    await contentPipelineRouter.add(
-      "QUESTION",
-      {
-        contentId,
-        version: versionOrRevision,
-      },
-      {
-        jobId: makeJobId("contentPipelineRoute", contentId, versionOrRevision),
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+    await queueContentPipelineRoute({
+      contentType: "QUESTION",
+      contentId,
+      version: versionOrRevision as number,
+    });
 
   await routeNotification({
     recipientId: content.userId as string,

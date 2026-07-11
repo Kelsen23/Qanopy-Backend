@@ -4,12 +4,10 @@ import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
 import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
-
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import { isObjectId } from "../question.shared.js";
 import { toPublicQuestionVersion } from "../question.response.js";
@@ -172,18 +170,11 @@ const rollbackVersion = async (
 
   await clearVersionHistoryCache(questionId);
 
-  await contentPipelineRouter.add(
-    "QUESTION",
-    {
-      contentId: questionId,
-      version: nextVersion,
-    },
-    {
-      jobId: makeJobId("contentPipelineRoute", questionId, nextVersion),
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  );
+  await queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version: nextVersion,
+  });
 
   return {
     message: "Successfully rolled back",
