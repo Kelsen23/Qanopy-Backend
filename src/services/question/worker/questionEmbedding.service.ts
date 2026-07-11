@@ -5,14 +5,12 @@ import generateEmbedding from "../ai/generateEmbedding.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 import convertQuestionToEmbeddingText from "../../../utils/question/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import Question from "../../../models/question.model.js";
-
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 type ProcessQuestionEmbeddingJobData = {
   questionId: string;
@@ -86,15 +84,11 @@ const processQuestionEmbeddingJob = async ({
 
   if (updated.modifiedCount === 0) return;
 
-  await contentPipelineRouter.add(
-    "QUESTION",
-    { contentId: questionId, version },
-    {
-      jobId: makeJobId("contentPipelineRoute", questionId, version),
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  );
+  await queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version,
+  });
 
   await routeNotification({
     recipientId: locked.userId as string,
