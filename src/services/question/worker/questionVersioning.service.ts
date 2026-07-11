@@ -231,25 +231,29 @@ const processQuestionVersioningJob = async (
 ) => {
   assertProcessQuestionVersioningJobData(data);
 
-  await withQuestionVersionLock(data.questionId, async () => {
-    const { nextVersion, targetVersionExists } =
-      await ensureQuestionVersionExistsWithRetry(data);
+  await withQuestionVersionLock(
+    data.questionId,
+    async ({ assertLockHeld }) => {
+      const { nextVersion, targetVersionExists } =
+        await ensureQuestionVersionExistsWithRetry(data);
 
-    if (!targetVersionExists) return;
+      if (!targetVersionExists) return;
 
-    const targetVersion = await loadTargetQuestionVersion(
-      data.questionId,
-      nextVersion,
-    );
+      const targetVersion = await loadTargetQuestionVersion(
+        data.questionId,
+        nextVersion,
+      );
 
-    if (!targetVersion) return;
+      if (!targetVersion) return;
 
-    await queueQuestionContentPipeline(data.questionId, nextVersion);
-    await clearQuestionVersionCaches({
-      questionId: data.questionId,
-      targetVersion,
-    });
-  });
+      await assertLockHeld();
+      await queueQuestionContentPipeline(data.questionId, nextVersion);
+      await clearQuestionVersionCaches({
+        questionId: data.questionId,
+        targetVersion,
+      });
+    },
+  );
 };
 
 export default processQuestionVersioningJob;
