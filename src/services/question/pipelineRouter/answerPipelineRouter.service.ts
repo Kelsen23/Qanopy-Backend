@@ -1,43 +1,22 @@
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
 
 import Answer from "../../../models/answer.model.js";
 
-import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
-import contentModerationQueue from "../../../queues/contentModeration.queue.js";
+import { routePendingModerationContent } from "./moderationPipelineRouter.shared.js";
 
 const answerPipelineRouter = async (
   answerId: string,
   moderationRevision?: number,
 ) => {
-  const foundAnswer = await Answer.findById(answerId).select(
-    "_id questionId moderationStatus moderationRevision",
-  );
+  const foundAnswer = await routePendingModerationContent({
+    contentType: "ANSWER",
+    contentId: answerId,
+    moderationRevision,
+    model: Answer,
+    select: "_id questionId moderationStatus moderationRevision",
+  });
 
-  if (
-    !foundAnswer ||
-    foundAnswer.moderationStatus !== "PENDING" ||
-    (moderationRevision !== undefined &&
-      foundAnswer.moderationRevision !== moderationRevision)
-  )
-    return;
-
-  await contentModerationQueue.add(
-    "ANSWER",
-    {
-      contentId: foundAnswer._id,
-      moderationRevision: foundAnswer.moderationRevision,
-    },
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId(
-        "contentModeration",
-        "ANSWER",
-        foundAnswer._id,
-        foundAnswer.moderationRevision,
-      ),
-    },
-  );
+  if (!foundAnswer) return;
 
   await clearAnswerCache(foundAnswer.questionId as string);
 };
