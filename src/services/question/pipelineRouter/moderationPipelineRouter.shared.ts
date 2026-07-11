@@ -1,6 +1,6 @@
-import { queueContentModerationRoute } from "../../../utils/question/pipelineRouting.util.js";
+import { queueContentModerationRoute } from "./pipelineRouting.service.js";
 
-import type { NonQuestionContentPipelineRouterJob } from "../../../utils/question/contentPipelineRouter.shared.js";
+import type { NonQuestionContentPipelineRouterJob } from "./contentPipelineRouter.shared.js";
 
 type ModerationRoutableEntity = {
   _id: string;

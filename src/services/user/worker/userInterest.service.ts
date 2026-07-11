@@ -1,4 +1,4 @@
-import type { UserInterestAction } from "../../../utils/question/queueUserInterest.util.js";
+import type { UserInterestAction } from "../userInterest/queueUserInterest.service.js";
 
 import UserInterest from "../../../models/userInterest.model.js";
 

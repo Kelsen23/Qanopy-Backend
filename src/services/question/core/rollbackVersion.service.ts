@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
+
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
 import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
-import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";

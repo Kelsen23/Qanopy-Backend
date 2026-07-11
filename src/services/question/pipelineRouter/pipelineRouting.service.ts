@@ -1,11 +1,11 @@
-import ensureJobIsQueued from "../job/ensureJobIsQueued.util.js";
-import { makeJobId } from "../job/makeJobId.util.js";
+import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import contentModerationQueue from "../../queues/contentModeration.queue.js";
-import contentPipelineRouter from "../../queues/contentPipelineRouter.queue.js";
-import questionEmbeddingQueue from "../../queues/questionEmbedding.queue.js";
-import similarQuestionsQueue from "../../queues/similarQuestions.queue.js";
-import topicDeterminationQueue from "../../queues/topicDetermination.queue.js";
+import contentModerationQueue from "../../../queues/contentModeration.queue.js";
+import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
+import questionEmbeddingQueue from "../../../queues/questionEmbedding.queue.js";
+import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
+import topicDeterminationQueue from "../../../queues/topicDetermination.queue.js";
 
 import type { ContentPipelineRouterJobData } from "./contentPipelineRouter.shared.js";
 

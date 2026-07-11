@@ -1,8 +1,9 @@
+import { queueQuestionContentFinalize } from "../contentFinalize/contentFinalizeQueue.service.js";
+
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
 import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
-import { queueQuestionContentFinalize } from "../../../utils/question/contentFinalize.util.js";
 
 import Question from "../../../models/question.model.js";
 

@@ -1,17 +1,17 @@
+import type { LoadedModerationContent } from "./loadModerationContent.service.js";
+import { type ModeratableContentType } from "./contentModeration.shared.js";
+
+import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
+import routeNotification from "../../notification/routeNotification.service.js";
+import { queueContentPipelineRoute } from "../../question/pipelineRouter/pipelineRouting.service.js";
+
 import prisma from "../../../config/prisma.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
-import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
-
-import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
-import routeNotification from "../../notification/routeNotification.service.js";
-import { type ModeratableContentType } from "./contentModeration.shared.js";
 
 import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
-
-import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
 type HandleContentModerationWarnInput = {
   contentId: string;

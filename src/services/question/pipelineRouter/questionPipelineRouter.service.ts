@@ -1,7 +1,7 @@
 import {
   queueContentModerationRoute,
   queueQuestionPipelineStep,
-} from "../../../utils/question/pipelineRouting.util.js";
+} from "./pipelineRouting.service.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";

@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
-
 import { Redis } from "ioredis";
+
+import { Interest, User } from "../../generated/prisma/index.js";
+
+import queueUserInterest from "../../services/user/userInterest/queueUserInterest.service.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
+import getStableOffset from "../../utils/question/getStableOffset.util.js";
+import interests from "../../utils/question/interests.util.js";
+import rotateArray from "../../utils/question/rotateArray.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -9,14 +17,6 @@ import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 import UserInterest from "../../models/userInterest.model.js";
-
-import HttpError from "../../utils/http/httpError.util.js";
-import interests from "../../utils/question/interests.util.js";
-import queueUserInterest from "../../utils/question/queueUserInterest.util.js";
-import rotateArray from "../../utils/question/rotateArray.util.js";
-import getStableOffset from "../../utils/question/getStableOffset.util.js";
-
-import { Interest, User } from "../../generated/prisma/index.js";
 
 type RecommendedQuestionsCursor = {
   id: string;

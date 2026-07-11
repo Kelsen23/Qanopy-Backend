@@ -1,7 +1,7 @@
 import routeNotification from "../../../services/notification/routeNotification.service.js";
 import determineTopicStatusService from "../ai/topicDetermination.service.js";
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
-import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 import convertQuestionToEmbeddingText from "../../../utils/question/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 

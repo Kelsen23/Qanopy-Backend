@@ -1,4 +1,4 @@
-import { queueQuestionContentFinalize } from "../../../utils/question/contentFinalize.util.js";
+import { queueQuestionContentFinalize } from "../contentFinalize/contentFinalizeQueue.service.js";
 
 import Question from "../../../models/question.model.js";
 

@@ -2,10 +2,10 @@ import crypto from "crypto";
 
 import routeNotification from "../../../services/notification/routeNotification.service.js";
 import generateEmbedding from "../ai/generateEmbedding.service.js";
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
 import convertQuestionToEmbeddingText from "../../../utils/question/convertQuestionToEmbeddingText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 

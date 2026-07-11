@@ -1,12 +1,8 @@
-import { makeUniqueJobId } from "../job/makeJobId.util.js";
+import { makeUniqueJobId } from "../../../utils/job/makeJobId.util.js";
 
-import userInterestQueue from "../../queues/userInterest.queue.js";
+import userInterestQueue from "../../../queues/userInterest.queue.js";
 
-export type UserInterestAction =
-  | "VIEW"
-  | "UPVOTE"
-  | "ANSWER"
-  | "AI_ANSWER_FEEDBACK";
+type UserInterestAction = "VIEW" | "UPVOTE" | "ANSWER" | "AI_ANSWER_FEEDBACK";
 
 type QueueUserInterestParams = {
   userId: string;
@@ -32,5 +28,7 @@ const queueUserInterest = async ({
     },
   );
 };
+
+export type { UserInterestAction };
 
 export default queueUserInterest;

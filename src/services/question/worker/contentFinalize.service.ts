@@ -1,25 +1,24 @@
 import routeNotification from "../../notification/routeNotification.service.js";
-
-import { getRedisCacheClient } from "../../../config/redis.config.js";
-
 import {
   queueNonQuestionContentPipeline,
   queueQuestionVersionCreation,
   updateLiveQuestionBodyIfCurrent,
-} from "../../../utils/question/contentFinalize.util.js";
+} from "../contentFinalize/contentFinalizeQueue.service.js";
+import { rewriteBodyWithResolvedImages } from "../contentFinalize/contentFinalizeImage.service.js";
+
+import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import Answer from "../../../models/answer.model.js";
 import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import { rewriteBodyWithResolvedImages } from "./contentFinalizeImage.service.js";
 import {
   assertContentFinalizeJobName,
   assertQuestionFinalizeSnapshot,
   type ContentFinalizeJobData,
   type ContentFinalizeJobName,
   type MutableBodyEntity,
-} from "./contentFinalize.shared.js";
+} from "../contentFinalize/contentFinalize.shared.js";
 
 const getNotificationContentType = (jobName: ContentFinalizeJobName) =>
   jobName as "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";

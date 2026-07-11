@@ -1,12 +1,12 @@
-import { makeJobId } from "../job/makeJobId.util.js";
-import ensureJobIsQueued from "../job/ensureJobIsQueued.util.js";
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
-import { queueContentPipelineRoute } from "./pipelineRouting.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
 
-import Question from "../../models/question.model.js";
+import Question from "../../../models/question.model.js";
 
-import contentFinalizeQueue from "../../queues/contentFinalize.queue.js";
-import questionVersioningQueue from "../../queues/questionVersioning.queue.js";
+import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
+import questionVersioningQueue from "../../../queues/questionVersioning.queue.js";
 
 const updateLiveQuestionBodyIfCurrent = async ({
   entityId,
@@ -166,8 +166,8 @@ const queueQuestionVersionCreation = async ({
 
 export {
   queueNonQuestionContentPipeline,
-  queueQuestionContentPipeline,
   queueQuestionContentFinalize,
+  queueQuestionContentPipeline,
   queueQuestionVersionCreation,
   updateLiveQuestionBodyIfCurrent,
 };

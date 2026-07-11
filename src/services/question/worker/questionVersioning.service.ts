@@ -6,16 +6,14 @@ import {
   isRetryableQuestionVersioningError,
   resolveQuestionVersionSeedState,
   type ProcessQuestionVersioningJobData,
-} from "../questionVersioning.shared.js";
+} from "../versioning/questionVersioning.shared.js";
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
+import { withQuestionVersionLock } from "../versioning/questionVersioning.lock.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import { queueContentPipelineRoute } from "../../../utils/question/pipelineRouting.util.js";
-
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import Question from "../../../models/question.model.js";
-
-import { withQuestionVersionLock } from "./questionVersioning.lock.js";
 
 const QUESTION_VERSION_MAX_RETRIES = 3;
 const QUESTION_VERSION_RETRY_BACKOFF_MS = [100, 300, 700];
