@@ -1,24 +1,19 @@
 import { S3Client } from "@aws-sdk/client-s3";
-
 import dotenv from "dotenv";
+
+import { s3ConfigSchema } from "../validations/config.schema.js";
+
 dotenv.config();
 
-const bucketName = process.env.BUCKET_NAME;
-const bucketRegion = process.env.BUCKET_REGION;
-const accessKey = process.env.ACCESS_KEY;
-const secretAccessKey = process.env.SECRET_ACCESS_KEY;
-const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN;
+const s3Config = s3ConfigSchema.parse(process.env);
+
+const bucketName = s3Config.BUCKET_NAME;
+const bucketRegion = s3Config.BUCKET_REGION;
+const accessKey = s3Config.ACCESS_KEY;
+const secretAccessKey = s3Config.SECRET_ACCESS_KEY;
+const cloudfrontDomain = s3Config.CLOUDFRONT_DOMAIN;
 
 let s3: S3Client | null;
-
-if (
-  !bucketName ||
-  !bucketRegion ||
-  !accessKey ||
-  !secretAccessKey ||
-  !cloudfrontDomain
-)
-  throw new Error("Missing AWS S3 environment variables");
 
 const getS3 = (): S3Client => {
   if (!s3) {

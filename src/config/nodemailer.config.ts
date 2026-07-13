@@ -1,15 +1,19 @@
 import nodemailer from "nodemailer";
-
 import dotenv from "dotenv";
+
+import { nodemailerConfigSchema } from "../validations/config.schema.js";
+
 dotenv.config();
 
+const nodemailerConfig = nodemailerConfigSchema.parse(process.env);
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  host: nodemailerConfig.SMTP_HOST,
   port: 587,
   secure: false,
   auth: {
-    user: process.env.SENDER_EMAIL,
-    pass: process.env.SENDER_PASS,
+    user: nodemailerConfig.SENDER_EMAIL,
+    pass: nodemailerConfig.SENDER_PASS,
   },
 });
 
