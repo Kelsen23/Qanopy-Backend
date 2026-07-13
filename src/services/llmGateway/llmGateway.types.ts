@@ -170,7 +170,7 @@ type LLMAdapterStreamTextOptions = LLMStreamTextOptions & {
 };
 
 type LLMAdapter = {
-  generate: (
+  generate?: (
     ...args: [LLMAdapterGenerateOptions]
   ) => Promise<LLMAdapterTextResponse>;
   embed?: (
