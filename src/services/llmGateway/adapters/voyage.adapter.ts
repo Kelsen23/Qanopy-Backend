@@ -1,11 +1,14 @@
 import { createRequire } from "module";
 
 import type { LLMAdapter } from "../llmGateway.types.js";
+import { getProviderCapabilities } from "../llmGateway.capabilities.js";
 
 const require = createRequire(import.meta.url);
 const { VoyageAIClient } = require("voyageai");
 
 const voyageAdapter: LLMAdapter = {
+  capabilities: getProviderCapabilities("voyage"),
+
   embed: async ({ apiKey, route, input, inputType }) => {
     const client = new VoyageAIClient({ apiKey });
 

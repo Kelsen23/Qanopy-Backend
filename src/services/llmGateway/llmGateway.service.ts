@@ -6,10 +6,10 @@ import { z } from "zod";
 import type {
   LLMAdapter,
   LLMAdapterTextResponse,
+  LLMGenerateOptions,
   LLMEmbedOptions,
   LLMEmbeddingResponse,
   LLMFeature,
-  LLMGenerateOptions,
   LLMGenerateResponse,
   LLMMetadata,
   LLMModerationOptions,
@@ -90,6 +90,106 @@ const buildMetadata = ({
   cacheHit: response.cacheHit,
   routedModel: response.routedModel,
 });
+
+const assertGenerateRequirements = <TSchema extends z.ZodTypeAny | undefined>(
+  adapter: LLMAdapter,
+  route: LLMRoute,
+  options: LLMGenerateOptions<TSchema>,
+) => {
+  if (
+    options.mode === "json" &&
+    options.structuredOutput?.required &&
+    !options.schema
+  ) {
+    throw new Error("Required structured output must include a schema");
+  }
+
+  if (
+    options.mode === "json" &&
+    options.structuredOutput?.required &&
+    adapter.capabilities.json !== "native"
+  ) {
+    throw new Error(
+      `${route.provider} does not support required native structured output`,
+    );
+  }
+
+  if (
+    options.cache?.required &&
+    adapter.capabilities.promptCaching === "unsupported"
+  ) {
+    throw new Error(`${route.provider} does not support required prompt caching`);
+  }
+
+  if (
+    options.reasoning?.required &&
+    adapter.capabilities.reasoningEffort === "unsupported"
+  ) {
+    throw new Error(`${route.provider} does not support required reasoning`);
+  }
+
+  if (
+    options.reasoning?.required &&
+    route.provider !== "anthropic" &&
+    options.reasoning.budgetTokens !== undefined
+  ) {
+    throw new Error(
+      `${route.provider} does not support required reasoning token budgets`,
+    );
+  }
+
+  if (
+    options.reasoning?.required &&
+    route.provider !== "anthropic" &&
+    options.reasoning.enabled &&
+    !options.reasoning.effort
+  ) {
+    throw new Error(
+      `${route.provider} does not support required adaptive reasoning`,
+    );
+  }
+};
+
+const assertStreamRequirements = (
+  adapter: LLMAdapter,
+  route: LLMRoute,
+  options: LLMStreamTextOptions,
+) => {
+  if (
+    options.cache?.required &&
+    adapter.capabilities.promptCaching === "unsupported"
+  ) {
+    throw new Error(`${route.provider} does not support required prompt caching`);
+  }
+
+  if (
+    options.reasoning?.required &&
+    adapter.capabilities.reasoningEffort === "unsupported"
+  ) {
+    throw new Error(`${route.provider} does not support required reasoning`);
+  }
+
+  if (
+    options.reasoning?.required &&
+    route.provider !== "anthropic" &&
+    options.reasoning.budgetTokens !== undefined
+  ) {
+    throw new Error(
+      `${route.provider} does not support required reasoning token budgets`,
+    );
+  }
+
+  if (
+    options.reasoning?.required &&
+    route.provider !== "anthropic" &&
+    options.reasoning.enabled &&
+    !options.reasoning.effort
+  ) {
+    throw new Error(
+      `${route.provider} does not support required adaptive reasoning`,
+    );
+  }
+};
 
 const callRoute = async ({
   route,
@@ -206,6 +306,8 @@ const generate = async <TSchema extends z.ZodTypeAny | undefined = undefined>(
             );
           }
 
+          assertGenerateRequirements(adapter, route, options);
+
           return adapter.generate({
             ...options,
             route,
@@ -297,6 +399,8 @@ const streamText = async (options: LLMStreamTextOptions) => {
           if (!adapter.streamText) {
             throw new Error(`${route.provider} does not support streaming`);
           }
+
+          assertStreamRequirements(adapter, route, options);
 
           return adapter.streamText({
             ...options,

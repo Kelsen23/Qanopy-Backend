@@ -14,6 +14,18 @@ type LLMFeature =
 
 type LLMRole = "system" | "user" | "assistant";
 
+type LLMReasoningEffort = "low" | "medium" | "high" | "max";
+
+type LLMReasoningDisplay = "summarized" | "omitted";
+
+type LLMReasoningOptions = {
+  enabled?: boolean;
+  effort?: LLMReasoningEffort;
+  budgetTokens?: number;
+  display?: LLMReasoningDisplay;
+  required?: boolean;
+};
+
 type LLMMessage = {
   role: LLMRole;
   content: string;
@@ -72,6 +84,13 @@ type ModelCapabilities = {
   reasoningEffort: CapabilitySupport;
 };
 
+type LLMProviderCapabilities = ModelCapabilities & {
+  textGeneration: CapabilitySupport;
+  streaming: CapabilitySupport;
+  embeddings: CapabilitySupport;
+  moderation: CapabilitySupport;
+};
+
 type LLMGenerateOptions<TSchema extends z.ZodTypeAny | undefined = undefined> =
   {
     feature: LLMFeature;
@@ -89,6 +108,7 @@ type LLMGenerateOptions<TSchema extends z.ZodTypeAny | undefined = undefined> =
       enabled: boolean;
       required?: boolean;
     };
+    reasoning?: LLMReasoningOptions;
   };
 
 type LLMTextResponse = {
@@ -170,6 +190,7 @@ type LLMAdapterStreamTextOptions = LLMStreamTextOptions & {
 };
 
 type LLMAdapter = {
+  capabilities: LLMProviderCapabilities;
   generate?: (
     ...args: [LLMAdapterGenerateOptions]
   ) => Promise<LLMAdapterTextResponse>;
@@ -213,6 +234,10 @@ export type {
   LLMModerationOptions,
   LLMModerationResponse,
   LLMProvider,
+  LLMProviderCapabilities,
+  LLMReasoningDisplay,
+  LLMReasoningEffort,
+  LLMReasoningOptions,
   LLMRoute,
   LLMStreamTextOptions,
   LLMTextResponse,

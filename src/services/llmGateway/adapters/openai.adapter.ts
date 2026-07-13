@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 import OpenAI from "openai";
+import { z } from "zod";
 import type {
   ChatCompletion,
   ChatCompletionChunk,
@@ -8,11 +9,14 @@ import type {
 
 import type {
   LLMAdapter,
+  LLMAdapterEmbeddingOptions,
   LLMAdapterGenerateOptions,
   LLMAdapterStreamTextOptions,
   LLMMessage,
+  LLMReasoningOptions,
   LLMUsage,
 } from "../llmGateway.types.js";
+import { getProviderCapabilities } from "../llmGateway.capabilities.js";
 
 const toOpenAiMessages = (messages: LLMMessage[]) =>
   messages.map((message) => ({
@@ -66,16 +70,43 @@ const toUsage = (usage?: OpenAiUsage): LLMUsage => {
   };
 };
 
+const toOpenAiReasoningEffort = (reasoning?: LLMReasoningOptions) => {
+  if (!reasoning?.effort) return undefined;
+
+  return reasoning.effort === "max" ? "xhigh" : reasoning.effort;
+};
+
+const buildResponseFormat = (
+  mode: LLMAdapterGenerateOptions["mode"],
+  schema?: LLMAdapterGenerateOptions["schema"],
+) => {
+  if (mode !== "json") return undefined;
+  if (!schema) return { type: "json_object" as const };
+
+  return {
+    type: "json_schema" as const,
+    json_schema: {
+      name: "llm_gateway_response",
+      schema: z.toJSONSchema(schema) as { [key: string]: unknown },
+      strict: true,
+    },
+  };
+};
+
 const openaiAdapter: LLMAdapter = {
+  capabilities: getProviderCapabilities("openai"),
+
   generate: async ({
     apiKey,
     route,
     feature,
     messages,
     mode,
+    schema,
     temperature,
     maxTokens,
     cache,
+    reasoning,
   }: LLMAdapterGenerateOptions) => {
     const client = new OpenAI({ apiKey });
     const promptCacheEnabled = shouldUsePromptCache({ cache, messages });
@@ -85,7 +116,8 @@ const openaiAdapter: LLMAdapter = {
       messages: toOpenAiMessages(messages),
       temperature,
       max_tokens: maxTokens,
-      response_format: mode === "json" ? { type: "json_object" } : undefined,
+      response_format: buildResponseFormat(mode, schema),
+      reasoning_effort: toOpenAiReasoningEffort(reasoning),
       prompt_cache_key: promptCacheEnabled
         ? buildPromptCacheKey({ feature, route, messages })
         : undefined,
@@ -123,6 +155,29 @@ const openaiAdapter: LLMAdapter = {
     };
   },
 
+  embed: async ({ apiKey, route, input }: LLMAdapterEmbeddingOptions) => {
+    const client = new OpenAI({ apiKey });
+
+    const response = await client.embeddings.create({
+      model: route.model,
+      input,
+    });
+    const embedding = response.data[0]?.embedding;
+
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      throw new Error("OpenAI embedding returned no embedding");
+    }
+
+    return {
+      text: "",
+      embedding,
+      usage: {
+        inputTokens: response.usage?.prompt_tokens,
+        totalTokens: response.usage?.total_tokens,
+      },
+    };
+  },
+
   streamText: async ({
     apiKey,
     route,
@@ -132,6 +187,7 @@ const openaiAdapter: LLMAdapter = {
     maxTokens,
     onToken,
     cache,
+    reasoning,
   }: LLMAdapterStreamTextOptions) => {
     const client = new OpenAI({ apiKey });
     const promptCacheEnabled = shouldUsePromptCache({ cache, messages });
@@ -143,6 +199,7 @@ const openaiAdapter: LLMAdapter = {
       max_tokens: maxTokens,
       stream: true,
       stream_options: { include_usage: true },
+      reasoning_effort: toOpenAiReasoningEffort(reasoning),
       prompt_cache_key: promptCacheEnabled
         ? buildPromptCacheKey({ feature, route, messages })
         : undefined,

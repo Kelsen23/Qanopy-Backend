@@ -1,11 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 
 import type {
   LLMAdapter,
   LLMAdapterGenerateOptions,
+  LLMReasoningOptions,
   LLMAdapterStreamTextOptions,
   LLMMessage,
 } from "../llmGateway.types.js";
+import { getProviderCapabilities } from "../llmGateway.capabilities.js";
 
 const splitSystemMessages = (messages: LLMMessage[]) => {
   const system = messages
@@ -36,22 +39,73 @@ const extractText = (content: Anthropic.Messages.Message["content"]) =>
     .join("")
     .trim();
 
+const buildThinkingConfig = (
+  reasoning?: LLMReasoningOptions,
+): Anthropic.Messages.ThinkingConfigParam | undefined => {
+  if (!reasoning) return undefined;
+  if (reasoning.enabled === false) return { type: "disabled" };
+
+  if (reasoning.budgetTokens !== undefined) {
+    return {
+      type: "enabled",
+      budget_tokens: reasoning.budgetTokens,
+      display: reasoning.display,
+    };
+  }
+
+  if (reasoning.enabled) {
+    return {
+      type: "adaptive",
+      display: reasoning.display,
+    };
+  }
+
+  return undefined;
+};
+
+const buildOutputConfig = (
+  mode: LLMAdapterGenerateOptions["mode"],
+  schema?: LLMAdapterGenerateOptions["schema"],
+  reasoning?: LLMReasoningOptions,
+): Anthropic.Messages.OutputConfig | undefined => {
+  const outputConfig: Anthropic.Messages.OutputConfig = {};
+
+  if (reasoning?.effort) outputConfig.effort = reasoning.effort;
+
+  if (mode === "json" && schema) {
+    outputConfig.format = {
+      type: "json_schema",
+      schema: z.toJSONSchema(schema) as { [key: string]: unknown },
+    };
+  }
+
+  return Object.keys(outputConfig).length > 0 ? outputConfig : undefined;
+};
+
 const anthropicAdapter: LLMAdapter = {
+  capabilities: getProviderCapabilities("anthropic"),
+
   generate: async ({
     apiKey,
     route,
     messages,
     mode,
+    schema,
     temperature,
     maxTokens,
+    reasoning,
   }: LLMAdapterGenerateOptions) => {
     const client = new Anthropic({ apiKey });
     const { system, conversation } = splitSystemMessages(messages);
+    const thinking = buildThinkingConfig(reasoning);
+    const outputConfig = buildOutputConfig(mode, schema, reasoning);
 
     const response = await client.messages.create({
       model: route.model,
       max_tokens: maxTokens ?? 4096,
       temperature,
+      thinking,
+      output_config: outputConfig,
       system:
         mode === "json"
           ? [
@@ -84,14 +138,19 @@ const anthropicAdapter: LLMAdapter = {
     temperature,
     maxTokens,
     onToken,
+    reasoning,
   }: LLMAdapterStreamTextOptions) => {
     const client = new Anthropic({ apiKey });
     const { system, conversation } = splitSystemMessages(messages);
+    const thinking = buildThinkingConfig(reasoning);
+    const outputConfig = buildOutputConfig("text", undefined, reasoning);
 
     const stream = await client.messages.create({
       model: route.model,
       max_tokens: maxTokens ?? 4096,
       temperature,
+      thinking,
+      output_config: outputConfig,
       system,
       messages: conversation,
       stream: true,

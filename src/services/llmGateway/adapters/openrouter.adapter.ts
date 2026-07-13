@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { z } from "zod";
 import type {
   ChatCompletion,
   ChatCompletionChunk,
@@ -9,8 +10,10 @@ import type {
   LLMAdapterGenerateOptions,
   LLMAdapterStreamTextOptions,
   LLMMessage,
+  LLMReasoningOptions,
   LLMUsage,
 } from "../llmGateway.types.js";
+import { getProviderCapabilities } from "../llmGateway.capabilities.js";
 
 type OpenRouterTextContent = {
   type: "text";
@@ -58,32 +61,63 @@ const toUsage = (usage?: OpenRouterUsage): LLMUsage => {
   };
 };
 
+const buildOpenRouterReasoning = (reasoning?: LLMReasoningOptions) => {
+  if (!reasoning?.effort) return undefined;
+
+  return { effort: reasoning.effort };
+};
+
+const buildResponseFormat = (
+  mode: LLMAdapterGenerateOptions["mode"],
+  schema?: LLMAdapterGenerateOptions["schema"],
+) => {
+  if (mode !== "json") return undefined;
+  if (!schema) return { type: "json_object" as const };
+
+  return {
+    type: "json_schema" as const,
+    json_schema: {
+      name: "llm_gateway_response",
+      schema: z.toJSONSchema(schema) as { [key: string]: unknown },
+      strict: true,
+    },
+  };
+};
+
 const openrouterAdapter: LLMAdapter = {
+  capabilities: getProviderCapabilities("openrouter"),
+
   generate: async ({
     apiKey,
     route,
     messages,
     mode,
+    schema,
     temperature,
     maxTokens,
     cache,
+    reasoning,
   }: LLMAdapterGenerateOptions) => {
     const client = new OpenAI({
       apiKey,
       baseURL: "https://openrouter.ai/api/v1",
     });
     const promptCacheEnabled = Boolean(cache?.enabled);
-
-    const response = await client.chat.completions.create({
+    const request = {
       model: route.model,
       messages: toOpenRouterMessages(messages),
       temperature,
       max_tokens: maxTokens,
-      response_format: mode === "json" ? { type: "json_object" } : undefined,
+      response_format: buildResponseFormat(mode, schema),
+      ...(buildOpenRouterReasoning(reasoning)
+        ? { reasoning: buildOpenRouterReasoning(reasoning) }
+        : {}),
       ...(promptCacheEnabled
         ? { cache_control: { type: "ephemeral" as const } }
         : {}),
-    });
+    };
+
+    const response = await client.chat.completions.create(request);
     const usage = toUsage(response.usage);
 
     return {
@@ -102,24 +136,29 @@ const openrouterAdapter: LLMAdapter = {
     maxTokens,
     onToken,
     cache,
+    reasoning,
   }: LLMAdapterStreamTextOptions) => {
     const client = new OpenAI({
       apiKey,
       baseURL: "https://openrouter.ai/api/v1",
     });
     const promptCacheEnabled = Boolean(cache?.enabled);
-
-    const stream = await client.chat.completions.create({
+    const request = {
       model: route.model,
       messages: toOpenRouterMessages(messages),
       temperature,
       max_tokens: maxTokens,
-      stream: true,
+      stream: true as const,
       stream_options: { include_usage: true },
+      ...(buildOpenRouterReasoning(reasoning)
+        ? { reasoning: buildOpenRouterReasoning(reasoning) }
+        : {}),
       ...(promptCacheEnabled
         ? { cache_control: { type: "ephemeral" as const } }
         : {}),
-    });
+    };
+
+    const stream = await client.chat.completions.create(request);
     let usage: LLMUsage = {};
     let routedModel: string | undefined;
 
