@@ -127,7 +127,10 @@ const fullAnswer = async (
 
         if (delimiterStart !== -1) {
           if (streamedBodyLength < delimiterStart) {
-            const bodyChunk = fullBody.slice(streamedBodyLength, delimiterStart);
+            const bodyChunk = fullBody.slice(
+              streamedBodyLength,
+              delimiterStart,
+            );
 
             streamedBodyLength = delimiterStart;
 

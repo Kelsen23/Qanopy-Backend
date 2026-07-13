@@ -45,7 +45,9 @@ const buildPromptCacheKey = ({
   route,
   messages,
 }: Pick<LLMAdapterGenerateOptions, "feature" | "route" | "messages">) => {
-  const cacheableMessages = messages.filter((message) => message.cache?.enabled);
+  const cacheableMessages = messages.filter(
+    (message) => message.cache?.enabled,
+  );
   const keySource = cacheableMessages.length > 0 ? cacheableMessages : messages;
   const hash = crypto
     .createHash("sha256")

@@ -118,7 +118,9 @@ const assertGenerateRequirements = <TSchema extends z.ZodTypeAny | undefined>(
     options.cache?.required &&
     adapter.capabilities.promptCaching === "unsupported"
   ) {
-    throw new Error(`${route.provider} does not support required prompt caching`);
+    throw new Error(
+      `${route.provider} does not support required prompt caching`,
+    );
   }
 
   if (
@@ -159,7 +161,9 @@ const assertStreamRequirements = (
     options.cache?.required &&
     adapter.capabilities.promptCaching === "unsupported"
   ) {
-    throw new Error(`${route.provider} does not support required prompt caching`);
+    throw new Error(
+      `${route.provider} does not support required prompt caching`,
+    );
   }
 
   if (

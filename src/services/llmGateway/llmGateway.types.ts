@@ -141,7 +141,7 @@ type LLMStreamTextOptions = Omit<
   LLMGenerateOptions,
   "mode" | "schema" | "structuredOutput"
 > & {
-    onToken: (...args: [string]) => Promise<void> | void;
+  onToken: (...args: [string]) => Promise<void> | void;
 };
 
 type LLMAdapterGenerateOptions = Omit<
@@ -197,9 +197,7 @@ type LLMAdapter = {
   embed?: (
     ...args: [LLMAdapterEmbeddingOptions]
   ) => Promise<LLMAdapterTextResponse & { embedding: number[] }>;
-  moderate?: (
-    ...args: [LLMAdapterModerationOptions]
-  ) => Promise<
+  moderate?: (...args: [LLMAdapterModerationOptions]) => Promise<
     LLMAdapterTextResponse & {
       flagged: boolean;
       categoryScores?: LLMModerationCategoryScores;

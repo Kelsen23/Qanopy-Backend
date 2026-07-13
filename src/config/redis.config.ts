@@ -14,10 +14,7 @@ let redisMessagingClient: Redis | null = null;
 
 const getRedisCacheClient = (): Redis => {
   if (!redisCacheClient) {
-    redisCacheClient = createRedisClient(
-      redisConfig.REDIS_CACHE_URL,
-      "CACHE",
-    );
+    redisCacheClient = createRedisClient(redisConfig.REDIS_CACHE_URL, "CACHE");
   }
   return redisCacheClient;
 };

@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
 
-import type { LLMFeature, LLMProvider } from "../services/llmGateway/llmGateway.types.js";
+import type {
+  LLMFeature,
+  LLMProvider,
+} from "../services/llmGateway/llmGateway.types.js";
 
 import {
   llmGatewayConfigSchema,

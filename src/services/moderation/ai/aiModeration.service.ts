@@ -24,15 +24,13 @@ const aiModerateContent = async (
 
     return {
       ok: true,
-      ...buildAiModerationPolicy(
-        {
-          flagged: result.flagged,
-          category_scores: result.categoryScores,
-        } as {
-          flagged: boolean;
-          category_scores?: Record<string, number>;
-        },
-      ),
+      ...buildAiModerationPolicy({
+        flagged: result.flagged,
+        category_scores: result.categoryScores,
+      } as {
+        flagged: boolean;
+        category_scores?: Record<string, number>;
+      }),
     };
   } catch (error) {
     console.error("AI moderation error:", error);
