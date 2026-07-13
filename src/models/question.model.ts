@@ -44,11 +44,6 @@ const QuestionSchema: Schema = new Schema(
     },
     moderationUpdatedAt: { type: Date, default: null },
     moderationSourceVersion: { type: Number, default: 1, min: 1 },
-    topicStatus: {
-      type: String,
-      enum: ["PENDING", "PROCESSING", "VALID", "OFF_TOPIC"],
-      default: "PENDING",
-    },
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
