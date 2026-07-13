@@ -4,6 +4,7 @@ import type {
   LLMFeatureRoute,
   LLMGatewayConfig,
 } from "../services/llmGateway/llmGateway.types.js";
+import { supportsFeature } from "../services/llmGateway/llmGateway.capabilities.js";
 
 const supportedProviders = [
   "openai",
@@ -24,15 +25,17 @@ const nodeEnvSchema = z
   .enum(["development", "test", "production"])
   .default("development");
 
+const optionalProviderSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value.toLowerCase() : undefined))
+  .pipe(providerSchema.optional());
+
 const fallbackRouteSchema = (providerKey: string, modelKey: string) =>
   z
     .object({
-      provider: z
-        .string()
-        .trim()
-        .optional()
-        .transform((value) => (value ? value.toLowerCase() : undefined))
-        .pipe(providerSchema.optional()),
+      provider: optionalProviderSchema,
       model: z.string().trim().optional(),
     })
     .superRefine((value, ctx) => {
@@ -64,6 +67,156 @@ const withFallback = (
   ...(fallback ? { fallback } : {}),
 });
 
+const validateFeatureProvider = (
+  ctx: z.RefinementCtx,
+  feature: keyof LLMGatewayConfig["routes"],
+  provider: (typeof supportedProviders)[number] | undefined,
+  path: string,
+) => {
+  if (!provider || supportsFeature(provider, feature)) return;
+
+  ctx.addIssue({
+    code: "custom",
+    message: `${provider} does not support ${feature}`,
+    path: [path],
+  });
+};
+
+type LlmGatewayEnvRulesInput = Partial<
+  Record<
+    | "LLM_MODERATION_PRIMARY_PROVIDER"
+    | "LLM_QUESTION_GATE_PRIMARY_PROVIDER"
+    | "LLM_QUESTION_GATE_FALLBACK_PROVIDER"
+    | "LLM_SECURITY_VERIFIER_PRIMARY_PROVIDER"
+    | "LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER"
+    | "LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER"
+    | "LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER"
+    | "LLM_ANSWER_GENERATION_PRIMARY_PROVIDER"
+    | "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER"
+    | "LLM_EMBEDDINGS_PROVIDER"
+    | "LLM_QUESTION_GATE_FALLBACK_MODEL"
+    | "LLM_SECURITY_VERIFIER_FALLBACK_MODEL"
+    | "LLM_SUGGESTION_GENERATION_FALLBACK_MODEL"
+    | "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
+    string | undefined
+  >
+>;
+
+const validateLlmGatewayEnvRules = (
+  env: LlmGatewayEnvRulesInput,
+  ctx: z.RefinementCtx,
+) => {
+  const fallbackPairs = [
+    ["LLM_QUESTION_GATE_FALLBACK_PROVIDER", "LLM_QUESTION_GATE_FALLBACK_MODEL"],
+    [
+      "LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER",
+      "LLM_SECURITY_VERIFIER_FALLBACK_MODEL",
+    ],
+    [
+      "LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER",
+      "LLM_SUGGESTION_GENERATION_FALLBACK_MODEL",
+    ],
+    [
+      "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
+      "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
+    ],
+  ] as const;
+
+  for (const [providerKey, modelKey] of fallbackPairs) {
+    const hasProvider = Boolean(env[providerKey]);
+    const hasModel = Boolean(env[modelKey]);
+
+    if (hasProvider !== hasModel) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${providerKey} and ${modelKey} must be configured together`,
+        path: [hasProvider ? modelKey : providerKey],
+      });
+    }
+  }
+
+  validateFeatureProvider(
+    ctx,
+    "moderation",
+    env.LLM_MODERATION_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_MODERATION_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "questionEligibilityGate",
+    env.LLM_QUESTION_GATE_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_QUESTION_GATE_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "questionEligibilityGate",
+    env.LLM_QUESTION_GATE_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_QUESTION_GATE_FALLBACK_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "securityVerifier",
+    env.LLM_SECURITY_VERIFIER_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_SECURITY_VERIFIER_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "securityVerifier",
+    env.LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiSuggestion",
+    env.LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiSuggestion",
+    env.LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiAnswer",
+    env.LLM_ANSWER_GENERATION_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_ANSWER_GENERATION_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiAnswer",
+    env.LLM_ANSWER_GENERATION_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "embeddings",
+    env.LLM_EMBEDDINGS_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_EMBEDDINGS_PROVIDER",
+  );
+};
+
 const llmGatewayEnvSchema = z
   .object({
     OPENAI_API_KEY: requiredString("OPENAI_API_KEY"),
@@ -88,7 +241,7 @@ const llmGatewayEnvSchema = z
     LLM_QUESTION_GATE_PRIMARY_MODEL: requiredString(
       "LLM_QUESTION_GATE_PRIMARY_MODEL",
     ),
-    LLM_QUESTION_GATE_FALLBACK_PROVIDER: z.string().trim().optional(),
+    LLM_QUESTION_GATE_FALLBACK_PROVIDER: optionalProviderSchema,
     LLM_QUESTION_GATE_FALLBACK_MODEL: z.string().trim().optional(),
 
     LLM_SECURITY_VERIFIER_PRIMARY_PROVIDER: requiredString(
@@ -99,7 +252,7 @@ const llmGatewayEnvSchema = z
     LLM_SECURITY_VERIFIER_PRIMARY_MODEL: requiredString(
       "LLM_SECURITY_VERIFIER_PRIMARY_MODEL",
     ),
-    LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER: z.string().trim().optional(),
+    LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER: optionalProviderSchema,
     LLM_SECURITY_VERIFIER_FALLBACK_MODEL: z.string().trim().optional(),
 
     LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER: requiredString(
@@ -110,7 +263,7 @@ const llmGatewayEnvSchema = z
     LLM_SUGGESTION_GENERATION_PRIMARY_MODEL: requiredString(
       "LLM_SUGGESTION_GENERATION_PRIMARY_MODEL",
     ),
-    LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER: z.string().trim().optional(),
+    LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER: optionalProviderSchema,
     LLM_SUGGESTION_GENERATION_FALLBACK_MODEL: z.string().trim().optional(),
 
     LLM_ANSWER_GENERATION_PRIMARY_PROVIDER: requiredString(
@@ -121,7 +274,7 @@ const llmGatewayEnvSchema = z
     LLM_ANSWER_GENERATION_PRIMARY_MODEL: requiredString(
       "LLM_ANSWER_GENERATION_PRIMARY_MODEL",
     ),
-    LLM_ANSWER_GENERATION_FALLBACK_PROVIDER: z.string().trim().optional(),
+    LLM_ANSWER_GENERATION_FALLBACK_PROVIDER: optionalProviderSchema,
     LLM_ANSWER_GENERATION_FALLBACK_MODEL: z.string().trim().optional(),
 
     LLM_EMBEDDINGS_PROVIDER: requiredString("LLM_EMBEDDINGS_PROVIDER")
@@ -130,41 +283,11 @@ const llmGatewayEnvSchema = z
     LLM_EMBEDDINGS_MODEL: requiredString("LLM_EMBEDDINGS_MODEL"),
   })
   .superRefine((env, ctx) => {
-    const fallbackPairs = [
-      [
-        "LLM_QUESTION_GATE_FALLBACK_PROVIDER",
-        "LLM_QUESTION_GATE_FALLBACK_MODEL",
-      ],
-      [
-        "LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER",
-        "LLM_SECURITY_VERIFIER_FALLBACK_MODEL",
-      ],
-      [
-        "LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER",
-        "LLM_SUGGESTION_GENERATION_FALLBACK_MODEL",
-      ],
-      [
-        "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
-        "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
-      ],
-    ] as const;
-
-    for (const [providerKey, modelKey] of fallbackPairs) {
-      const hasProvider = Boolean(env[providerKey]);
-      const hasModel = Boolean(env[modelKey]);
-
-      if (hasProvider !== hasModel) {
-        ctx.addIssue({
-          code: "custom",
-          message: `${providerKey} and ${modelKey} must be configured together`,
-          path: [hasProvider ? modelKey : providerKey],
-        });
-      }
-    }
+    validateLlmGatewayEnvRules(env, ctx);
   });
 
-const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> = llmGatewayEnvSchema
-  .transform((env) => {
+const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
+  llmGatewayEnvSchema.transform((env) => {
     const questionGateFallback = fallbackRouteSchema(
       "LLM_QUESTION_GATE_FALLBACK_PROVIDER",
       "LLM_QUESTION_GATE_FALLBACK_MODEL",
@@ -298,7 +421,10 @@ const appEnvSchema = serverConfigSchema
   .merge(nodemailerConfigSchema)
   .merge(emailIdentityConfigSchema)
   .merge(s3ConfigSchema)
-  .merge(llmGatewayEnvSchema);
+  .merge(llmGatewayEnvSchema)
+  .superRefine((env, ctx) => {
+    validateLlmGatewayEnvRules(env, ctx);
+  });
 
 export {
   appEnvSchema,
