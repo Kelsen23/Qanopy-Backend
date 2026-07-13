@@ -9,7 +9,6 @@ import QuestionVersion from "../../../models/questionVersion.model.js";
 type QuestionPipelineRouteDecision =
   | { type: "NOOP" }
   | { type: "MODERATE" }
-  | { type: "TOPIC" }
   | { type: "EMBED" }
   | { type: "SIMILAR" };
 
@@ -80,7 +79,7 @@ const resolveQuestionPipelineRouteDecision = (
 
   if (!state.isCurrentVersion) return { type: "NOOP" };
 
-  if (state.topicStatus === "PENDING") return { type: "TOPIC" };
+  if (state.topicStatus === "PENDING") return { type: "NOOP" };
 
   if (state.topicStatus === "VALID") {
     if (state.embeddingStatus === "NONE") return { type: "EMBED" };
@@ -106,14 +105,6 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
       contentType: "QUESTION",
       contentId: questionId,
       version,
-    });
-  }
-
-  if (routeDecision.type === "TOPIC") {
-    return queueQuestionPipelineStep({
-      questionId,
-      version,
-      step: "TOPIC",
     });
   }
 

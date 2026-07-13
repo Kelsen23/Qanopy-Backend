@@ -5,11 +5,10 @@ import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 import questionEmbeddingQueue from "../../../queues/questionEmbedding.queue.js";
 import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
-import topicDeterminationQueue from "../../../queues/topicDetermination.queue.js";
 
 import type { ContentPipelineRouterJobData } from "./contentPipelineRouter.shared.js";
 
-type QuestionPipelineStep = "TOPIC" | "EMBED" | "SIMILAR";
+type QuestionPipelineStep = "EMBED" | "SIMILAR";
 
 const queueJobIfNeeded = async ({
   queue,
@@ -19,15 +18,17 @@ const queueJobIfNeeded = async ({
 }: {
   queue: {
     add: (
-      name: string,
-      payload: Record<string, unknown>,
-      options: {
-        jobId: string;
-        removeOnComplete: boolean;
-        removeOnFail: boolean;
-      },
+      ...args: [
+        string,
+        Record<string, unknown>,
+        {
+          jobId: string;
+          removeOnComplete: boolean;
+          removeOnFail: boolean;
+        },
+      ]
     ) => Promise<unknown>;
-    getJob: (jobId: string) => Promise<
+    getJob: (...args: [string]) => Promise<
       | {
           getState: () => Promise<string>;
           retry: () => Promise<unknown>;
@@ -109,15 +110,6 @@ const queueQuestionPipelineStep = async ({
   version: number;
   step: QuestionPipelineStep;
 }) => {
-  if (step === "TOPIC") {
-    return queueJobIfNeeded({
-      queue: topicDeterminationQueue,
-      jobName: "QUESTION_TOPIC",
-      data: { questionId, version },
-      jobId: makeJobId("topic", questionId, version),
-    });
-  }
-
   if (step === "EMBED") {
     return queueJobIfNeeded({
       queue: questionEmbeddingQueue,
