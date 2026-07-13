@@ -20,6 +20,10 @@ const requiredString = (name: string) =>
 
 const providerSchema = z.enum(supportedProviders);
 
+const nodeEnvSchema = z
+  .enum(["development", "test", "production"])
+  .default("development");
+
 const fallbackRouteSchema = (providerKey: string, modelKey: string) =>
   z
     .object({
@@ -60,7 +64,7 @@ const withFallback = (
   ...(fallback ? { fallback } : {}),
 });
 
-const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> = z
+const llmGatewayEnvSchema = z
   .object({
     OPENAI_API_KEY: requiredString("OPENAI_API_KEY"),
     ANTHROPIC_API_KEY: requiredString("ANTHROPIC_API_KEY"),
@@ -125,6 +129,41 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> = z
       .pipe(providerSchema),
     LLM_EMBEDDINGS_MODEL: requiredString("LLM_EMBEDDINGS_MODEL"),
   })
+  .superRefine((env, ctx) => {
+    const fallbackPairs = [
+      [
+        "LLM_QUESTION_GATE_FALLBACK_PROVIDER",
+        "LLM_QUESTION_GATE_FALLBACK_MODEL",
+      ],
+      [
+        "LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER",
+        "LLM_SECURITY_VERIFIER_FALLBACK_MODEL",
+      ],
+      [
+        "LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER",
+        "LLM_SUGGESTION_GENERATION_FALLBACK_MODEL",
+      ],
+      [
+        "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
+        "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
+      ],
+    ] as const;
+
+    for (const [providerKey, modelKey] of fallbackPairs) {
+      const hasProvider = Boolean(env[providerKey]);
+      const hasModel = Boolean(env[modelKey]);
+
+      if (hasProvider !== hasModel) {
+        ctx.addIssue({
+          code: "custom",
+          message: `${providerKey} and ${modelKey} must be configured together`,
+          path: [hasProvider ? modelKey : providerKey],
+        });
+      }
+    }
+  });
+
+const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> = llmGatewayEnvSchema
   .transform((env) => {
     const questionGateFallback = fallbackRouteSchema(
       "LLM_QUESTION_GATE_FALLBACK_PROVIDER",
@@ -209,7 +248,17 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> = z
 
 const serverConfigSchema = z.object({
   MONGO_URI: requiredString("MONGO_URI"),
+  NODE_ENV: nodeEnvSchema,
   PORT: z.coerce.number().int().positive().default(5000),
+});
+
+const authConfigSchema = z.object({
+  JWT_SECRET: requiredString("JWT_SECRET"),
+});
+
+const googleOAuthConfigSchema = z.object({
+  GOOGLE_CLIENT_ID: requiredString("GOOGLE_CLIENT_ID"),
+  GOOGLE_CLIENT_SECRET: requiredString("GOOGLE_CLIENT_SECRET"),
 });
 
 const redisConfigSchema = z.object({
@@ -231,14 +280,35 @@ const nodemailerConfigSchema = z.object({
   SENDER_PASS: requiredString("SENDER_PASS"),
 });
 
+const emailIdentityConfigSchema = z.object({
+  QANOPY_EMAIL: requiredString("QANOPY_EMAIL"),
+  SUPPORT_EMAIL: requiredString("SUPPORT_EMAIL"),
+});
+
 const prismaConfigSchema = z.object({
   DATABASE_URL: requiredString("DATABASE_URL"),
   DIRECT_URL: requiredString("DIRECT_URL"),
 });
 
+const appEnvSchema = serverConfigSchema
+  .merge(authConfigSchema)
+  .merge(googleOAuthConfigSchema)
+  .merge(prismaConfigSchema)
+  .merge(redisConfigSchema)
+  .merge(nodemailerConfigSchema)
+  .merge(emailIdentityConfigSchema)
+  .merge(s3ConfigSchema)
+  .merge(llmGatewayEnvSchema);
+
 export {
+  appEnvSchema,
+  authConfigSchema,
+  emailIdentityConfigSchema,
+  googleOAuthConfigSchema,
+  llmGatewayEnvSchema,
   llmGatewayConfigSchema,
   nodemailerConfigSchema,
+  nodeEnvSchema,
   prismaConfigSchema,
   redisConfigSchema,
   s3ConfigSchema,
