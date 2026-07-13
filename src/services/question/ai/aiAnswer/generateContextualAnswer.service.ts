@@ -1,10 +1,9 @@
-import answerGenerationClient from "../../../../config/anthropic.config.js";
-
 import routeNotification from "../../../notification/routeNotification.service.js";
 import {
   getAiAnswerCancelKey,
   getAiAnswerSessionSockets,
 } from "../../../redis/aiAnswerSession.service.js";
+import llmGateway from "../../../llmGateway/llmGateway.service.js";
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
@@ -85,64 +84,82 @@ const generateContextualAnswerService = async (
     ${formattedContextualAnswers}
   `;
 
-  const stream = await answerGenerationClient.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 20000,
-    temperature: 0.2,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ],
-    stream: true,
-  });
-
   const confidenceDelimiter = "<AI_CONFIDENCE_JSON>";
 
   let fullBody = "";
   let streamedBodyLength = 0;
   let wasCancelled = false;
 
-  for await (const event of stream) {
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    ) {
-      const cancelFlag = await getRedisCacheClient().get(
-        getAiAnswerCancelKey(questionId, questionVersion),
-      );
+  try {
+    await llmGateway.streamText({
+      feature: "aiAnswer",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+          cache: { enabled: true },
+        },
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 20000,
+      onToken: async (token) => {
+        const cancelFlag = await getRedisCacheClient().get(
+          getAiAnswerCancelKey(questionId, questionVersion),
+        );
 
-      if (cancelFlag) {
-        await publishSocketEvent(userId, "aiAnswerCancelled", {
-          message: "AI answer generation cancelled",
-        });
-        console.log("publishSocketEvent", {
-          message: "aiAnswerCancelled",
-          data: { message: "AI answer generation cancelled" },
-        });
+        if (cancelFlag) {
+          await publishSocketEvent(userId, "aiAnswerCancelled", {
+            message: "AI answer generation cancelled",
+          });
+          console.log("publishSocketEvent", {
+            message: "aiAnswerCancelled",
+            data: { message: "AI answer generation cancelled" },
+          });
 
-        wasCancelled = true;
-        break;
-      }
+          wasCancelled = true;
+          throw Object.assign(new Error("AI answer generation cancelled"), {
+            noFallback: true,
+          });
+        }
 
-      const token = event.delta.text;
-      fullBody += token;
+        fullBody += token;
 
-      const delimiterStart = fullBody.indexOf(confidenceDelimiter);
+        const delimiterStart = fullBody.indexOf(confidenceDelimiter);
 
-      if (delimiterStart !== -1) {
-        if (streamedBodyLength < delimiterStart) {
-          const bodyChunk = fullBody.slice(streamedBodyLength, delimiterStart);
+        if (delimiterStart !== -1) {
+          if (streamedBodyLength < delimiterStart) {
+            const bodyChunk = fullBody.slice(streamedBodyLength, delimiterStart);
 
-          streamedBodyLength = delimiterStart;
+            streamedBodyLength = delimiterStart;
+
+            if (shouldPublishToSocket) {
+              await publishSocketEvent(userId, "aiAnswerToken", bodyChunk);
+            }
+
+            console.log("publishSocketEvent", {
+              message: "aiAnswerToken",
+              data: bodyChunk,
+            });
+          }
+          return;
+        }
+
+        const safeToStreamUntil = Math.max(
+          0,
+          fullBody.length - confidenceDelimiter.length + 1,
+        );
+
+        if (safeToStreamUntil > streamedBodyLength) {
+          const bodyChunk = fullBody.slice(
+            streamedBodyLength,
+            safeToStreamUntil,
+          );
+
+          streamedBodyLength = safeToStreamUntil;
 
           if (shouldPublishToSocket) {
             await publishSocketEvent(userId, "aiAnswerToken", bodyChunk);
@@ -153,29 +170,12 @@ const generateContextualAnswerService = async (
             data: bodyChunk,
           });
         }
-        continue;
-      }
+      },
+    });
+  } catch (error) {
+    if (wasCancelled) return;
 
-      const safeToStreamUntil = Math.max(
-        0,
-        fullBody.length - confidenceDelimiter.length + 1,
-      );
-
-      if (safeToStreamUntil > streamedBodyLength) {
-        const bodyChunk = fullBody.slice(streamedBodyLength, safeToStreamUntil);
-
-        streamedBodyLength = safeToStreamUntil;
-
-        if (shouldPublishToSocket) {
-          await publishSocketEvent(userId, "aiAnswerToken", bodyChunk);
-        }
-
-        console.log("publishSocketEvent", {
-          message: "aiAnswerToken",
-          data: bodyChunk,
-        });
-      }
-    }
+    throw error;
   }
 
   if (wasCancelled) return;
@@ -221,7 +221,7 @@ const generateContextualAnswerService = async (
         questionId,
         questionVersion,
         generatedAt: new Date().toISOString(),
-        source: "Claude-Haiku-4-5-Contextual",
+        source: "llmGateway",
         mode: "CONTEXTUAL",
         contextAnswerCount: contextualAnswerBodies.slice(0, 3).length,
       },
@@ -246,7 +246,7 @@ const generateContextualAnswerService = async (
           questionId,
           questionVersion,
           generatedAt: new Date().toISOString(),
-          source: "Claude-Haiku-4-5-Contextual",
+          source: "llmGateway",
           mode: "CONTEXTUAL",
         },
       });
@@ -254,7 +254,10 @@ const generateContextualAnswerService = async (
   } catch (error) {
     console.error("Invalid AI contextual answer response:", error);
     console.error("Raw AI response:", fullBody);
-    throw new HttpError("Invalid AI contextual answer returned by Claude", 500);
+    throw new HttpError(
+      "Invalid AI contextual answer returned by LLM gateway",
+      500,
+    );
   }
 };
 
