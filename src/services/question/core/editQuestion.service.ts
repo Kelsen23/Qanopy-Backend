@@ -57,7 +57,6 @@ const editQuestion = async (
       moderationStatus: "PENDING",
       moderationUpdatedAt: null,
       moderationSourceVersion: newVersion,
-      topicStatus: "PENDING",
       embeddingStatus: "NONE",
       similarQuestionIds: [],
       similarQuestionsStatus: "NONE",
@@ -75,7 +74,6 @@ const editQuestion = async (
     tags,
     moderationStatus: "PENDING",
     moderationUpdatedAt: null,
-    topicStatus: "PENDING",
     embeddingStatus: "NONE",
   });
 

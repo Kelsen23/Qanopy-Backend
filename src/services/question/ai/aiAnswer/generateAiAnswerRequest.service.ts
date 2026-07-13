@@ -30,9 +30,7 @@ const generateAiAnswerRequest = async (
         _id: questionId,
         userId,
       })
-        .select(
-          "_id isActive currentVersion moderationStatus topicStatus embedding",
-        )
+        .select("_id isActive currentVersion moderationStatus embedding")
         .lean();
 
   if (!foundQuestion) throw new HttpError("Question not found", 404);
@@ -46,9 +44,6 @@ const generateAiAnswerRequest = async (
 
   if (!["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus)))
     throw new HttpError("Question moderation status is not eligible", 400);
-
-  if (foundQuestion.topicStatus !== "VALID")
-    throw new HttpError("Question topic is not valid", 400);
 
   if (
     !Array.isArray(foundQuestion.embedding) ||

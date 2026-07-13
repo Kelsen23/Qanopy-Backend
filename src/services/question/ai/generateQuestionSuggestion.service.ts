@@ -39,7 +39,6 @@ const generateQuestionSuggestion = async ({
       userId,
       version,
       $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
-      topicStatus: "VALID",
     })
       .select("_id isActive title body tags")
       .lean();

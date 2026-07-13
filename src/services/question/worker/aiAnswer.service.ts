@@ -31,7 +31,7 @@ const processAiAnswerJob = async ({
   try {
     const foundQuestion = await Question.findById(questionId)
       .select(
-        "_id isActive isDeleted currentVersion title body moderationStatus topicStatus embedding embeddingStatus",
+        "_id isActive isDeleted currentVersion title body moderationStatus embedding embeddingStatus",
       )
       .lean();
 
@@ -45,10 +45,7 @@ const processAiAnswerJob = async ({
     }
 
     if (
-      !["APPROVED", "FLAGGED"].includes(
-        String(foundQuestion.moderationStatus),
-      ) ||
-      foundQuestion.topicStatus !== "VALID"
+      !["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus))
     ) {
       throw new HttpError("Question is not eligible for AI answer", 400);
     }
@@ -82,7 +79,6 @@ const processAiAnswerJob = async ({
           _id: 1,
           isActive: 1,
           isDeleted: 1,
-          topicStatus: 1,
           score: { $meta: "vectorSearchScore" },
         },
       },
@@ -91,7 +87,6 @@ const processAiAnswerJob = async ({
           _id: { $ne: questionObjectId },
           isActive: true,
           isDeleted: false,
-          topicStatus: "VALID",
         },
       },
       { $limit: 5 },

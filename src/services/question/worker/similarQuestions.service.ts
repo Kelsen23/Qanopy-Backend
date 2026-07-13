@@ -25,7 +25,6 @@ const processSimilarQuestionsJob = async ({
     {
       _id: id,
       currentVersion: version,
-      topicStatus: "VALID",
       embeddingStatus: "READY",
       similarQuestionsStatus: "NONE",
     },
@@ -53,7 +52,6 @@ const processSimilarQuestionsJob = async ({
         _id: 1,
         isActive: 1,
         isDeleted: 1,
-        topicStatus: 1,
         score: { $meta: "vectorSearchScore" },
       },
     },
@@ -62,7 +60,6 @@ const processSimilarQuestionsJob = async ({
         _id: { $ne: id },
         isActive: true,
         isDeleted: false,
-        topicStatus: "VALID",
       },
     },
   ]);

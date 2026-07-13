@@ -45,7 +45,6 @@ const createQuestion = async ({
     tags,
     moderationStatus: String(newQuestion.moderationStatus),
     moderationUpdatedAt,
-    topicStatus: String(newQuestion.topicStatus),
     embeddingStatus: String(newQuestion.embeddingStatus),
   });
 

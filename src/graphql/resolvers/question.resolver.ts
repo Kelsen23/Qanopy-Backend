@@ -203,7 +203,6 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        topicStatus: "VALID",
         moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       };
 
@@ -340,7 +339,6 @@ const questionResolver = {
           isActive: _isActive,
           isDeleted: _isDeleted,
           embedding: _embedding,
-          topicStatus: _topicStatus,
           moderationStatus: _moderationStatus,
           similarQuestionsStatus,
           ...publicQuestion
@@ -393,11 +391,10 @@ const questionResolver = {
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
         similarQuestionsReady: question.similarQuestionsStatus === "READY",
-        canGenerateAiSuggestion:
-          question.topicStatus === "VALID" &&
-          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)),
+        canGenerateAiSuggestion: ["APPROVED", "FLAGGED"].includes(
+          String(question.moderationStatus),
+        ),
         canGenerateAiAnswer:
-          question.topicStatus === "VALID" &&
           ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
           question.embeddingStatus === "READY",
         createdAt: question.createdAt,
@@ -427,7 +424,6 @@ const questionResolver = {
         isActive: question.isActive,
         isDeleted: question.isDeleted,
         embedding: Array.isArray(question.embedding) ? question.embedding : [],
-        topicStatus: question.topicStatus,
         moderationStatus: question.moderationStatus,
       };
 
@@ -513,7 +509,6 @@ const questionResolver = {
         },
         isActive: true,
         isDeleted: false,
-        topicStatus: "VALID",
         moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       })
         .select(
@@ -1159,7 +1154,6 @@ const questionResolver = {
 
         {
           $match: {
-            topicStatus: "VALID",
             isDeleted: false,
             isActive: true,
             moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
@@ -1280,7 +1274,6 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        topicStatus: "VALID",
         moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       };
 
@@ -1478,7 +1471,6 @@ const questionResolver = {
             title: 1,
             body: 1,
             tags: 1,
-            topicStatus: 1,
             moderationStatus: 1,
             supersededByRollback: 1,
             version: 1,

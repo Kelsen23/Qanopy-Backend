@@ -31,7 +31,6 @@ const processQuestionEmbeddingJob = async ({
     {
       _id: questionId,
       currentVersion: version,
-      topicStatus: "VALID",
       embeddingStatus: "NONE",
     },
     { $set: { embeddingStatus: "PROCESSING" } },

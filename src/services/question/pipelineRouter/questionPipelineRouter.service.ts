@@ -14,7 +14,6 @@ type QuestionPipelineRouteDecision =
 
 type QuestionPipelineRouteState = {
   moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED";
-  topicStatus?: "PENDING" | "PROCESSING" | "VALID" | "OFF_TOPIC";
   embeddingStatus?: "NONE" | "PENDING" | "PROCESSING" | "READY";
   similarQuestionsStatus?: "NONE" | "PENDING" | "PROCESSING" | "READY";
   isCurrentVersion: boolean;
@@ -46,9 +45,8 @@ const loadQuestionPipelineRouteState = async (
     _id: questionId,
     currentVersion: version,
   })
-    .select("topicStatus embeddingStatus similarQuestionsStatus")
+    .select("embeddingStatus similarQuestionsStatus")
     .lean<{
-      topicStatus: QuestionPipelineRouteState["topicStatus"];
       embeddingStatus: QuestionPipelineRouteState["embeddingStatus"];
       similarQuestionsStatus: QuestionPipelineRouteState["similarQuestionsStatus"];
     }>();
@@ -62,7 +60,6 @@ const loadQuestionPipelineRouteState = async (
 
   return {
     moderationStatus: questionVersion.moderationStatus,
-    topicStatus: question.topicStatus,
     embeddingStatus: question.embeddingStatus,
     similarQuestionsStatus: question.similarQuestionsStatus,
     isCurrentVersion: true,
@@ -79,17 +76,13 @@ const resolveQuestionPipelineRouteDecision = (
 
   if (!state.isCurrentVersion) return { type: "NOOP" };
 
-  if (state.topicStatus === "PENDING") return { type: "NOOP" };
+  if (state.embeddingStatus === "NONE") return { type: "EMBED" };
 
-  if (state.topicStatus === "VALID") {
-    if (state.embeddingStatus === "NONE") return { type: "EMBED" };
-
-    if (
-      state.embeddingStatus === "READY" &&
-      state.similarQuestionsStatus === "NONE"
-    ) {
-      return { type: "SIMILAR" };
-    }
+  if (
+    state.embeddingStatus === "READY" &&
+    state.similarQuestionsStatus === "NONE"
+  ) {
+    return { type: "SIMILAR" };
   }
 
   return { type: "NOOP" };
