@@ -6,7 +6,7 @@ import {
   resetModerationUnitTestEnvironment,
 } from "../../../helpers/moderation/mockModerationUnitTestEnvironment.js";
 
-const moderationCreate = vi.fn();
+const llmGatewayModerate = vi.fn();
 const s3Send = vi.fn();
 const rekognitionSend = vi.fn();
 
@@ -22,11 +22,9 @@ vi.mock(
   "../../../../src/services/notification/routeNotification.service.js",
   () => mockModerationUnitModules.routeNotificationService,
 );
-vi.mock("../../../../src/config/openai.config.js", () => ({
-  moderationClient: {
-    moderations: {
-      create: moderationCreate,
-    },
+vi.mock("../../../../src/services/llmGateway/llmGateway.service.js", () => ({
+  default: {
+    moderate: llmGatewayModerate,
   },
 }));
 vi.mock("../../../../src/config/s3.config.js", () => ({
@@ -108,7 +106,7 @@ const { formatBanDurationBreakdown, formatBanNoticeExpiryUtc } = await import(
 describe("moderation utils", () => {
   beforeEach(() => {
     resetModerationUnitTestEnvironment();
-    moderationCreate.mockReset();
+    llmGatewayModerate.mockReset();
     s3Send.mockReset();
     rekognitionSend.mockReset();
   });
@@ -128,21 +126,16 @@ describe("moderation utils", () => {
   });
 
   it("normalizes AI moderation API success responses", async () => {
-    moderationCreate.mockResolvedValueOnce({
-      results: [
-        {
-          flagged: true,
-          category_scores: {
-            harassment: 0.8,
-          },
-        },
-      ],
+    llmGatewayModerate.mockResolvedValueOnce({
+      flagged: true,
+      categoryScores: {
+        harassment: 0.8,
+      },
     });
 
     const result = await aiModerateContent("abusive content");
 
-    expect(moderationCreate).toHaveBeenCalledWith({
-      model: "omni-moderation-latest",
+    expect(llmGatewayModerate).toHaveBeenCalledWith({
       input: "abusive content",
     });
     expect(result).toMatchObject({
@@ -156,7 +149,7 @@ describe("moderation utils", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    moderationCreate.mockRejectedValueOnce(new Error("api down"));
+    llmGatewayModerate.mockRejectedValueOnce(new Error("api down"));
 
     const result = await aiModerateContent("content");
 
@@ -254,7 +247,7 @@ describe("moderation utils", () => {
     vi.resetModules();
   });
 
-  it("deletes unsafe files and notifies the user", async () => {
+  it("deletes unsafe files", async () => {
     rekognitionSend.mockResolvedValueOnce({
       ModerationLabels: [{ Name: "Explicit Nudity" }],
     });
@@ -267,13 +260,8 @@ describe("moderation utils", () => {
     );
 
     expect(s3Send).toHaveBeenCalled();
-    expect(env.routeNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recipientId: "user_1",
-        event: "REMOVE_CONTENT",
-      }),
-    );
-    expect(result).toEqual({ safe: false });
+    expect(env.routeNotification).not.toHaveBeenCalled();
+    expect(result).toEqual({ safe: false, deleted: true });
   });
 
   it("returns deleted false for unsafe content images when object deletion fails", async () => {

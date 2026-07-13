@@ -268,7 +268,7 @@ describe("moderation content state services", () => {
     });
   });
 
-  it("removes answers, queues image cleanup, and clears answer caches", async () => {
+  it("removes answers and clears answer caches", async () => {
     env.answerFindById.mockReturnValueOnce(
       env.createQueryChain({
         _id: "answer_1",
@@ -284,16 +284,7 @@ describe("moderation content state services", () => {
     expect(env.answerFindByIdAndUpdate).toHaveBeenCalledWith("answer_1", {
       $set: { isActive: false },
     });
-    expect(env.imageDeletionQueueAdd).toHaveBeenCalledWith(
-      "DELETE_FROM_BODY",
-      expect.objectContaining({
-        entityType: "ANSWER",
-        entityId: "answer_1",
-      }),
-      expect.objectContaining({
-        jobId: "imageDeletion__DELETE_FROM_BODY__ANSWER__answer_1",
-      }),
-    );
+    expect(env.imageDeletionQueueAdd).not.toHaveBeenCalled();
     expect(env.redisDel).toHaveBeenCalledWith("question:question_1");
     expect(env.clearAnswerCache).toHaveBeenCalledWith("question_1");
     expect(result).toEqual({

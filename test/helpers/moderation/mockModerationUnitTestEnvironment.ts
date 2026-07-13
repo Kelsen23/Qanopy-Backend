@@ -87,6 +87,7 @@ const makeUniqueJobId = vi.fn(
 const moderationAuditQueueAdd = vi.fn(async () => ({ id: "audit-job-id" }));
 const moderationMetricsQueueAdd = vi.fn(async () => ({ id: "metrics-job-id" }));
 const contentPipelineRouterAdd = vi.fn(async () => ({ id: "pipeline-job-id" }));
+const contentPipelineRouterGetJob = vi.fn(async () => null);
 const emailQueueAdd = vi.fn(async () => ({ id: "email-job-id" }));
 const imageDeletionQueueAdd = vi.fn(async () => ({ id: "image-delete-job-id" }));
 const routeNotification = vi.fn(async () => undefined);
@@ -294,6 +295,7 @@ export const mockModerationUnitModules = {
   contentPipelineRouterQueue: {
     default: {
       add: contentPipelineRouterAdd,
+      getJob: contentPipelineRouterGetJob,
     },
   },
   emailQueue: {
@@ -486,6 +488,7 @@ export const mockModerationUnitTestEnvironment = {
   moderationAuditQueueAdd,
   moderationMetricsQueueAdd,
   contentPipelineRouterAdd,
+  contentPipelineRouterGetJob,
   emailQueueAdd,
   imageDeletionQueueAdd,
   routeNotification,
@@ -608,6 +611,7 @@ export const resetModerationUnitTestEnvironment = () => {
   contentPipelineRouterAdd
     .mockReset()
     .mockResolvedValue({ id: "pipeline-job-id" });
+  contentPipelineRouterGetJob.mockReset().mockResolvedValue(null);
   emailQueueAdd.mockReset().mockResolvedValue({ id: "email-job-id" });
   imageDeletionQueueAdd.mockReset().mockResolvedValue({ id: "image-delete-job-id" });
   routeNotification.mockReset().mockResolvedValue(undefined);
