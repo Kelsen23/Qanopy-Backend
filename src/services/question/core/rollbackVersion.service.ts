@@ -150,6 +150,13 @@ const rollbackVersion = async (
             : rolledBackVersionIsWorse
               ? nextVersion
               : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
+          questionEligibilityStatus: "PENDING",
+          questionEligibilityUpdatedAt: null,
+          questionEligibilitySourceVersion: nextVersion,
+          securityVerifierStatus: "NOT_REQUIRED",
+          securityVerifierUpdatedAt: null,
+          securityVerifierSourceVersion: nextVersion,
+          embeddingStatus: "NONE",
           similarQuestionIds: [],
           similarQuestionsStatus: "NONE",
         },
