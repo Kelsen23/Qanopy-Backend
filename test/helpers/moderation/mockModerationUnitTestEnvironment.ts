@@ -33,6 +33,7 @@ const redisEval = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 const redisDel = vi.fn<(...keys: string[]) => Promise<number>>(
   async (...keys: string[]) => keys.length,
 );
+const redisMessagingClientConnection = {};
 
 const reportFindOne = vi.fn();
 const reportFindOneAndUpdate = vi.fn();
@@ -213,6 +214,7 @@ export const mockModerationUnitModules = {
       eval: redisEval,
       del: redisDel,
     }),
+    redisMessagingClientConnection,
   },
   reportModel: {
     default: {
@@ -450,6 +452,7 @@ export const mockModerationUnitTestEnvironment = {
   redisGet,
   redisEval,
   redisDel,
+  redisMessagingClientConnection,
   reportFindOne,
   reportFindOneAndUpdate,
   reportCreate,
