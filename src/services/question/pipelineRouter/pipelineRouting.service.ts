@@ -4,11 +4,17 @@ import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 import questionEmbeddingQueue from "../../../queues/questionEmbedding.queue.js";
+import questionEligibilityGateQueue from "../../../queues/questionEligibilityGate.queue.js";
+import securityVerifierQueue from "../../../queues/securityVerifier.queue.js";
 import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
 
 import type { ContentPipelineRouterJobData } from "./contentPipelineRouter.shared.js";
 
-type QuestionPipelineStep = "EMBED" | "SIMILAR";
+export type QuestionPipelineStep =
+  | "ELIGIBILITY_GATE"
+  | "SECURITY_VERIFIER"
+  | "EMBED"
+  | "SIMILAR";
 
 const queueJobIfNeeded = async ({
   queue,
@@ -110,6 +116,24 @@ const queueQuestionPipelineStep = async ({
   version: number;
   step: QuestionPipelineStep;
 }) => {
+  if (step === "ELIGIBILITY_GATE") {
+    return queueJobIfNeeded({
+      queue: questionEligibilityGateQueue,
+      jobName: "ELIGIBILITY_GATE",
+      data: { questionId, version },
+      jobId: makeJobId("questionEligibilityGate", questionId, version),
+    });
+  }
+
+  if (step === "SECURITY_VERIFIER") {
+    return queueJobIfNeeded({
+      queue: securityVerifierQueue,
+      jobName: "SECURITY_VERIFIER",
+      data: { questionId, version },
+      jobId: makeJobId("securityVerifier", questionId, version),
+    });
+  }
+
   if (step === "EMBED") {
     return queueJobIfNeeded({
       queue: questionEmbeddingQueue,
