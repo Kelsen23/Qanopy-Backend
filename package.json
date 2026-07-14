@@ -24,6 +24,7 @@
     "dev:questionVersioning-worker": "tsx src/workers/question/questionVersioning.worker.ts",
     "dev:contentPipelineRouter-worker": "tsx src/workers/question/contentPipelineRouter.worker.ts",
     "dev:questionEligibilityGate-worker": "tsx src/workers/question/questionEligibilityGate.worker.ts",
+    "dev:securityVerifier-worker": "tsx src/workers/question/securityVerifier.worker.ts",
     "dev:questionGatewayAudit-worker": "tsx src/workers/question/questionGatewayAudit.worker.ts",
     "dev:stats-worker": "tsx src/workers/user/stats.worker.ts",
     "dev:imageModeration-worker": "tsx src/workers/moderation/imageModeration.worker.ts",
@@ -41,7 +42,7 @@
     "dev:similarQuestions-worker": "tsx src/workers/question/similarQuestions.worker.ts",
     "dev:userInterest-worker": "tsx src/workers/user/userInterest.worker.ts",
     "dev:unverifiedAccountCleanup-worker": "tsx src/workers/auth/unverifiedAccountCleanup.worker.ts",
-    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:questionEligibilityGate-worker\" \"npm run dev:questionGatewayAudit-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:accountDeletion-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:badge-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\" \"npm run dev:userInterest-worker\" \"npm run dev:unverifiedAccountCleanup-worker\"",
+    "dev:all-workers": "concurrently \"npm run dev:email-worker\" \"npm run dev:contentModeration-worker\" \"npm run dev:questionVersioning-worker\" \"npm run dev:contentPipelineRouter-worker\" \"npm run dev:questionEligibilityGate-worker\" \"npm run dev:securityVerifier-worker\" \"npm run dev:questionGatewayAudit-worker\" \"npm run dev:stats-worker\" \"npm run dev:imageModeration-worker\" \"npm run dev:contentFinalize-worker\" \"npm run dev:imageDeletion-worker\" \"npm run dev:moderationMetrics-worker\" \"npm run dev:deleteContent-worker\" \"npm run dev:accountDeletion-worker\" \"npm run dev:moderationAudit-worker\" \"npm run dev:notification-worker\" \"npm run dev:badge-worker\" \"npm run dev:questionEmbedding-worker\" \"npm run dev:aiAnswer-worker\" \"npm run dev:aiSuggestion-worker\" \"npm run dev:similarQuestions-worker\" \"npm run dev:userInterest-worker\" \"npm run dev:unverifiedAccountCleanup-worker\"",
     "lint": "eslint src/**/*.{js,ts}",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
   },
