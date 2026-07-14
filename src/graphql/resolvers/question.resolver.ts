@@ -3,6 +3,7 @@ import { Redis } from "ioredis";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
+import { canGenerateAIHelp } from "../../services/question/ai/questionAiHelp.shared.js";
 import queueUserInterest from "../../services/user/userInterest/queueUserInterest.service.js";
 
 import HttpError from "../../utils/http/httpError.util.js";
@@ -269,6 +270,8 @@ const questionResolver = {
             answerCount: 1,
             acceptedAnswerCount: 1,
             currentVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -336,10 +339,11 @@ const questionResolver = {
         const parsedCachedQuestion = JSON.parse(cachedQuestion);
 
         const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
           embedding: _embedding,
           moderationStatus: _moderationStatus,
+          questionEligibilityStatus,
+          securityVerifierStatus,
+          embeddingStatus,
           similarQuestionsStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
@@ -354,6 +358,13 @@ const questionResolver = {
 
         return {
           ...publicQuestion,
+          canGetAIHelp:
+            publicQuestion.canGetAIHelp ??
+            canGenerateAIHelp({
+              questionEligibilityStatus,
+              securityVerifierStatus,
+              embeddingStatus,
+            }),
           similarQuestionsReady:
             publicQuestion.similarQuestionsReady ??
             similarQuestionsStatus === "READY",
@@ -390,6 +401,7 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
+        canGetAIHelp: canGenerateAIHelp(question),
         similarQuestionsReady: question.similarQuestionsStatus === "READY",
         canGenerateAiSuggestion: ["APPROVED", "FLAGGED"].includes(
           String(question.moderationStatus),
@@ -397,6 +409,8 @@ const questionResolver = {
         canGenerateAiAnswer:
           ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
           question.embeddingStatus === "READY",
+        isActive: question.isActive,
+        isDeleted: question.isDeleted,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
         user: owner && !(owner as any)?.error ? owner : null,
@@ -425,6 +439,9 @@ const questionResolver = {
         isDeleted: question.isDeleted,
         embedding: Array.isArray(question.embedding) ? question.embedding : [],
         moderationStatus: question.moderationStatus,
+        questionEligibilityStatus: question.questionEligibilityStatus,
+        securityVerifierStatus: question.securityVerifierStatus,
+        embeddingStatus: question.embeddingStatus,
       };
 
       if (user?.id) {
@@ -512,7 +529,7 @@ const questionResolver = {
         moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
       })
         .select(
-          "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion createdAt updatedAt",
+          "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion isActive isDeleted createdAt updatedAt",
         )
         .lean();
 
@@ -541,6 +558,8 @@ const questionResolver = {
         answerCount: q.answerCount,
         acceptedAnswerCount: q.acceptedAnswerCount,
         currentVersion: q.currentVersion,
+        isActive: q.isActive,
+        isDeleted: q.isDeleted,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
         user: userMap.get(q.userId) || null,
@@ -572,8 +591,6 @@ const questionResolver = {
         const parsedCacheAnswer = JSON.parse(cachedAnswer);
 
         const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
           moderationStatus: _moderationStatus,
           ...publicAnswer
         } = parsedCacheAnswer;
@@ -603,6 +620,8 @@ const questionResolver = {
         isAccepted: answer.isAccepted,
         isBestAnswerByAsker: answer.isBestAnswerByAsker,
         questionVersion: answer.questionVersion,
+        isActive: answer.isActive,
+        isDeleted: answer.isDeleted,
         createdAt: answer.createdAt,
         updatedAt: answer.updatedAt,
         user: user && !(user as any)?.error ? user : null,
@@ -644,8 +663,6 @@ const questionResolver = {
         const parsedCacheReply = JSON.parse(cachedReply);
 
         const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
           moderationStatus: _moderationStatus,
           ...publicReply
         } = parsedCacheReply;
@@ -672,6 +689,8 @@ const questionResolver = {
 
         upvoteCount: reply.upvoteCount,
         downvoteCount: reply.downvoteCount,
+        isActive: reply.isActive,
+        isDeleted: reply.isDeleted,
 
         createdAt: reply.createdAt,
         updatedAt: reply.updatedAt,
@@ -712,8 +731,6 @@ const questionResolver = {
         const parsedCacheFeedback = JSON.parse(cachedFeedback);
 
         const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
           moderationStatus: _moderationStatus,
           ...publicFeedback
         } = parsedCacheFeedback;
@@ -739,6 +756,8 @@ const questionResolver = {
         body: feedback.body,
 
         questionVersionAtFeedback: feedback.questionVersionAtFeedback,
+        isActive: feedback.isActive,
+        isDeleted: feedback.isDeleted,
 
         createdAt: feedback.createdAt,
         updatedAt: feedback.updatedAt,
@@ -930,6 +949,8 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             questionVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -954,6 +975,8 @@ const questionResolver = {
         upvoteCount: a.upvoteCount,
         downvoteCount: a.downvoteCount,
         questionVersion: a.questionVersion,
+        isActive: a.isActive,
+        isDeleted: a.isDeleted,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
         user: userMap.get(a.userId) || null,
@@ -1076,6 +1099,8 @@ const questionResolver = {
             body: 1,
             upvoteCount: 1,
             downvoteCount: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -1361,6 +1386,8 @@ const questionResolver = {
             downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -1726,6 +1753,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -1947,6 +1976,8 @@ const questionResolver = {
           upvoteCount: 1,
           downvoteCount: 1,
           questionVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2046,6 +2077,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2135,6 +2168,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2453,6 +2488,8 @@ const questionResolver = {
           type: 1,
           body: 1,
           questionVersionAtFeedback: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
