@@ -37,6 +37,31 @@ const QuestionSchema: Schema = new Schema(
       default: "NONE",
     },
 
+    questionEligibilityStatus: {
+      type: String,
+      enum: ["PENDING", "PROCESSING", "ALLOWED", "CLARIFY", "REJECTED"],
+      default: "PENDING",
+      index: true,
+    },
+    questionEligibilityUpdatedAt: { type: Date, default: null },
+    questionEligibilitySourceVersion: { type: Number, default: 1, min: 1 },
+
+    securityVerifierStatus: {
+      type: String,
+      enum: [
+        "NOT_REQUIRED",
+        "PENDING",
+        "PROCESSING",
+        "ALLOWED",
+        "ALLOWED_WITH_CONSTRAINTS",
+        "REJECTED",
+      ],
+      default: "NOT_REQUIRED",
+      index: true,
+    },
+    securityVerifierUpdatedAt: { type: Date, default: null },
+    securityVerifierSourceVersion: { type: Number, default: 1, min: 1 },
+
     moderationStatus: {
       type: String,
       enum: ["PENDING", "APPROVED", "FLAGGED", "REJECTED"],
