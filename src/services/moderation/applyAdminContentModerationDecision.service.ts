@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import { syncQuestionModerationStatusFromVersions } from "./questionModerationStatus.service.js";
+import { queueContentPipelineRoute } from "../question/pipelineRouter/pipelineRouting.service.js";
 
 import { getContentTypeLabel } from "../../utils/content/contentTypeLabel.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
@@ -114,6 +115,14 @@ const applyAdminContentModerationDecisionService = async (
         contentId,
         effectiveVersion,
       );
+    }
+
+    if (contentType === "QUESTION" && effectiveVersion !== undefined) {
+      await queueContentPipelineRoute({
+        contentType: "QUESTION",
+        contentId,
+        version: effectiveVersion,
+      });
     }
   } finally {
     session.endSession();

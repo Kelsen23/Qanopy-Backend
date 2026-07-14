@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { fileURLToPath } from "node:url";
 
-import processQuestionGatewayAuditJob from "../../services/question/worker/questionGatewayAudit.service.js";
+import processQuestionGatewayAuditJob from "../../services/question/questionEligibilityGate/questionGatewayAudit.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
