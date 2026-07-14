@@ -32,8 +32,7 @@ const generateQuestionSuggestion = async ({
       .select("_id")
       .lean();
 
-    if (existingSuggestion)
-      throw new Error("AI suggestion already exists");
+    if (existingSuggestion) throw new Error("AI suggestion already exists");
 
     const foundQuestion = await Question.findOne({
       _id: questionId,

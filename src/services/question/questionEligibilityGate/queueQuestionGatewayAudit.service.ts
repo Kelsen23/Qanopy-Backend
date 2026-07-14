@@ -7,19 +7,15 @@ import type { QueueQuestionGatewayAuditInput } from "./questionGatewayAudit.shar
 const queueQuestionGatewayAudit = async (
   data: QueueQuestionGatewayAuditInput,
 ) =>
-  questionGatewayAuditQueue.add(
-    "QUESTION_ELIGIBILITY_GATE_ACTION_LOG",
-    data,
-    {
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: makeJobId(
-        "questionGatewayAudit",
-        data.questionId,
-        data.version,
-        data.decisionId,
-      ),
-    },
-  );
+  questionGatewayAuditQueue.add("QUESTION_ELIGIBILITY_GATE_ACTION_LOG", data, {
+    removeOnComplete: true,
+    removeOnFail: false,
+    jobId: makeJobId(
+      "questionGatewayAudit",
+      data.questionId,
+      data.version,
+      data.decisionId,
+    ),
+  });
 
 export default queueQuestionGatewayAudit;

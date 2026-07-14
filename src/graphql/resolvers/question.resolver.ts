@@ -590,10 +590,8 @@ const questionResolver = {
       if (cachedAnswer) {
         const parsedCacheAnswer = JSON.parse(cachedAnswer);
 
-        const {
-          moderationStatus: _moderationStatus,
-          ...publicAnswer
-        } = parsedCacheAnswer;
+        const { moderationStatus: _moderationStatus, ...publicAnswer } =
+          parsedCacheAnswer;
 
         return publicAnswer;
       }
@@ -662,10 +660,8 @@ const questionResolver = {
       if (cachedReply) {
         const parsedCacheReply = JSON.parse(cachedReply);
 
-        const {
-          moderationStatus: _moderationStatus,
-          ...publicReply
-        } = parsedCacheReply;
+        const { moderationStatus: _moderationStatus, ...publicReply } =
+          parsedCacheReply;
 
         return publicReply;
       }
@@ -730,10 +726,8 @@ const questionResolver = {
       if (cachedFeedback) {
         const parsedCacheFeedback = JSON.parse(cachedFeedback);
 
-        const {
-          moderationStatus: _moderationStatus,
-          ...publicFeedback
-        } = parsedCacheFeedback;
+        const { moderationStatus: _moderationStatus, ...publicFeedback } =
+          parsedCacheFeedback;
 
         return publicFeedback;
       }

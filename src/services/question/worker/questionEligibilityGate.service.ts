@@ -204,9 +204,8 @@ const processQuestionEligibilityGateJob = async ({
       questionId,
       version,
       userId: String(lockedQuestion.userId),
-      decision: questionGatewayAuditDecisionByGateDecision[
-        eligibilityResult.decision
-      ],
+      decision:
+        questionGatewayAuditDecisionByGateDecision[eligibilityResult.decision],
       questionEligibilityStatus: nextEligibilityStatus,
       securityVerifierStatus:
         eligibilityResult.decision === "allow"
