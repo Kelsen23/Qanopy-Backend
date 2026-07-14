@@ -1,5 +1,6 @@
 import routeNotification from "../../notification/routeNotification.service.js";
 import { getEditSessionSockets } from "../../redis/editSession.service.js";
+import { canGetAIHelp } from "./questionAiHelp.shared.js";
 import generateSuggestion from "./generateSuggestion.service.js";
 
 import prisma from "../../../config/prisma.config.js";
@@ -10,6 +11,7 @@ import convertQuestionToLLMText from "../../../utils/question/convertQuestionToL
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
 
+import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
@@ -33,6 +35,17 @@ const generateQuestionSuggestion = async ({
 
     if (existingSuggestion)
       throw new HttpError("AI suggestion already exists", 409);
+
+    const foundQuestion = await Question.findOne({
+      _id: questionId,
+      userId,
+      currentVersion: version,
+    })
+      .select("_id questionEligibilityStatus securityVerifierStatus")
+      .lean();
+
+    if (!foundQuestion || !canGetAIHelp(foundQuestion))
+      throw new HttpError("Question is not eligible for AI suggestion", 400);
 
     const foundVersion = await QuestionVersion.findOne({
       questionId,

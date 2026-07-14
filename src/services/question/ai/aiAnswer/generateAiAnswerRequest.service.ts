@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { canGetAIHelp } from "../questionAiHelp.shared.js";
+
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import prisma from "../../../../config/prisma.config.js";
 
@@ -21,17 +23,14 @@ const generateAiAnswerRequest = async (
   if (!mongoose.Types.ObjectId.isValid(questionId))
     throw new HttpError("Invalid questionId", 400);
 
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${questionId}`,
-  );
-  const foundQuestion = cachedQuestion
-    ? JSON.parse(cachedQuestion)
-    : await Question.findOne({
-        _id: questionId,
-        userId,
-      })
-        .select("_id isActive currentVersion moderationStatus embedding")
-        .lean();
+  const foundQuestion = await Question.findOne({
+    _id: questionId,
+    userId,
+  })
+    .select(
+      "_id isActive currentVersion moderationStatus embedding questionEligibilityStatus securityVerifierStatus",
+    )
+    .lean();
 
   if (!foundQuestion) throw new HttpError("Question not found", 404);
   if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
@@ -50,6 +49,9 @@ const generateAiAnswerRequest = async (
     foundQuestion.embedding.length === 0
   )
     throw new HttpError("Question does not have embedding", 400);
+
+  if (!canGetAIHelp(foundQuestion))
+    throw new HttpError("Question is not eligible for AI answer", 400);
 
   const foundAiAnswer = await AiAnswer.findOne({
     questionId,

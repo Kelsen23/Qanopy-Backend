@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import contextualAnswerService from "../ai/aiAnswer/contextualAnswer.service.js";
 import fullAnswerService from "../ai/aiAnswer/fullAnswer.service.js";
+import { canGetAIHelp } from "../ai/questionAiHelp.shared.js";
 import { getAiAnswerCancelKey } from "../../../services/redis/aiAnswerSession.service.js";
 
 import prisma from "../../../config/prisma.config.js";
@@ -31,7 +32,7 @@ const processAiAnswerJob = async ({
   try {
     const foundQuestion = await Question.findById(questionId)
       .select(
-        "_id isActive isDeleted currentVersion title body moderationStatus embedding embeddingStatus",
+        "_id isActive isDeleted currentVersion title body moderationStatus embedding embeddingStatus questionEligibilityStatus securityVerifierStatus",
       )
       .lean();
 
@@ -59,6 +60,10 @@ const processAiAnswerJob = async ({
 
     if (foundQuestion.embeddingStatus !== "READY") {
       throw new HttpError("Embedding not ready", 409);
+    }
+
+    if (!canGetAIHelp(foundQuestion)) {
+      throw new HttpError("Question is not eligible for AI answer", 400);
     }
 
     const questionObjectId = new mongoose.Types.ObjectId(questionId);
