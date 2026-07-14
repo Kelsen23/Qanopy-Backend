@@ -4,6 +4,7 @@ import {
   getAiAnswerSessionSockets,
 } from "../../../redis/aiAnswerSession.service.js";
 import llmGateway from "../../../llmGateway/llmGateway.service.js";
+import { buildSecurityConstraintInstructions } from "../questionAiHelp.shared.js";
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
@@ -20,9 +21,12 @@ const generateContextualAnswerService = async (
   questionBody: string,
   questionVersion: number,
   contextualAnswerBodies: string[],
+  securityConstraints: { securityVerifierStatus?: unknown } = {},
 ) => {
   const sockets = await getAiAnswerSessionSockets(questionId, questionVersion);
   const shouldPublishToSocket = sockets.length > 0;
+  const securityConstraintInstructions =
+    buildSecurityConstraintInstructions(securityConstraints);
 
   const systemPrompt = `
     You are an expert senior software engineer assistant. Your task is to write a contextual answer for a new question using multiple reference answers from similar questions.
@@ -60,6 +64,8 @@ const generateContextualAnswerService = async (
           ]
       }
     }
+
+    ${securityConstraintInstructions}
 
     Do not include any additional commentary before or after this structure.
   `;

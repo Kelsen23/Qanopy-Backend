@@ -4,6 +4,7 @@ import {
   getAiAnswerSessionSockets,
 } from "../../../redis/aiAnswerSession.service.js";
 import llmGateway from "../../../llmGateway/llmGateway.service.js";
+import { buildSecurityConstraintInstructions } from "../questionAiHelp.shared.js";
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
@@ -18,9 +19,12 @@ const fullAnswer = async (
   questionTitle: string,
   questionBody: string,
   questionVersion: number,
+  securityConstraints: { securityVerifierStatus?: unknown } = {},
 ) => {
   const sockets = await getAiAnswerSessionSockets(questionId, questionVersion);
   const shouldPublishToSocket = sockets.length > 0;
+  const securityConstraintInstructions =
+    buildSecurityConstraintInstructions(securityConstraints);
 
   const systemPrompt = `
     You are an expert senior software engineer assistant. Your task is to generate a **full answer** to the following question.
@@ -59,6 +63,8 @@ const fullAnswer = async (
     5. If the question requires additional context to improve accuracy, you may conceptually search online and incorporate that knowledge.
 
     6. Ensure the answer is clear, factual, and thorough. Use the confidence fields to indicate any uncertainty.
+
+    ${securityConstraintInstructions}
 
     Output structure must strictly follow this order:
 

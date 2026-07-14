@@ -64,7 +64,9 @@ const generateQuestionSuggestion = async ({
     );
 
     const { suggestions, notes, confidence } =
-      await generateSuggestion(questionText);
+      await generateSuggestion(questionText, {
+        securityVerifierStatus: foundQuestion.securityVerifierStatus,
+      });
 
     const newSuggestion = await AiSuggestion.create({
       questionId,

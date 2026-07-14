@@ -106,6 +106,9 @@ const processAiAnswerJob = async ({
         String(foundQuestion.title ?? ""),
         String(foundQuestion.body ?? ""),
         version,
+        {
+          securityVerifierStatus: foundQuestion.securityVerifierStatus,
+        },
       );
     } else {
       const similarQuestionIds = similarQuestions.map((s) => String(s._id));
@@ -117,6 +120,9 @@ const processAiAnswerJob = async ({
         String(foundQuestion.title ?? ""),
         String(foundQuestion.body ?? ""),
         version,
+        {
+          securityVerifierStatus: foundQuestion.securityVerifierStatus,
+        },
       );
     }
   } catch (error) {

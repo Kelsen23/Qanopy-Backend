@@ -1,4 +1,5 @@
 import llmGateway from "../../llmGateway/llmGateway.service.js";
+import { buildSecurityConstraintInstructions } from "./questionAiHelp.shared.js";
 
 import interests from "../../../utils/question/interests.util.js";
 
@@ -14,7 +15,13 @@ interface AISuggestion {
   confidence: number;
 }
 
-const generateSuggestion = async (questionText: string) => {
+const generateSuggestion = async (
+  questionText: string,
+  securityConstraints: { securityVerifierStatus?: unknown } = {},
+) => {
+  const securityConstraintInstructions =
+    buildSecurityConstraintInstructions(securityConstraints);
+
   const systemPrompt = `
     You are a senior, experienced software engineer and educator.
     Your task is to improve programming questions while preserving Markdown formatting.
@@ -129,6 +136,8 @@ const generateSuggestion = async (questionText: string) => {
     4. The response is valid JSON.
 
     If any rule fails, fix the response before returning it.
+
+    ${securityConstraintInstructions}
 
     Return ONLY the JSON object and nothing else.
 `;
