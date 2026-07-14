@@ -8,7 +8,7 @@ import questionEligibilityGateQueue from "../../../queues/questionEligibilityGat
 import securityVerifierQueue from "../../../queues/securityVerifier.queue.js";
 import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
 
-import type { ContentPipelineRouterJobData } from "./contentPipelineRouter.shared.js";
+import type { ContentPipelineRouterJobData } from "./pipelineRouter.shared.js";
 
 export type QuestionPipelineStep =
   | "ELIGIBILITY_GATE"

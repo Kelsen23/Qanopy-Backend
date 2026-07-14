@@ -2,7 +2,7 @@ import {
   type ContentPipelineRouterJobData,
   type NonQuestionContentPipelineRouterJob,
   type QuestionContentPipelineRouterJob,
-} from "../pipelineRouter/contentPipelineRouter.shared.js";
+} from "../pipelineRouter/pipelineRouter.shared.js";
 
 import aiAnswerFeedbackRouter from "../pipelineRouter/aiAnswerFeedbackRouter.service.js";
 import answerRouter from "../pipelineRouter/answerRouter.service.js";

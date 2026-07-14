@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 
 import processContentPipelineRouterJob from "../../services/question/worker/contentPipelineRouter.service.js";
-import { normalizeContentPipelineRouterJobData } from "../../services/question/pipelineRouter/contentPipelineRouter.shared.js";
+import { normalizeContentPipelineRouterJobData } from "../../services/question/pipelineRouter/pipelineRouter.shared.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
