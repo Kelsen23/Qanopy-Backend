@@ -30,6 +30,7 @@ const queueNotification = async ({
         target.entityType,
         target.entityId,
         target.parentId ?? "root",
+        target.questionVersion ?? "latest",
       ),
     },
   );
