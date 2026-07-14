@@ -12,9 +12,15 @@ const EligibilityGateActionLogSchema: Schema = new Schema(
     version: { type: Number, required: true, min: 1, index: true },
     userId: { type: String, required: true, index: true },
 
+    stage: {
+      type: String,
+      enum: ["QUESTION_ELIGIBILITY_GATE", "SECURITY_VERIFIER"],
+      required: true,
+      index: true,
+    },
     decision: {
       type: String,
-      enum: ["ALLOW", "CLARIFY", "REJECT"],
+      enum: ["ALLOW", "CLARIFY", "REJECT", "ALLOW_WITH_CONSTRAINTS"],
       required: true,
     },
     questionEligibilityStatus: {
@@ -24,7 +30,14 @@ const EligibilityGateActionLogSchema: Schema = new Schema(
     },
     securityVerifierStatus: {
       type: String,
-      enum: ["NOT_REQUIRED", "PENDING"],
+      enum: [
+        "NOT_REQUIRED",
+        "PENDING",
+        "PROCESSING",
+        "ALLOWED",
+        "ALLOWED_WITH_CONSTRAINTS",
+        "REJECTED",
+      ],
       required: true,
     },
     eligibleForDownstreamProcessing: { type: Boolean, required: true },
