@@ -1,6 +1,6 @@
 import { queueContentModerationRoute } from "./pipelineRouting.service.js";
 
-import type { NonQuestionContentPipelineRouterJob } from "./pipelineRouter.shared.js";
+import type { NonQuestionPipelineRouterJob } from "./pipelineRouter.shared.js";
 
 type ModerationRoutableEntity = {
   _id: string;
@@ -23,7 +23,7 @@ const routePendingModerationContent = async <
   model,
   select,
 }: {
-  contentType: NonQuestionContentPipelineRouterJob["contentType"];
+  contentType: NonQuestionPipelineRouterJob["contentType"];
   contentId: string;
   moderationRevision?: number;
   model: ModerationRoutableModel<T>;

@@ -8,7 +8,7 @@ import questionEligibilityGateQueue from "../../../queues/questionEligibilityGat
 import securityVerifierQueue from "../../../queues/securityVerifier.queue.js";
 import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
 
-import type { ContentPipelineRouterJobData } from "./pipelineRouter.shared.js";
+import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
 
 export type QuestionPipelineStep =
   | "ELIGIBILITY_GATE"
@@ -61,7 +61,7 @@ const queueJobIfNeeded = async ({
   });
 };
 
-const makeContentPipelineRouteJobId = (job: ContentPipelineRouterJobData) =>
+const makeContentPipelineRouteJobId = (job: PipelineRouterJobData) =>
   job.contentType === "QUESTION"
     ? makeJobId("contentPipelineRoute", job.contentId, job.version)
     : makeJobId(
@@ -71,7 +71,7 @@ const makeContentPipelineRouteJobId = (job: ContentPipelineRouterJobData) =>
         job.moderationRevision,
       );
 
-const queueContentPipelineRoute = async (job: ContentPipelineRouterJobData) =>
+const queueContentPipelineRoute = async (job: PipelineRouterJobData) =>
   queueJobIfNeeded({
     queue: contentPipelineRouter,
     jobName: job.contentType,
@@ -85,7 +85,7 @@ const queueContentPipelineRoute = async (job: ContentPipelineRouterJobData) =>
     jobId: makeContentPipelineRouteJobId(job),
   });
 
-const queueContentModerationRoute = async (job: ContentPipelineRouterJobData) =>
+const queueContentModerationRoute = async (job: PipelineRouterJobData) =>
   queueJobIfNeeded({
     queue: contentModerationQueue,
     jobName: job.contentType,

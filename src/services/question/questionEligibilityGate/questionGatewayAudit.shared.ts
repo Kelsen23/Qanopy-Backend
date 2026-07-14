@@ -1,19 +1,28 @@
 import type { QuestionEligibilityGateResult } from "../../../validations/question.schema.js";
 import type {
   QuestionEligibilityStatus,
-  SecurityVerifierPendingStatus,
+  SecurityVerifierStatus,
 } from "./questionEligibilityGate.shared.js";
 
-type QuestionGatewayAuditDecision = "ALLOW" | "CLARIFY" | "REJECT";
+type QuestionGatewayAuditStage =
+  | "QUESTION_ELIGIBILITY_GATE"
+  | "SECURITY_VERIFIER";
+
+type QuestionGatewayAuditDecision =
+  | "ALLOW"
+  | "CLARIFY"
+  | "REJECT"
+  | "ALLOW_WITH_CONSTRAINTS";
 
 type QueueQuestionGatewayAuditInput = {
   decisionId: string;
   questionId: string;
   version: number;
   userId: string;
+  stage: QuestionGatewayAuditStage;
   decision: QuestionGatewayAuditDecision;
   questionEligibilityStatus: QuestionEligibilityStatus;
-  securityVerifierStatus: SecurityVerifierPendingStatus;
+  securityVerifierStatus: SecurityVerifierStatus;
   eligibleForDownstreamProcessing: boolean;
   userFacingReason: string;
   internalReason: string;
@@ -31,4 +40,8 @@ const questionGatewayAuditDecisionByGateDecision: Record<
 
 export { questionGatewayAuditDecisionByGateDecision };
 
-export type { QueueQuestionGatewayAuditInput, QuestionGatewayAuditDecision };
+export type {
+  QueueQuestionGatewayAuditInput,
+  QuestionGatewayAuditDecision,
+  QuestionGatewayAuditStage,
+};

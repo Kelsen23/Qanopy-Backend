@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 
 import processContentPipelineRouterJob from "../../services/question/worker/contentPipelineRouter.service.js";
-import { normalizeContentPipelineRouterJobData } from "../../services/question/pipelineRouter/pipelineRouter.shared.js";
+import { normalizePipelineRouterJobData } from "../../services/question/pipelineRouter/pipelineRouter.shared.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -18,7 +18,7 @@ async function startWorker() {
     "contentPipelineRouter",
     async (job) => {
       await processContentPipelineRouterJob(
-        normalizeContentPipelineRouterJobData({
+        normalizePipelineRouterJobData({
           jobName: job.name,
           contentId: job.data.contentId,
           version: job.data.version,

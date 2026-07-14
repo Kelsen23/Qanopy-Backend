@@ -1,28 +1,28 @@
-type ContentPipelineRouterJobName =
+type PipelineRouterJobName =
   | "QUESTION"
   | "ANSWER"
   | "REPLY"
   | "AI_ANSWER_FEEDBACK";
 
-type QuestionContentPipelineRouterJob = {
+type QuestionPipelineRouterJob = {
   contentType: "QUESTION";
   contentId: string;
   version: number;
 };
 
-type NonQuestionContentPipelineRouterJob = {
-  contentType: Exclude<ContentPipelineRouterJobName, "QUESTION">;
+type NonQuestionPipelineRouterJob = {
+  contentType: Exclude<PipelineRouterJobName, "QUESTION">;
   contentId: string;
   moderationRevision?: number;
 };
 
-type ContentPipelineRouterJobData =
-  | QuestionContentPipelineRouterJob
-  | NonQuestionContentPipelineRouterJob;
+type PipelineRouterJobData =
+  | QuestionPipelineRouterJob
+  | NonQuestionPipelineRouterJob;
 
-const assertContentPipelineRouterJobName = (
+const assertPipelineRouterJobName = (
   jobName: string,
-): ContentPipelineRouterJobName => {
+): PipelineRouterJobName => {
   if (
     jobName === "QUESTION" ||
     jobName === "ANSWER" ||
@@ -35,7 +35,7 @@ const assertContentPipelineRouterJobName = (
   throw new Error(`Invalid content pipeline router job type: ${jobName}`);
 };
 
-const normalizeContentPipelineRouterJobData = ({
+const normalizePipelineRouterJobData = ({
   jobName,
   contentId,
   version,
@@ -45,8 +45,8 @@ const normalizeContentPipelineRouterJobData = ({
   contentId: unknown;
   version?: unknown;
   moderationRevision?: unknown;
-}): ContentPipelineRouterJobData => {
-  const contentType = assertContentPipelineRouterJobName(jobName);
+}): PipelineRouterJobData => {
+  const contentType = assertPipelineRouterJobName(jobName);
 
   if (typeof contentId !== "string" || contentId.length === 0) {
     throw new Error("Missing content pipeline router contentId");
@@ -72,14 +72,11 @@ const normalizeContentPipelineRouterJobData = ({
   };
 };
 
-export {
-  assertContentPipelineRouterJobName,
-  normalizeContentPipelineRouterJobData,
-};
+export { assertPipelineRouterJobName, normalizePipelineRouterJobData };
 
 export type {
-  ContentPipelineRouterJobData,
-  ContentPipelineRouterJobName,
-  NonQuestionContentPipelineRouterJob,
-  QuestionContentPipelineRouterJob,
+  NonQuestionPipelineRouterJob,
+  PipelineRouterJobData,
+  PipelineRouterJobName,
+  QuestionPipelineRouterJob,
 };

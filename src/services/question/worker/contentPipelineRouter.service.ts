@@ -1,7 +1,7 @@
 import {
-  type ContentPipelineRouterJobData,
-  type NonQuestionContentPipelineRouterJob,
-  type QuestionContentPipelineRouterJob,
+  type NonQuestionPipelineRouterJob,
+  type PipelineRouterJobData,
+  type QuestionPipelineRouterJob,
 } from "../pipelineRouter/pipelineRouter.shared.js";
 
 import aiAnswerFeedbackRouter from "../pipelineRouter/aiAnswerFeedbackRouter.service.js";
@@ -10,19 +10,19 @@ import questionRouter from "../pipelineRouter/questionRouter.service.js";
 import replyRouter from "../pipelineRouter/replyRouter.service.js";
 
 const processQuestionPipelineRoute = async (
-  job: QuestionContentPipelineRouterJob,
+  job: QuestionPipelineRouterJob,
 ) => questionRouter(job.contentId, job.version);
 
 const processAnswerPipelineRoute = async (
-  job: NonQuestionContentPipelineRouterJob,
+  job: NonQuestionPipelineRouterJob,
 ) => answerRouter(job.contentId, job.moderationRevision);
 
 const processReplyPipelineRoute = async (
-  job: NonQuestionContentPipelineRouterJob,
+  job: NonQuestionPipelineRouterJob,
 ) => replyRouter(job.contentId, job.moderationRevision);
 
 const processAiAnswerFeedbackPipelineRoute = async (
-  job: NonQuestionContentPipelineRouterJob,
+  job: NonQuestionPipelineRouterJob,
 ) =>
   aiAnswerFeedbackRouter(job.contentId, job.moderationRevision);
 
@@ -34,7 +34,7 @@ const contentPipelineRouteHandlers = {
 } as const;
 
 const processContentPipelineRouterJob = async (
-  job: ContentPipelineRouterJobData,
+  job: PipelineRouterJobData,
 ) => {
   const handler = contentPipelineRouteHandlers[job.contentType] as (
     routeJob: typeof job,
