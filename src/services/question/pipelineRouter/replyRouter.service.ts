@@ -1,8 +1,8 @@
 import Reply from "../../../models/reply.model.js";
 
-import { routePendingModerationContent } from "./moderationPipelineRouter.shared.js";
+import { routePendingModerationContent } from "./moderationRouter.shared.js";
 
-const replyPipelineRouter = async (
+const replyRouter = async (
   replyId: string,
   moderationRevision?: number,
 ) => {
@@ -15,4 +15,4 @@ const replyPipelineRouter = async (
   });
 };
 
-export default replyPipelineRouter;
+export default replyRouter;

@@ -2,9 +2,9 @@ import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
 
 import Answer from "../../../models/answer.model.js";
 
-import { routePendingModerationContent } from "./moderationPipelineRouter.shared.js";
+import { routePendingModerationContent } from "./moderationRouter.shared.js";
 
-const answerPipelineRouter = async (
+const answerRouter = async (
   answerId: string,
   moderationRevision?: number,
 ) => {
@@ -21,4 +21,4 @@ const answerPipelineRouter = async (
   await clearAnswerCache(foundAnswer.questionId as string);
 };
 
-export default answerPipelineRouter;
+export default answerRouter;

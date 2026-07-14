@@ -1,8 +1,8 @@
 import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 
-import { routePendingModerationContent } from "./moderationPipelineRouter.shared.js";
+import { routePendingModerationContent } from "./moderationRouter.shared.js";
 
-const aiAnswerFeedbackPipelineRouter = async (
+const aiAnswerFeedbackRouter = async (
   aiAnswerFeedbackId: string,
   moderationRevision?: number,
 ) => {
@@ -15,4 +15,4 @@ const aiAnswerFeedbackPipelineRouter = async (
   });
 };
 
-export default aiAnswerFeedbackPipelineRouter;
+export default aiAnswerFeedbackRouter;

@@ -132,7 +132,7 @@ const resolveQuestionPipelineRouteDecision = (
   return { type: "NOOP" };
 };
 
-const questionPipelineRouter = async (questionId: string, version: number) => {
+const questionRouter = async (questionId: string, version: number) => {
   const routeDecision = resolveQuestionPipelineRouteDecision(
     await loadQuestionPipelineRouteState(questionId, version),
   );
@@ -178,4 +178,4 @@ const questionPipelineRouter = async (questionId: string, version: number) => {
   }
 };
 
-export default questionPipelineRouter;
+export default questionRouter;
