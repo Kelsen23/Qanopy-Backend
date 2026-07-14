@@ -7,7 +7,13 @@ type ProcessQuestionEligibilityGateJobData = {
 
 type QuestionEligibilityStatus = "ALLOWED" | "CLARIFY" | "REJECTED";
 
-type SecurityVerifierPendingStatus = "NOT_REQUIRED" | "PENDING";
+type SecurityVerifierStatus =
+  | "NOT_REQUIRED"
+  | "PENDING"
+  | "PROCESSING"
+  | "ALLOWED"
+  | "ALLOWED_WITH_CONSTRAINTS"
+  | "REJECTED";
 
 const questionEligibilityStatusByDecision: Record<
   QuestionEligibilityGateResult["decision"],
@@ -54,5 +60,5 @@ export {
 export type {
   ProcessQuestionEligibilityGateJobData,
   QuestionEligibilityStatus,
-  SecurityVerifierPendingStatus,
+  SecurityVerifierStatus,
 };
