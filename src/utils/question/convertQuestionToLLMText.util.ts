@@ -3,7 +3,9 @@ const convertQuestionToLLMText = (
   body: string,
   tags: string[],
 ) => {
-  const tagsBlock = tags.length ? `Tags: ${tags.join(", ")}` : "";
+  const tagsBlock = tags.length
+    ? `Tags: ${tags.join(", ")}`
+    : "";
 
   return `
   Title: ${title}
