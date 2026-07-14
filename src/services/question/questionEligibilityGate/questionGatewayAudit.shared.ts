@@ -2,7 +2,7 @@ import type { QuestionEligibilityGateResult } from "../../../validations/questio
 import type {
   QuestionEligibilityStatus,
   SecurityVerifierPendingStatus,
-} from "../questionEligibilityGate/questionEligibilityGate.shared.js";
+} from "./questionEligibilityGate.shared.js";
 
 type QuestionGatewayAuditDecision = "ALLOW" | "CLARIFY" | "REJECT";
 

@@ -1,6 +1,6 @@
 import EligibilityGateActionLog from "../../../models/eligibilityGateActionLog.model.js";
 
-import type { QueueQuestionGatewayAuditInput } from "../questionGatewayAudit/questionGatewayAudit.shared.js";
+import type { QueueQuestionGatewayAuditInput } from "./questionGatewayAudit.shared.js";
 
 const processQuestionGatewayAuditJob = async (
   jobData: QueueQuestionGatewayAuditInput,
