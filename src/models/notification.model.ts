@@ -20,6 +20,7 @@ const NotificationSchema = new Schema(
         "AI_ANSWER_UNLOCKED",
 
         "SIMILAR_QUESTIONS_READY",
+        "QUESTION_ELIGIBILITY_UPDATE",
         "AI_SUGGESTION_READY",
         "AI_ANSWER_READY",
 
