@@ -51,8 +51,4 @@ const buildSecurityConstraintInstructions = ({
 `;
 };
 
-export {
-  buildSecurityConstraintInstructions,
-  canGenerateAIHelp,
-  canGetAIHelp,
-};
+export { buildSecurityConstraintInstructions, canGenerateAIHelp, canGetAIHelp };

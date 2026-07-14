@@ -50,6 +50,12 @@ const queueSecurityVerifierSideEffects = async ({
 }) => {
   await getRedisCacheClient().del(`question:${questionId}`);
 
+  await queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version,
+  });
+
   if (securityVerifierStatus === "REJECTED") {
     await routeNotification({
       recipientId: userId,
@@ -66,12 +72,6 @@ const queueSecurityVerifierSideEffects = async ({
       },
     });
   }
-
-  await queueContentPipelineRoute({
-    contentType: "QUESTION",
-    contentId: questionId,
-    version,
-  });
 };
 
 const resumeSecurityVerifierSideEffects = async ({
@@ -168,9 +168,7 @@ const processSecurityVerifierJob = async ({
     });
 
     const nextSecurityVerifierStatus =
-      securityVerifierStatusByDecision[
-        securityResult.finalSecurityDecision
-      ];
+      securityVerifierStatusByDecision[securityResult.finalSecurityDecision];
     const auditDecisionId = makeJobId(
       "securityVerifierDecision",
       questionId,

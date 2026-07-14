@@ -63,10 +63,12 @@ const generateQuestionSuggestion = async ({
       foundVersion.tags as string[],
     );
 
-    const { suggestions, notes, confidence } =
-      await generateSuggestion(questionText, {
+    const { suggestions, notes, confidence } = await generateSuggestion(
+      questionText,
+      {
         securityVerifierStatus: foundQuestion.securityVerifierStatus,
-      });
+      },
+    );
 
     const newSuggestion = await AiSuggestion.create({
       questionId,
