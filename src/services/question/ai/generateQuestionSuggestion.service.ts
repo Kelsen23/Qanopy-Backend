@@ -6,7 +6,6 @@ import generateSuggestion from "./generateSuggestion.service.js";
 import prisma from "../../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import HttpError from "../../../utils/http/httpError.util.js";
 import convertQuestionToLLMText from "../../../utils/question/convertQuestionToLLMText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
@@ -34,7 +33,7 @@ const generateQuestionSuggestion = async ({
       .lean();
 
     if (existingSuggestion)
-      throw new HttpError("AI suggestion already exists", 409);
+      throw new Error("AI suggestion already exists");
 
     const foundQuestion = await Question.findOne({
       _id: questionId,
@@ -45,7 +44,7 @@ const generateQuestionSuggestion = async ({
       .lean();
 
     if (!foundQuestion || !canGetAIHelp(foundQuestion))
-      throw new HttpError("Question is not eligible for AI suggestion", 400);
+      throw new Error("Question is not eligible for AI suggestion");
 
     const foundVersion = await QuestionVersion.findOne({
       questionId,
@@ -56,8 +55,8 @@ const generateQuestionSuggestion = async ({
       .select("_id isActive title body tags")
       .lean();
 
-    if (!foundVersion) throw new HttpError("Version not found", 404);
-    if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
+    if (!foundVersion) throw new Error("Version not found");
+    if (!foundVersion.isActive) throw new Error("Version not active");
 
     const questionText = convertQuestionToLLMText(
       normalizeText(foundVersion.title as string),

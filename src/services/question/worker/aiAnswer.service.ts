@@ -8,7 +8,6 @@ import { getAiAnswerCancelKey } from "../../../services/redis/aiAnswerSession.se
 import prisma from "../../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import HttpError from "../../../utils/http/httpError.util.js";
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
 
 import Question from "../../../models/question.model.js";
@@ -36,34 +35,34 @@ const processAiAnswerJob = async ({
       )
       .lean();
 
-    if (!foundQuestion) throw new HttpError("Question not found", 404);
+    if (!foundQuestion) throw new Error("Question not found");
 
     if (!foundQuestion.isActive || foundQuestion.isDeleted)
-      throw new HttpError("Question not active", 410);
+      throw new Error("Question not active");
 
     if (foundQuestion.currentVersion !== version) {
-      throw new HttpError("Not current version", 409);
+      throw new Error("Not current version");
     }
 
     if (
       !["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus))
     ) {
-      throw new HttpError("Question is not eligible for AI answer", 400);
+      throw new Error("Question is not eligible for AI answer");
     }
 
     if (
       !Array.isArray(foundQuestion.embedding) ||
       foundQuestion.embedding.length === 0
     ) {
-      throw new HttpError("Question does not have embedding", 400);
+      throw new Error("Question does not have embedding");
     }
 
     if (foundQuestion.embeddingStatus !== "READY") {
-      throw new HttpError("Embedding not ready", 409);
+      throw new Error("Embedding not ready");
     }
 
     if (!canGetAIHelp(foundQuestion)) {
-      throw new HttpError("Question is not eligible for AI answer", 400);
+      throw new Error("Question is not eligible for AI answer");
     }
 
     const questionObjectId = new mongoose.Types.ObjectId(questionId);

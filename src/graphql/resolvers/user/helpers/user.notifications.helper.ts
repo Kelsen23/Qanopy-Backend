@@ -4,8 +4,6 @@ import mongoose, { PipelineStage } from "mongoose";
 
 import Notification from "../../../../models/notification.model.js";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
-
 import { normalizeLimitCount, parseCachedPage } from "./user.shared.helper.js";
 
 type NotificationCursor = {
@@ -98,7 +96,7 @@ const validateCursor = (cursor: NotificationCursor) => {
     !mongoose.isValidObjectId(cursor.id) ||
     Number.isNaN(Date.parse(cursor.createdAt))
   ) {
-    throw new HttpError("Invalid cursor", 400);
+    throw new Error("Invalid cursor");
   }
 };
 

@@ -8,7 +8,6 @@ import llmGateway from "../../../llmGateway/llmGateway.service.js";
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
 import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util.js";
-import HttpError from "../../../../utils/http/httpError.util.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
@@ -188,7 +187,7 @@ const generateContextualAnswerService = async (
     const delimiterStart = raw.indexOf(confidenceDelimiter);
 
     if (delimiterStart === -1)
-      throw new HttpError("Missing <AI_CONFIDENCE_JSON> delimiter", 500);
+      throw new Error("Missing <AI_CONFIDENCE_JSON> delimiter");
 
     const answerBody = raw.slice(0, delimiterStart).trim();
     const rawConfidence = raw
@@ -257,10 +256,7 @@ const generateContextualAnswerService = async (
   } catch (error) {
     console.error("Invalid AI contextual answer response:", error);
     console.error("Raw AI response:", fullBody);
-    throw new HttpError(
-      "Invalid AI contextual answer returned by LLM gateway",
-      500,
-    );
+    throw new Error("Invalid AI contextual answer returned by LLM gateway");
   }
 };
 

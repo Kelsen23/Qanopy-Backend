@@ -1,6 +1,5 @@
 import { Redis } from "ioredis";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
 import sanitizeUser from "../../../../utils/auth/sanitizeUser.util.js";
 
 type SanitizedUser = ReturnType<typeof sanitizeUser>;
@@ -20,7 +19,7 @@ const userBaseResolver = {
       if (cachedUser) return JSON.parse(cachedUser) as SanitizedUser;
 
       const foundUser = await prisma.user.findUnique({ where: { id } });
-      if (!foundUser) throw new HttpError("User not found", 404);
+      if (!foundUser) throw new Error("User not found");
 
       const sanitizedUser = sanitizeUser(foundUser);
 

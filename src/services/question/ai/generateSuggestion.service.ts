@@ -1,6 +1,5 @@
 import llmGateway from "../../llmGateway/llmGateway.service.js";
 
-import HttpError from "../../../utils/http/httpError.util.js";
 import interests from "../../../utils/question/interests.util.js";
 
 import aiSuggestionSchema from "../../../validations/aiSuggestion.schema.js";
@@ -169,7 +168,7 @@ const generateSuggestion = async (questionText: string) => {
     return validated;
   } catch (error) {
     console.error("Invalid AI suggestion response:", error);
-    throw new HttpError("Invalid AI suggestion returned by LLM gateway", 500);
+    throw new Error("Invalid AI suggestion returned by LLM gateway");
   }
 };
 

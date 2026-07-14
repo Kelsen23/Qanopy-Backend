@@ -3,7 +3,6 @@ import { Redis } from "ioredis";
 
 import Report from "../../../../models/report.model.js";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
 import {
   buildUserMap,
   ensureAdminAccess,
@@ -152,7 +151,7 @@ const getReports = async ({
   const normalizedLimitCount = normalizeLimitCount(limitCount);
 
   if (cursor && !mongoose.isValidObjectId(cursor.id)) {
-    throw new HttpError("Invalid cursor", 400);
+    throw new Error("Invalid cursor");
   }
 
   const cacheKey = buildReportCacheKey(

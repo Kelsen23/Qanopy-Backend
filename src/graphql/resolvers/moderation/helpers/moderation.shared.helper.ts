@@ -1,5 +1,3 @@
-import HttpError from "../../../../utils/http/httpError.util.js";
-
 type ModerationGraphqlUser = {
   id: string;
   [key: string]: unknown;
@@ -20,7 +18,7 @@ const normalizeLimitCount = (limitCount: number) =>
 
 const ensureAdminAccess = (role: string) => {
   if (role !== "ADMIN") {
-    throw new HttpError("Forbidden to access this route", 403);
+    throw new Error("Forbidden to access this route");
   }
 };
 

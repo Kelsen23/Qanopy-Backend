@@ -10,8 +10,6 @@ import {
   toNullableIsoString,
 } from "./moderation.shared.helper.js";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
-
 type ModerationGraphqlStrikeContext = {
   user: {
     id: string;
@@ -112,7 +110,7 @@ const isUuid = (value: string) =>
 
 const validateCursor = (cursor: StrikeCursor) => {
   if (!isUuid(cursor.id) || Number.isNaN(Date.parse(cursor.createdAt))) {
-    throw new HttpError("Invalid cursor", 400);
+    throw new Error("Invalid cursor");
   }
 };
 
