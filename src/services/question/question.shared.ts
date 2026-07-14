@@ -25,11 +25,13 @@ const getCachedQuestion = async (
   questionId: string,
   select?: string,
 ): Promise<any> => {
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${questionId}`,
-  );
+  if (!select) {
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
 
-  if (cachedQuestion) return JSON.parse(cachedQuestion);
+    if (cachedQuestion) return JSON.parse(cachedQuestion);
+  }
 
   const query = Question.findById(questionId);
 
