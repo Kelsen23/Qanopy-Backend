@@ -1,112 +1,83 @@
-import mongoose from "mongoose";
-
-import routeNotification from "../../../services/notification/routeNotification.service.js";
+import runSimilarQuestionsReadySideEffects from "../similarQuestions/similarQuestionsSideEffects.service.js";
+import findSimilarQuestionIds from "../similarQuestions/similarQuestionsSearch.service.js";
 import {
-  getQuestionSessionSockets,
-  getQuestionSessionUsers,
-} from "../../../services/redis/questionSession.service.js";
+  finalizeSimilarQuestions,
+  loadReadyQuestionForSimilarSideEffects,
+  lockQuestionForSimilarQuestions,
+  resetSimilarQuestionsProcessing,
+} from "../similarQuestions/similarQuestionsState.service.js";
+import type { SimilarQuestionsJobData } from "../similarQuestions/similarQuestions.shared.js";
 
-import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
-
-import Question from "../../../models/question.model.js";
-
-type ProcessSimilarQuestionsJobData = {
+const runReadySideEffectsIfCurrent = async ({
+  questionId,
+  version,
+  userId,
+  similarQuestionIds,
+}: {
   questionId: string;
   version: number;
+  userId?: unknown;
+  similarQuestionIds?: Awaited<ReturnType<typeof findSimilarQuestionIds>>;
+}) => {
+  const readyQuestion =
+    userId && similarQuestionIds
+      ? { userId, similarQuestionIds }
+      : await loadReadyQuestionForSimilarSideEffects(questionId, version);
+
+  if (!readyQuestion) return;
+
+  await runSimilarQuestionsReadySideEffects({
+    questionId,
+    version,
+    userId: String(readyQuestion.userId),
+    similarQuestionIds: readyQuestion.similarQuestionIds,
+  });
 };
 
 const processSimilarQuestionsJob = async ({
   questionId,
   version,
-}: ProcessSimilarQuestionsJobData) => {
-  const id = new mongoose.Types.ObjectId(questionId);
+}: SimilarQuestionsJobData) => {
+  const locked = await lockQuestionForSimilarQuestions(questionId, version);
 
-  const locked = await Question.findOneAndUpdate(
-    {
-      _id: id,
-      currentVersion: version,
-      embeddingStatus: "READY",
-      similarQuestionsStatus: "NONE",
-    },
-    { $set: { similarQuestionsStatus: "PROCESSING" } },
-    { returnDocument: "after" },
-  );
-
-  if (!locked) return;
-
-  const embedding = locked.embedding as number[];
-  if (!Array.isArray(embedding) || embedding.length === 0) return;
-
-  const results = await Question.aggregate([
-    {
-      $vectorSearch: {
-        index: "semantic_search_vector_index",
-        path: "embedding",
-        queryVector: embedding,
-        numCandidates: 150,
-        limit: 20,
-      },
-    },
-    {
-      $project: {
-        _id: 1,
-        isActive: 1,
-        isDeleted: 1,
-        score: { $meta: "vectorSearchScore" },
-      },
-    },
-    {
-      $match: {
-        _id: { $ne: id },
-        isActive: true,
-        isDeleted: false,
-      },
-    },
-  ]);
-
-  const similarQuestionIds = results
-    .filter((r) => r.score >= 0.75)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((r) => r._id);
-
-  await Question.updateOne(
-    { _id: id, similarQuestionsStatus: "PROCESSING" },
-    {
-      $set: {
-        similarQuestionIds,
-        similarQuestionsStatus: "READY",
-      },
-    },
-  );
-
-  const sockets = await getQuestionSessionSockets(questionId);
-
-  if (sockets.length) {
-    const userIdsToPublishTo = await getQuestionSessionUsers(questionId);
-
-    for (const userId of userIdsToPublishTo) {
-      await publishSocketEvent(userId as string, "similarQuestionsReady", {
-        questionId,
-        version,
-        similarQuestionIds,
-      });
-    }
-  } else {
-    await routeNotification({
-      recipientId: locked.userId as string,
-      event: "SIMILAR_QUESTIONS_READY",
-      target: {
-        entityType: "QUESTION",
-        entityId: questionId,
-        questionVersion: version,
-      },
-      meta: {
-        count: similarQuestionIds.length,
-        previewIds: similarQuestionIds.slice(0, 3),
-      },
-    });
+  if (!locked) {
+    await runReadySideEffectsIfCurrent({ questionId, version });
+    return;
   }
+
+  const embedding = locked.embedding;
+
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    await resetSimilarQuestionsProcessing(questionId, version);
+    return;
+  }
+
+  let similarQuestionIds: Awaited<ReturnType<typeof findSimilarQuestionIds>>;
+
+  try {
+    similarQuestionIds = await findSimilarQuestionIds({
+      questionId,
+      embedding,
+    });
+  } catch (error) {
+    await resetSimilarQuestionsProcessing(questionId, version);
+    throw error;
+  }
+
+  const updated = await finalizeSimilarQuestions({
+    questionId,
+    version,
+    similarQuestionIds,
+  });
+
+  if (updated.modifiedCount === 0) return;
+
+  await runReadySideEffectsIfCurrent({
+    questionId,
+    version,
+    userId: locked.userId,
+    similarQuestionIds,
+  });
 };
 
 export default processSimilarQuestionsJob;

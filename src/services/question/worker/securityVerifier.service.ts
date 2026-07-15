@@ -1,4 +1,5 @@
 import verifyQuestionSecurity from "../ai/securityVerifier.service.js";
+import { queueAiSuggestionUnlockedNotification } from "../ai/unlockNotification.service.js";
 import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
 import queueQuestionGatewayAudit from "../questionEligibilityGate/queueQuestionGatewayAudit.service.js";
 import {
@@ -71,7 +72,15 @@ const queueSecurityVerifierSideEffects = async ({
         securityVerifierStatus,
       },
     });
+
+    return;
   }
+
+  await queueAiSuggestionUnlockedNotification({
+    questionId,
+    version,
+    userId,
+  });
 };
 
 const resumeSecurityVerifierSideEffects = async ({

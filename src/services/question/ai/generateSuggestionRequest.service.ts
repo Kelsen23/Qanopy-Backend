@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { canGetAIHelp } from "./questionAiHelp.shared.js";
+import { canGetAISuggestion } from "./questionAiHelp.shared.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 import prisma from "../../../config/prisma.config.js";
@@ -26,7 +26,7 @@ const generateSuggestionRequest = async (
     userId,
   })
     .select(
-      "_id isActive currentVersion moderationStatus embedding questionEligibilityStatus securityVerifierStatus",
+      "_id isActive currentVersion moderationStatus questionEligibilityStatus securityVerifierStatus",
     )
     .lean();
 
@@ -36,13 +36,7 @@ const generateSuggestionRequest = async (
   if (!["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus)))
     throw new HttpError("Question moderation status is not eligible", 400);
 
-  if (
-    !Array.isArray(foundQuestion.embedding) ||
-    foundQuestion.embedding.length === 0
-  )
-    throw new HttpError("Question does not have embedding", 400);
-
-  if (!canGetAIHelp(foundQuestion))
+  if (!canGetAISuggestion(foundQuestion))
     throw new HttpError("Question is not eligible for AI suggestion", 400);
 
   if (Number(foundQuestion.currentVersion) !== version)

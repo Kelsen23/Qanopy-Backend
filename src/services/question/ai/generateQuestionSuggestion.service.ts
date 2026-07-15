@@ -1,6 +1,6 @@
 import routeNotification from "../../notification/routeNotification.service.js";
 import { getEditSessionSockets } from "../../redis/editSession.service.js";
-import { canGetAIHelp } from "./questionAiHelp.shared.js";
+import { canGetAISuggestion } from "./questionAiHelp.shared.js";
 import generateSuggestion from "./generateSuggestion.service.js";
 
 import prisma from "../../../config/prisma.config.js";
@@ -42,7 +42,7 @@ const generateQuestionSuggestion = async ({
       .select("_id questionEligibilityStatus securityVerifierStatus")
       .lean();
 
-    if (!foundQuestion || !canGetAIHelp(foundQuestion))
+    if (!foundQuestion || !canGetAISuggestion(foundQuestion))
       throw new Error("Question is not eligible for AI suggestion");
 
     const foundVersion = await QuestionVersion.findOne({

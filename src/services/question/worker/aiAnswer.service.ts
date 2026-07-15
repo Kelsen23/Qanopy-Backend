@@ -1,8 +1,11 @@
-import mongoose from "mongoose";
-
 import contextualAnswerService from "../ai/aiAnswer/contextualAnswer.service.js";
 import fullAnswerService from "../ai/aiAnswer/fullAnswer.service.js";
-import { canGetAIHelp } from "../ai/questionAiHelp.shared.js";
+import { canGetAIAnswer } from "../ai/questionAiHelp.shared.js";
+import {
+  aiAnswerSimilarQuestionResultLimit,
+  aiAnswerSimilarQuestionScoreThreshold,
+} from "../similarQuestions/similarQuestions.shared.js";
+import findSimilarQuestionIds from "../similarQuestions/similarQuestionsSearch.service.js";
 import { getAiAnswerCancelKey } from "../../../services/redis/aiAnswerSession.service.js";
 
 import prisma from "../../../config/prisma.config.js";
@@ -61,45 +64,22 @@ const processAiAnswerJob = async ({
       throw new Error("Embedding not ready");
     }
 
-    if (!canGetAIHelp(foundQuestion)) {
+    if (!canGetAIAnswer(foundQuestion)) {
       throw new Error("Question is not eligible for AI answer");
     }
 
-    const questionObjectId = new mongoose.Types.ObjectId(questionId);
     await getRedisCacheClient().del(cancelKey);
 
-    const similarQuestions = await Question.aggregate([
-      {
-        $vectorSearch: {
-          index: "semantic_search_vector_index",
-          path: "embedding",
-          queryVector: foundQuestion.embedding,
-          numCandidates: 80,
-          limit: 15,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          isActive: 1,
-          isDeleted: 1,
-          score: { $meta: "vectorSearchScore" },
-        },
-      },
-      {
-        $match: {
-          _id: { $ne: questionObjectId },
-          isActive: true,
-          isDeleted: false,
-        },
-      },
-      { $limit: 5 },
-    ]);
+    const similarQuestionIds = await findSimilarQuestionIds({
+      questionId,
+      embedding: foundQuestion.embedding,
+      resultLimit: aiAnswerSimilarQuestionResultLimit,
+      scoreThreshold: aiAnswerSimilarQuestionScoreThreshold,
+      numCandidates: 150,
+      vectorSearchLimit: 20,
+    });
 
-    const similarityThreshold = 0.7;
-    const topSimilar = similarQuestions[0];
-
-    if (!topSimilar || topSimilar.score < similarityThreshold) {
+    if (similarQuestionIds.length === 0) {
       await fullAnswerService(
         userId,
         questionId,
@@ -111,10 +91,8 @@ const processAiAnswerJob = async ({
         },
       );
     } else {
-      const similarQuestionIds = similarQuestions.map((s) => String(s._id));
-
       await contextualAnswerService(
-        similarQuestionIds,
+        similarQuestionIds.map(String),
         userId,
         questionId,
         String(foundQuestion.title ?? ""),

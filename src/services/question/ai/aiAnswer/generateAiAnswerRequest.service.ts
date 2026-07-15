@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { canGetAIHelp } from "../questionAiHelp.shared.js";
+import { canGetAIAnswer } from "../questionAiHelp.shared.js";
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import prisma from "../../../../config/prisma.config.js";
@@ -28,7 +28,7 @@ const generateAiAnswerRequest = async (
     userId,
   })
     .select(
-      "_id isActive currentVersion moderationStatus embedding questionEligibilityStatus securityVerifierStatus",
+      "_id isActive currentVersion moderationStatus embedding embeddingStatus questionEligibilityStatus securityVerifierStatus",
     )
     .lean();
 
@@ -50,7 +50,7 @@ const generateAiAnswerRequest = async (
   )
     throw new HttpError("Question does not have embedding", 400);
 
-  if (!canGetAIHelp(foundQuestion))
+  if (!canGetAIAnswer(foundQuestion))
     throw new HttpError("Question is not eligible for AI answer", 400);
 
   const foundAiAnswer = await AiAnswer.findOne({

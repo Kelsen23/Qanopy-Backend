@@ -1,4 +1,5 @@
 import evaluateQuestionEligibility from "../ai/questionEligibilityGate.service.js";
+import { queueAiSuggestionUnlockedNotification } from "../ai/unlockNotification.service.js";
 import {
   buildQuestionEligibilityMetadata,
   questionEligibilityStatusByDecision,
@@ -44,11 +45,18 @@ const queueQuestionEligibilitySideEffects = async ({
   version,
   userId,
   questionEligibilityStatus,
+  securityVerifierStatus,
 }: {
   questionId: string;
   version: number;
   userId: string;
   questionEligibilityStatus: "ALLOWED" | "CLARIFY" | "REJECTED";
+  securityVerifierStatus:
+    | "NOT_REQUIRED"
+    | "PENDING"
+    | "ALLOWED"
+    | "ALLOWED_WITH_CONSTRAINTS"
+    | "REJECTED";
 }) => {
   await getRedisCacheClient().del(`question:${questionId}`);
 
@@ -62,6 +70,14 @@ const queueQuestionEligibilitySideEffects = async ({
     questionEligibilityStatus !== "CLARIFY" &&
     questionEligibilityStatus !== "REJECTED"
   ) {
+    if (securityVerifierStatus === "NOT_REQUIRED") {
+      await queueAiSuggestionUnlockedNotification({
+        questionId,
+        version,
+        userId,
+      });
+    }
+
     return;
   }
 
@@ -93,10 +109,16 @@ const resumeQuestionEligibilitySideEffects = async ({
     questionEligibilitySourceVersion: version,
     questionEligibilityStatus: { $in: ["ALLOWED", "CLARIFY", "REJECTED"] },
   })
-    .select("userId questionEligibilityStatus")
+    .select("userId questionEligibilityStatus securityVerifierStatus")
     .lean<{
       userId: string;
       questionEligibilityStatus: "ALLOWED" | "CLARIFY" | "REJECTED";
+      securityVerifierStatus:
+        | "NOT_REQUIRED"
+        | "PENDING"
+        | "ALLOWED"
+        | "ALLOWED_WITH_CONSTRAINTS"
+        | "REJECTED";
     }>();
 
   if (!routedQuestion) return;
@@ -106,6 +128,7 @@ const resumeQuestionEligibilitySideEffects = async ({
     version,
     userId: String(routedQuestion.userId),
     questionEligibilityStatus: routedQuestion.questionEligibilityStatus,
+    securityVerifierStatus: routedQuestion.securityVerifierStatus,
   });
 };
 
@@ -225,6 +248,10 @@ const processQuestionEligibilityGateJob = async ({
       version,
       userId: String(lockedQuestion.userId),
       questionEligibilityStatus: nextEligibilityStatus,
+      securityVerifierStatus:
+        eligibilityResult.decision === "allow"
+          ? nextSecurityVerifierStatus
+          : "NOT_REQUIRED",
     });
   } catch (error) {
     if (!statusUpdated || !auditQueued) {

@@ -12,7 +12,7 @@ const completedSecurityVerifierStatuses = new Set<SecurityVerifierStatus>([
   "ALLOWED_WITH_CONSTRAINTS",
 ]);
 
-const canGetAIHelp = ({
+const canGetAISuggestion = ({
   questionEligibilityStatus,
   securityVerifierStatus,
 }: Record<string, any>) =>
@@ -21,12 +21,12 @@ const canGetAIHelp = ({
     securityVerifierStatus as SecurityVerifierStatus,
   );
 
-const canGenerateAIHelp = ({
+const canGetAIAnswer = ({
   questionEligibilityStatus,
   securityVerifierStatus,
   embeddingStatus,
 }: Record<string, any>) =>
-  canGetAIHelp({ questionEligibilityStatus, securityVerifierStatus }) &&
+  canGetAISuggestion({ questionEligibilityStatus, securityVerifierStatus }) &&
   embeddingStatus === "READY";
 
 const buildSecurityConstraintInstructions = ({
@@ -51,4 +51,8 @@ const buildSecurityConstraintInstructions = ({
 `;
 };
 
-export { buildSecurityConstraintInstructions, canGenerateAIHelp, canGetAIHelp };
+export {
+  buildSecurityConstraintInstructions,
+  canGetAIAnswer,
+  canGetAISuggestion,
+};
