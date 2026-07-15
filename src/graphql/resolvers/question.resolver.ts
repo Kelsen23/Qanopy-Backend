@@ -3,7 +3,10 @@ import { Redis } from "ioredis";
 
 import { Interest, User } from "../../generated/prisma/index.js";
 
-import { canGenerateAIHelp } from "../../services/question/ai/questionAiHelp.shared.js";
+import {
+  canGetAIAnswer,
+  canGetAISuggestion,
+} from "../../services/question/ai/questionAiHelp.shared.js";
 import queueUserInterest from "../../services/user/userInterest/queueUserInterest.service.js";
 
 import HttpError from "../../utils/http/httpError.util.js";
@@ -358,9 +361,15 @@ const questionResolver = {
 
         return {
           ...publicQuestion,
-          canGetAIHelp:
-            publicQuestion.canGetAIHelp ??
-            canGenerateAIHelp({
+          canGetAISuggestion:
+            publicQuestion.canGetAISuggestion ??
+            canGetAISuggestion({
+              questionEligibilityStatus,
+              securityVerifierStatus,
+            }),
+          canGetAIAnswer:
+            publicQuestion.canGetAIAnswer ??
+            canGetAIAnswer({
               questionEligibilityStatus,
               securityVerifierStatus,
               embeddingStatus,
@@ -401,14 +410,9 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
-        canGetAIHelp: canGenerateAIHelp(question),
+        canGetAISuggestion: canGetAISuggestion(question),
+        canGetAIAnswer: canGetAIAnswer(question),
         similarQuestionsReady: question.similarQuestionsStatus === "READY",
-        canGenerateAiSuggestion: ["APPROVED", "FLAGGED"].includes(
-          String(question.moderationStatus),
-        ),
-        canGenerateAiAnswer:
-          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
-          question.embeddingStatus === "READY",
         isActive: question.isActive,
         isDeleted: question.isDeleted,
         createdAt: question.createdAt,

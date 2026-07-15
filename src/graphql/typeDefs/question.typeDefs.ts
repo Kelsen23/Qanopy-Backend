@@ -26,7 +26,8 @@ const questionTypeDefs = gql`
 
     searchScore: Float
 
-    canGetAIHelp: Boolean
+    canGetAISuggestion: Boolean
+    canGetAIAnswer: Boolean
     similarQuestionsReady: Boolean
 
     aiAnswer: QuestionAiAnswer

@@ -1,4 +1,7 @@
-import { canGenerateAIHelp } from "./ai/questionAiHelp.shared.js";
+import {
+  canGetAIAnswer,
+  canGetAISuggestion,
+} from "./ai/questionAiHelp.shared.js";
 
 const toPublicQuestion = (question: any) => ({
   id: question.id ?? question._id,
@@ -12,7 +15,8 @@ const toPublicQuestion = (question: any) => ({
   acceptedAnswerCount: question.acceptedAnswerCount ?? 0,
   currentVersion: question.currentVersion,
   basedOnVersion: question.basedOnVersion,
-  canGetAIHelp: canGenerateAIHelp(question),
+  canGetAISuggestion: canGetAISuggestion(question),
+  canGetAIAnswer: canGetAIAnswer(question),
   similarQuestionsReady:
     question.similarQuestionsReady ??
     question.similarQuestionsStatus === "READY",
