@@ -63,6 +63,7 @@ type LLMMetadata = {
 type LLMRoute = {
   provider: LLMProvider;
   model: string;
+  reasoning?: LLMReasoningOptions;
 };
 
 type LLMFeatureRoute = {
