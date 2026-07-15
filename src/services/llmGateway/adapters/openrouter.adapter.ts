@@ -64,7 +64,7 @@ const toUsage = (usage?: OpenRouterUsage): LLMUsage => {
 const buildOpenRouterReasoning = (reasoning?: LLMReasoningOptions) => {
   if (!reasoning?.effort) return undefined;
 
-  return { effort: reasoning.effort };
+  return { effort: reasoning.effort === "max" ? "xhigh" : reasoning.effort };
 };
 
 const buildResponseFormat = (

@@ -96,6 +96,8 @@ const assertGenerateRequirements = <TSchema extends z.ZodTypeAny | undefined>(
   route: LLMRoute,
   options: LLMGenerateOptions<TSchema>,
 ) => {
+  const reasoning = options.reasoning ?? route.reasoning;
+
   if (
     options.mode === "json" &&
     options.structuredOutput?.required &&
@@ -124,16 +126,16 @@ const assertGenerateRequirements = <TSchema extends z.ZodTypeAny | undefined>(
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     adapter.capabilities.reasoningEffort === "unsupported"
   ) {
     throw new Error(`${route.provider} does not support required reasoning`);
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     route.provider !== "anthropic" &&
-    options.reasoning.budgetTokens !== undefined
+    reasoning.budgetTokens !== undefined
   ) {
     throw new Error(
       `${route.provider} does not support required reasoning token budgets`,
@@ -141,10 +143,10 @@ const assertGenerateRequirements = <TSchema extends z.ZodTypeAny | undefined>(
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     route.provider !== "anthropic" &&
-    options.reasoning.enabled &&
-    !options.reasoning.effort
+    reasoning.enabled &&
+    !reasoning.effort
   ) {
     throw new Error(
       `${route.provider} does not support required adaptive reasoning`,
@@ -157,6 +159,8 @@ const assertStreamRequirements = (
   route: LLMRoute,
   options: LLMStreamTextOptions,
 ) => {
+  const reasoning = options.reasoning ?? route.reasoning;
+
   if (
     options.cache?.required &&
     adapter.capabilities.promptCaching === "unsupported"
@@ -167,16 +171,16 @@ const assertStreamRequirements = (
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     adapter.capabilities.reasoningEffort === "unsupported"
   ) {
     throw new Error(`${route.provider} does not support required reasoning`);
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     route.provider !== "anthropic" &&
-    options.reasoning.budgetTokens !== undefined
+    reasoning.budgetTokens !== undefined
   ) {
     throw new Error(
       `${route.provider} does not support required reasoning token budgets`,
@@ -184,10 +188,10 @@ const assertStreamRequirements = (
   }
 
   if (
-    options.reasoning?.required &&
+    reasoning?.required &&
     route.provider !== "anthropic" &&
-    options.reasoning.enabled &&
-    !options.reasoning.effort
+    reasoning.enabled &&
+    !reasoning.effort
   ) {
     throw new Error(
       `${route.provider} does not support required adaptive reasoning`,
@@ -314,6 +318,7 @@ const generate = async <TSchema extends z.ZodTypeAny | undefined = undefined>(
 
           return adapter.generate({
             ...options,
+            reasoning: options.reasoning ?? route.reasoning,
             route,
             apiKey,
           });
@@ -408,6 +413,7 @@ const streamText = async (options: LLMStreamTextOptions) => {
 
           return adapter.streamText({
             ...options,
+            reasoning: options.reasoning ?? route.reasoning,
             route,
             apiKey,
           });
