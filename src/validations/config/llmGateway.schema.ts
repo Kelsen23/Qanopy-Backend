@@ -34,7 +34,8 @@ const optionalReasoningEffortSchema = z
   .transform((value) => {
     const normalized = value?.toLowerCase();
 
-    return normalized && !omitReasoningEffortValues.includes(normalized as never)
+    return normalized &&
+      !omitReasoningEffortValues.includes(normalized as never)
       ? normalized
       : undefined;
   })
