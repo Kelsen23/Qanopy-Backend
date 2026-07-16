@@ -27,6 +27,19 @@ const supportedReasoningEfforts = [
 
 const omitReasoningEffortValues = ["auto", "default"] as const;
 
+const providerApiKeyEnvKeys = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  voyage: "VOYAGE_API_KEY",
+} as const satisfies Record<(typeof supportedProviders)[number], string>;
+
+const optionalApiKeySchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value : undefined));
+
 const optionalReasoningEffortSchema = z
   .string()
   .trim()
@@ -135,6 +148,10 @@ const validateReasoningProvider = (
 
 type LlmGatewayEnvRulesInput = Partial<
   Record<
+    | "OPENAI_API_KEY"
+    | "ANTHROPIC_API_KEY"
+    | "OPENROUTER_API_KEY"
+    | "VOYAGE_API_KEY"
     | "LLM_MODERATION_PRIMARY_PROVIDER"
     | "LLM_QUESTION_GATE_PRIMARY_PROVIDER"
     | "LLM_QUESTION_GATE_PRIMARY_EFFORT"
@@ -161,10 +178,49 @@ type LlmGatewayEnvRulesInput = Partial<
   >
 >;
 
+const addRequiredProviderApiKeyIssues = (
+  env: LlmGatewayEnvRulesInput,
+  ctx: z.RefinementCtx,
+) => {
+  const configuredProviders = new Set<(typeof supportedProviders)[number]>();
+  const providerKeys = [
+    env.LLM_MODERATION_PRIMARY_PROVIDER,
+    env.LLM_QUESTION_GATE_PRIMARY_PROVIDER,
+    env.LLM_QUESTION_GATE_FALLBACK_PROVIDER,
+    env.LLM_SECURITY_VERIFIER_PRIMARY_PROVIDER,
+    env.LLM_SECURITY_VERIFIER_FALLBACK_PROVIDER,
+    env.LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER,
+    env.LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER,
+    env.LLM_ANSWER_GENERATION_PRIMARY_PROVIDER,
+    env.LLM_ANSWER_GENERATION_FALLBACK_PROVIDER,
+    env.LLM_EMBEDDINGS_PROVIDER,
+  ];
+
+  for (const provider of providerKeys) {
+    if (provider && supportedProviders.includes(provider as never)) {
+      configuredProviders.add(provider as (typeof supportedProviders)[number]);
+    }
+  }
+
+  for (const provider of configuredProviders) {
+    const apiKeyEnvKey = providerApiKeyEnvKeys[provider];
+
+    if (env[apiKeyEnvKey]) continue;
+
+    ctx.addIssue({
+      code: "custom",
+      message: `${apiKeyEnvKey} is required because ${provider} is configured as an LLM provider`,
+      path: [apiKeyEnvKey],
+    });
+  }
+};
+
 const validateLlmGatewayEnvRules = (
   env: LlmGatewayEnvRulesInput,
   ctx: z.RefinementCtx,
 ) => {
+  addRequiredProviderApiKeyIssues(env, ctx);
+
   const fallbackPairs = [
     ["LLM_QUESTION_GATE_FALLBACK_PROVIDER", "LLM_QUESTION_GATE_FALLBACK_MODEL"],
     [
@@ -346,10 +402,10 @@ const validateLlmGatewayEnvRules = (
 
 const llmGatewayEnvSchema = z
   .object({
-    OPENAI_API_KEY: requiredString("OPENAI_API_KEY"),
-    ANTHROPIC_API_KEY: requiredString("ANTHROPIC_API_KEY"),
-    OPENROUTER_API_KEY: requiredString("OPENROUTER_API_KEY"),
-    VOYAGE_API_KEY: requiredString("VOYAGE_API_KEY"),
+    OPENAI_API_KEY: optionalApiKeySchema,
+    ANTHROPIC_API_KEY: optionalApiKeySchema,
+    OPENROUTER_API_KEY: optionalApiKeySchema,
+    VOYAGE_API_KEY: optionalApiKeySchema,
 
     LLM_MODERATION_PRIMARY_PROVIDER: requiredString(
       "LLM_MODERATION_PRIMARY_PROVIDER",
@@ -516,10 +572,14 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
         },
       },
       apiKeys: {
-        openai: env.OPENAI_API_KEY,
-        anthropic: env.ANTHROPIC_API_KEY,
-        openrouter: env.OPENROUTER_API_KEY,
-        voyage: env.VOYAGE_API_KEY,
+        ...(env.OPENAI_API_KEY ? { openai: env.OPENAI_API_KEY } : {}),
+        ...(env.ANTHROPIC_API_KEY
+          ? { anthropic: env.ANTHROPIC_API_KEY }
+          : {}),
+        ...(env.OPENROUTER_API_KEY
+          ? { openrouter: env.OPENROUTER_API_KEY }
+          : {}),
+        ...(env.VOYAGE_API_KEY ? { voyage: env.VOYAGE_API_KEY } : {}),
       },
     } satisfies LLMGatewayConfig;
   });
