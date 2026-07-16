@@ -1,3 +1,5 @@
+import type { Queue } from "bullmq";
+
 import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
@@ -22,27 +24,7 @@ const queueJobIfNeeded = async ({
   data,
   jobId,
 }: {
-  queue: {
-    add: (
-      ...args: [
-        string,
-        Record<string, unknown>,
-        {
-          jobId: string;
-          removeOnComplete: boolean;
-          removeOnFail: boolean;
-        },
-      ]
-    ) => Promise<unknown>;
-    getJob: (...args: [string]) => Promise<
-      | {
-          getState: () => Promise<string>;
-          retry: () => Promise<unknown>;
-        }
-      | null
-      | undefined
-    >;
-  };
+  queue: Pick<Queue, "add" | "getJob">;
   jobName: string;
   data: Record<string, unknown>;
   jobId: string;
