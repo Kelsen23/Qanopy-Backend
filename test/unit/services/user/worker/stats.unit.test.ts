@@ -5,12 +5,14 @@ const redisGet = vi.fn();
 const redisSet = vi.fn();
 const redisEval = vi.fn();
 const redisHgetall = vi.fn();
+const redisScan = vi.fn();
 const getRedisCacheClient = vi.fn(() => ({
   get: redisGet,
   set: redisSet,
   del: redisDel,
   eval: redisEval,
   hgetall: redisHgetall,
+  scan: redisScan,
   multi: () => ({
     hset: vi.fn().mockReturnThis(),
     expire: vi.fn().mockReturnThis(),
@@ -52,6 +54,7 @@ describe("stats worker service", () => {
     redisSet.mockResolvedValue("OK");
     redisEval.mockResolvedValue(1);
     redisHgetall.mockResolvedValue({});
+    redisScan.mockResolvedValue(["0", []]);
   });
 
   it("updates prisma stats and clears the user cache", async () => {
