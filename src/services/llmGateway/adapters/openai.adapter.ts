@@ -117,7 +117,7 @@ const openaiAdapter: LLMAdapter = {
       model: route.model,
       messages: toOpenAiMessages(messages),
       temperature,
-      max_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       response_format: buildResponseFormat(mode, schema),
       reasoning_effort: toOpenAiReasoningEffort(reasoning),
       prompt_cache_key: promptCacheEnabled
@@ -198,7 +198,7 @@ const openaiAdapter: LLMAdapter = {
       model: route.model,
       messages: toOpenAiMessages(messages),
       temperature,
-      max_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       stream: true,
       stream_options: { include_usage: true },
       reasoning_effort: toOpenAiReasoningEffort(reasoning),
