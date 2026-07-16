@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { getQuestionVectorSearchIndexName } from "../../../config/mongodb.config.js";
+
 import Question from "../../../models/question.model.js";
 
 import {
@@ -33,7 +35,7 @@ const findSimilarQuestionIds = async ({
   const results = await Question.aggregate<SimilarQuestionSearchResult>([
     {
       $vectorSearch: {
-        index: "semantic_search_vector_index",
+        index: getQuestionVectorSearchIndexName(),
         path: "embedding",
         queryVector: embedding,
         numCandidates,

@@ -9,6 +9,12 @@ import {
 } from "../../services/question/ai/questionAiHelp.shared.js";
 import queueUserInterest from "../../services/user/userInterest/queueUserInterest.service.js";
 
+import {
+  getQuestionAutocompleteIndexName,
+  getQuestionSearchIndexName,
+  getRecommendedQuestionsIndexName,
+} from "../../config/mongodb.config.js";
+
 import HttpError from "../../utils/http/httpError.util.js";
 import getStableOffset from "../../utils/question/getStableOffset.util.js";
 import interests from "../../utils/question/interests.util.js";
@@ -170,7 +176,7 @@ const questionResolver = {
       const searchStage = topTags.length
         ? ({
             $search: {
-              index: "recommended_index",
+              index: getRecommendedQuestionsIndexName(),
               compound: {
                 should: topInterests.map((item) => ({
                   text: {
@@ -1166,7 +1172,7 @@ const questionResolver = {
       const results = await Question.aggregate([
         {
           $search: {
-            index: "questions_autocomplete",
+            index: getQuestionAutocompleteIndexName(),
             autocomplete: {
               query: normalizedKeyword,
               path: "title",
@@ -1267,7 +1273,7 @@ const questionResolver = {
 
       const searchStage: SearchQuestionStage = {
         $search: {
-          index: "search_index",
+          index: getQuestionSearchIndexName(),
           compound: {
             must: [
               {

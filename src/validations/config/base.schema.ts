@@ -7,7 +7,6 @@ const nodeEnvSchema = z
   .default("development");
 
 const serverConfigSchema = z.object({
-  MONGO_URI: requiredString("MONGO_URI"),
   NODE_ENV: nodeEnvSchema,
   PORT: z.coerce.number().int().positive().default(5000),
 });

@@ -12,6 +12,7 @@ import {
   llmGatewayEnvSchema,
   validateLlmGatewayEnvRules,
 } from "./llmGateway.schema.js";
+import { mongodbEnvSchema } from "./mongodb.schema.js";
 
 const appEnvSchema = serverConfigSchema
   .merge(authConfigSchema)
@@ -21,6 +22,7 @@ const appEnvSchema = serverConfigSchema
   .merge(nodemailerConfigSchema)
   .merge(emailIdentityConfigSchema)
   .merge(s3ConfigSchema)
+  .merge(mongodbEnvSchema)
   .merge(llmGatewayEnvSchema)
   .superRefine((env, ctx) => {
     validateLlmGatewayEnvRules(env, ctx);
