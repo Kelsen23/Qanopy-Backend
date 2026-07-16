@@ -107,7 +107,7 @@ const openrouterAdapter: LLMAdapter = {
       model: route.model,
       messages: toOpenRouterMessages(messages),
       temperature,
-      max_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       response_format: buildResponseFormat(mode, schema),
       ...(buildOpenRouterReasoning(reasoning)
         ? { reasoning: buildOpenRouterReasoning(reasoning) }
@@ -147,7 +147,7 @@ const openrouterAdapter: LLMAdapter = {
       model: route.model,
       messages: toOpenRouterMessages(messages),
       temperature,
-      max_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       stream: true as const,
       stream_options: { include_usage: true },
       ...(buildOpenRouterReasoning(reasoning)

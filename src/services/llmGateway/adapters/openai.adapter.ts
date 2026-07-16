@@ -78,6 +78,16 @@ const toOpenAiReasoningEffort = (reasoning?: LLMReasoningOptions) => {
   return reasoning.effort === "max" ? "xhigh" : reasoning.effort;
 };
 
+const usesDefaultOnlyTemperature = (model: string) =>
+  /^(gpt-[5-9]|o\d|o-|o1|o3|o4)/i.test(model);
+
+const toOpenAiTemperature = (model: string, temperature?: number) => {
+  if (temperature === undefined) return undefined;
+  if (usesDefaultOnlyTemperature(model)) return undefined;
+
+  return temperature;
+};
+
 const buildResponseFormat = (
   mode: LLMAdapterGenerateOptions["mode"],
   schema?: LLMAdapterGenerateOptions["schema"],
@@ -116,7 +126,7 @@ const openaiAdapter: LLMAdapter = {
     const response = await client.chat.completions.create({
       model: route.model,
       messages: toOpenAiMessages(messages),
-      temperature,
+      temperature: toOpenAiTemperature(route.model, temperature),
       max_completion_tokens: maxTokens,
       response_format: buildResponseFormat(mode, schema),
       reasoning_effort: toOpenAiReasoningEffort(reasoning),
@@ -197,7 +207,7 @@ const openaiAdapter: LLMAdapter = {
     const stream = await client.chat.completions.create({
       model: route.model,
       messages: toOpenAiMessages(messages),
-      temperature,
+      temperature: toOpenAiTemperature(route.model, temperature),
       max_completion_tokens: maxTokens,
       stream: true,
       stream_options: { include_usage: true },

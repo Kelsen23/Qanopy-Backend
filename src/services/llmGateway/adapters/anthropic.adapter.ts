@@ -41,14 +41,18 @@ const extractText = (content: Anthropic.Messages.Message["content"]) =>
 
 const buildThinkingConfig = (
   reasoning?: LLMReasoningOptions,
+  maxTokens = 4096,
 ): Anthropic.Messages.ThinkingConfigParam | undefined => {
   if (!reasoning) return undefined;
   if (reasoning.enabled === false) return { type: "disabled" };
 
   if (reasoning.budgetTokens !== undefined) {
+    const budgetTokens = Math.max(reasoning.budgetTokens, 1024);
+    if (budgetTokens >= maxTokens) return undefined;
+
     return {
       type: "enabled",
-      budget_tokens: reasoning.budgetTokens,
+      budget_tokens: budgetTokens,
       display: reasoning.display,
     };
   }
@@ -97,12 +101,13 @@ const anthropicAdapter: LLMAdapter = {
   }: LLMAdapterGenerateOptions) => {
     const client = new Anthropic({ apiKey });
     const { system, conversation } = splitSystemMessages(messages);
-    const thinking = buildThinkingConfig(reasoning);
+    const outputMaxTokens = maxTokens ?? 4096;
+    const thinking = buildThinkingConfig(reasoning, outputMaxTokens);
     const outputConfig = buildOutputConfig(mode, schema, reasoning);
 
     const response = await client.messages.create({
       model: route.model,
-      max_tokens: maxTokens ?? 4096,
+      max_tokens: outputMaxTokens,
       temperature,
       thinking,
       output_config: outputConfig,
@@ -142,12 +147,13 @@ const anthropicAdapter: LLMAdapter = {
   }: LLMAdapterStreamTextOptions) => {
     const client = new Anthropic({ apiKey });
     const { system, conversation } = splitSystemMessages(messages);
-    const thinking = buildThinkingConfig(reasoning);
+    const outputMaxTokens = maxTokens ?? 4096;
+    const thinking = buildThinkingConfig(reasoning, outputMaxTokens);
     const outputConfig = buildOutputConfig("text", undefined, reasoning);
 
     const stream = await client.messages.create({
       model: route.model,
-      max_tokens: maxTokens ?? 4096,
+      max_tokens: outputMaxTokens,
       temperature,
       thinking,
       output_config: outputConfig,
