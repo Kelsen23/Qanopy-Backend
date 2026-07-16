@@ -1664,10 +1664,7 @@ const questionResolver = {
         userId,
         isDeleted: false,
         isActive: true,
-        $or: [
-          publicQuestionVisibilityMatch,
-          { userId: requesterUserId },
-        ],
+        $or: [publicQuestionVisibilityMatch, { userId: requesterUserId }],
       };
 
       const pipeline: any[] = [{ $match: matchStage }];

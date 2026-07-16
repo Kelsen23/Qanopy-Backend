@@ -573,9 +573,7 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
       },
       apiKeys: {
         ...(env.OPENAI_API_KEY ? { openai: env.OPENAI_API_KEY } : {}),
-        ...(env.ANTHROPIC_API_KEY
-          ? { anthropic: env.ANTHROPIC_API_KEY }
-          : {}),
+        ...(env.ANTHROPIC_API_KEY ? { anthropic: env.ANTHROPIC_API_KEY } : {}),
         ...(env.OPENROUTER_API_KEY
           ? { openrouter: env.OPENROUTER_API_KEY }
           : {}),
