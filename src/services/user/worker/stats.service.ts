@@ -390,7 +390,10 @@ const processStatsJob = async (jobName: string, jobData: StatsJobData) => {
 
   const action = STATS_ACTIONS[actionName];
   const stateKey = getStatsJobIdempotencyKey(jobData);
-  const lock = await acquireStatsJobLock(jobData.eventId ?? null);
+  const eventId = jobData.eventId ?? null;
+  const lock = await acquireStatsJobLock(eventId);
+
+  if (eventId && !lock) return;
 
   const mongoTargetId = action.mongo
     ? jobData.mongoTargetId || jobData[action.mongo.idKey]
