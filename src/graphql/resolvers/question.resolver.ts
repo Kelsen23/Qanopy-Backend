@@ -116,6 +116,14 @@ interface SearchQuestionStage {
 const isInterest = (tag: string): tag is Interest =>
   interests.includes(tag as Interest);
 
+const publicQuestionVisibilityMatch = {
+  moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+  questionEligibilityStatus: "ALLOWED",
+  securityVerifierStatus: {
+    $in: ["NOT_REQUIRED", "ALLOWED", "ALLOWED_WITH_CONSTRAINTS"],
+  },
+};
+
 const questionResolver = {
   Query: {
     recommendedQuestions: async (
@@ -213,7 +221,7 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       };
 
       if (cursor) {
@@ -492,6 +500,7 @@ const questionResolver = {
         _id: new mongoose.Types.ObjectId(questionId),
         isActive: true,
         isDeleted: false,
+        ...publicQuestionVisibilityMatch,
       })
         .select("similarQuestionIds")
         .lean();
@@ -536,7 +545,7 @@ const questionResolver = {
         },
         isActive: true,
         isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       })
         .select(
           "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion isActive isDeleted createdAt updatedAt",
@@ -1185,7 +1194,7 @@ const questionResolver = {
           $match: {
             isDeleted: false,
             isActive: true,
-            moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+            ...publicQuestionVisibilityMatch,
           },
         },
 
@@ -1303,7 +1312,7 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       };
 
       const pipeline: any[] = [searchStage];
@@ -1656,7 +1665,7 @@ const questionResolver = {
         isDeleted: false,
         isActive: true,
         $or: [
-          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
+          publicQuestionVisibilityMatch,
           { userId: requesterUserId },
         ],
       };
@@ -2049,7 +2058,7 @@ const questionResolver = {
         userId,
         isActive: true,
         isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
         acceptedAnswerCount: { $eq: 0 },
       };
 
@@ -2141,7 +2150,7 @@ const questionResolver = {
         userId,
         isActive: true,
         isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
         answerCount: 0,
       };
 
