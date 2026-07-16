@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { canGetAISuggestion } from "./questionAiHelp.shared.js";
+
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 import prisma from "../../../config/prisma.config.js";
 
@@ -9,7 +11,7 @@ import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import Question from "../../../models/question.model.js";
 import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
-import aiSuggestionQueue from "../../../queues/aiSuggestion.queue.js";
+import questionAiSuggestionQueue from "../../../queues/questionAiSuggestion.queue.js";
 
 const generateSuggestionRequest = async (
   userId: string,
@@ -19,19 +21,14 @@ const generateSuggestionRequest = async (
   if (!mongoose.Types.ObjectId.isValid(questionId))
     throw new HttpError("Invalid questionId", 400);
 
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${questionId}`,
-  );
-  const foundQuestion = cachedQuestion
-    ? JSON.parse(cachedQuestion)
-    : await Question.findOne({
-        _id: questionId,
-        userId,
-      })
-        .select(
-          "_id isActive currentVersion moderationStatus topicStatus embedding",
-        )
-        .lean();
+  const foundQuestion = await Question.findOne({
+    _id: questionId,
+    userId,
+  })
+    .select(
+      "_id isActive currentVersion moderationStatus questionEligibilityStatus securityVerifierStatus",
+    )
+    .lean();
 
   if (!foundQuestion) throw new HttpError("Question not found", 404);
   if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
@@ -39,14 +36,8 @@ const generateSuggestionRequest = async (
   if (!["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus)))
     throw new HttpError("Question moderation status is not eligible", 400);
 
-  if (foundQuestion.topicStatus !== "VALID")
-    throw new HttpError("Question topic is not valid", 400);
-
-  if (
-    !Array.isArray(foundQuestion.embedding) ||
-    foundQuestion.embedding.length === 0
-  )
-    throw new HttpError("Question does not have embedding", 400);
+  if (!canGetAISuggestion(foundQuestion))
+    throw new HttpError("Question is not eligible for AI suggestion", 400);
 
   if (Number(foundQuestion.currentVersion) !== version)
     throw new HttpError(
@@ -100,17 +91,17 @@ const generateSuggestionRequest = async (
 
   try {
     const jobId = makeJobId(
-      "aiSuggestion",
-      "GENERATE_SUGGESTION",
+      "questionAiSuggestion",
+      "QUESTION_AI_SUGGESTION",
       userId,
       questionId,
       version,
     );
 
-    await aiSuggestionQueue.remove(jobId);
+    await questionAiSuggestionQueue.remove(jobId);
 
-    await aiSuggestionQueue.add(
-      "GENERATE_SUGGESTION",
+    await questionAiSuggestionQueue.add(
+      "QUESTION_AI_SUGGESTION",
       {
         userId,
         questionId,

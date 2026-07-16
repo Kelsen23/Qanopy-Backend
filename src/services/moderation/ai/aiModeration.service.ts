@@ -1,4 +1,4 @@
-import { moderationClient } from "../../../config/openai.config.js";
+import llmGateway from "../../llmGateway/llmGateway.service.js";
 
 import {
   buildAiModerationPolicy,
@@ -20,28 +20,17 @@ const aiModerateContent = async (
   content: string,
 ): Promise<AiModerationResult> => {
   try {
-    const response = await moderationClient.moderations.create({
-      model: "omni-moderation-latest",
-      input: content,
-    });
-
-    const result = response.results?.[0];
-
-    if (!result) {
-      return {
-        ok: false,
-        error: "Moderation API returned no result",
-      };
-    }
+    const result = await llmGateway.moderate({ input: content });
 
     return {
       ok: true,
-      ...buildAiModerationPolicy(
-        result as unknown as {
-          flagged: boolean;
-          category_scores?: Record<string, number>;
-        },
-      ),
+      ...buildAiModerationPolicy({
+        flagged: result.flagged,
+        category_scores: result.categoryScores,
+      } as {
+        flagged: boolean;
+        category_scores?: Record<string, number>;
+      }),
     };
   } catch (error) {
     console.error("AI moderation error:", error);

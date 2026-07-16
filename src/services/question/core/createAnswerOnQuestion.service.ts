@@ -1,7 +1,7 @@
 import routeNotification from "../../notification/routeNotification.service.js";
+import queueUserInterest from "../../user/userInterest/queueUserInterest.service.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
-import queueUserInterest from "../../../utils/question/queueUserInterest.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import Question from "../../../models/question.model.js";

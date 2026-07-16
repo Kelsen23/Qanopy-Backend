@@ -20,6 +20,9 @@ const redisMessagingClientConnection = {
 };
 
 const redisCacheClientDelete = vi.fn(async () => 1);
+const redisCacheClientScan = vi.fn(
+  async () => ["0", []] as [string, string[]],
+);
 const connectMongoDB = vi.fn(async () => undefined);
 const awardBadge = vi.fn(async () => undefined);
 const updateProfilePictureService = vi.fn(async () => undefined);
@@ -69,6 +72,7 @@ export const mockUserWorkerModules = {
     redisMessagingClientConnection,
     getRedisCacheClient: () => ({
       del: redisCacheClientDelete,
+      scan: redisCacheClientScan,
     }),
   },
   mongodbConfig: {
@@ -108,6 +112,7 @@ export const mockUserWorkerTestEnvironment = {
   workerConstructor,
   redisMessagingClientConnection,
   redisCacheClientDelete,
+  redisCacheClientScan,
   connectMongoDB,
   awardBadge,
   updateProfilePictureService,
@@ -133,6 +138,7 @@ export const resetUserWorkerTestEnvironment = () => {
   );
 
   redisCacheClientDelete.mockReset().mockResolvedValue(1);
+  redisCacheClientScan.mockReset().mockResolvedValue(["0", []]);
   connectMongoDB.mockReset().mockResolvedValue(undefined);
   awardBadge.mockReset().mockResolvedValue(undefined);
   updateProfilePictureService.mockReset().mockResolvedValue(undefined);

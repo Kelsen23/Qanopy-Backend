@@ -1,7 +1,5 @@
 import { Redis } from "ioredis";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
-
 import { normalizeLimitCount, parseCachedPage } from "./user.shared.helper.js";
 
 type UserBadgeCursor = {
@@ -73,7 +71,7 @@ const buildUserBadgesCacheKey = (
 
 const validateCursor = (cursor: UserBadgeCursor) => {
   if (!cursor.badgeId || Number.isNaN(Date.parse(cursor.awardedAt))) {
-    throw new HttpError("Invalid cursor", 400);
+    throw new Error("Invalid cursor");
   }
 };
 

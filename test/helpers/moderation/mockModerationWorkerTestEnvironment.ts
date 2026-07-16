@@ -21,7 +21,7 @@ const redisMessagingClientConnection = {
 
 const connectMongoDB = vi.fn(async () => undefined);
 const processContent = vi.fn(async () => undefined);
-const modActionLogCreate = vi.fn(async () => undefined);
+const modActionLogUpdateOne = vi.fn(async () => undefined);
 const moderationStatsFindUnique = vi.fn();
 const moderationStatsUpdate = vi.fn(async () => undefined);
 
@@ -72,7 +72,7 @@ export const mockModerationWorkerModules = {
   },
   modActionLogModel: {
     default: {
-      create: modActionLogCreate,
+      updateOne: modActionLogUpdateOne,
     },
   },
   prismaConfig: {
@@ -91,7 +91,7 @@ export const mockModerationWorkerTestEnvironment = {
   redisMessagingClientConnection,
   connectMongoDB,
   processContent,
-  modActionLogCreate,
+  modActionLogUpdateOne,
   moderationStatsFindUnique,
   moderationStatsUpdate,
 };
@@ -112,7 +112,7 @@ export const resetModerationWorkerTestEnvironment = () => {
 
   connectMongoDB.mockReset().mockResolvedValue(undefined);
   processContent.mockReset().mockResolvedValue(undefined);
-  modActionLogCreate.mockReset().mockResolvedValue(undefined);
+  modActionLogUpdateOne.mockReset().mockResolvedValue(undefined);
   moderationStatsFindUnique.mockReset();
   moderationStatsUpdate.mockReset().mockResolvedValue(undefined);
 };

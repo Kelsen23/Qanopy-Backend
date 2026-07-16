@@ -1,36 +1,30 @@
+import routeNotification from "../../notification/routeNotification.service.js";
+import {
+  queueNonQuestionContentPipeline,
+  queueQuestionVersionCreation,
+  updateLiveQuestionBodyIfCurrent,
+} from "../contentFinalize/contentFinalizeQueue.service.js";
+import { rewriteBodyWithResolvedImages } from "../contentFinalize/contentFinalizeImage.service.js";
+
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import Answer from "../../../models/answer.model.js";
 import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
-import QuestionVersion from "../../../models/questionVersion.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import routeNotification from "../../notification/routeNotification.service.js";
-import { rewriteBodyWithResolvedImages } from "./contentFinalizeImage.service.js";
 import {
   assertContentFinalizeJobName,
   assertQuestionFinalizeSnapshot,
-  QUESTION_LIKE_JOB_NAMES,
   type ContentFinalizeJobData,
   type ContentFinalizeJobName,
   type MutableBodyEntity,
-} from "./contentFinalize.shared.js";
-import {
-  queueNonQuestionContentPipeline,
-  queueQuestionContentPipeline,
-  queueQuestionVersionCreation,
-  updateLiveQuestionBodyIfCurrent,
-} from "../../../utils/question/contentFinalize.util.js";
+} from "../contentFinalize/contentFinalize.shared.js";
 
 const getNotificationContentType = (jobName: ContentFinalizeJobName) =>
-  (QUESTION_LIKE_JOB_NAMES.has(jobName) ? "QUESTION" : jobName) as
-    | "QUESTION"
-    | "ANSWER"
-    | "REPLY"
-    | "AI_ANSWER_FEEDBACK";
+  jobName as "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 
 const loadEntity = async (
-  jobName: ContentFinalizeJobName,
+  jobName: Exclude<ContentFinalizeJobName, "QUESTION">,
   entityId: string,
 ): Promise<MutableBodyEntity | null> => {
   switch (jobName) {
@@ -42,139 +36,157 @@ const loadEntity = async (
       return AiAnswerFeedback.findById(entityId).select(
         "body moderationRevision",
       );
-    case "QUESTION":
-    case "QUESTION_EXISTING_VERSION":
-      return null;
   }
 };
 
-const processContentFinalizeJob = async (
-  jobName: ContentFinalizeJobName,
-  data: ContentFinalizeJobData,
-) => {
+const rewriteFinalizeBody = async (body: string) =>
+  rewriteBodyWithResolvedImages(body);
+
+const notifyUnsafeImageRemoval = async ({
+  userId,
+  jobName,
+  entityId,
+  version,
+}: {
+  userId: string;
+  jobName: ContentFinalizeJobName;
+  entityId: string;
+  version?: number;
+}) => {
+  const notificationContentType = getNotificationContentType(jobName);
+
+  await routeNotification({
+    recipientId: userId,
+    event: "REMOVE_CONTENT",
+    target: {
+      entityType: notificationContentType,
+      entityId,
+      ...(version !== undefined ? { questionVersion: version } : {}),
+    },
+    meta: {
+      removalScope: "IMAGE",
+      removalReason: "UNSAFE_IMAGE",
+      removedResourceType: "CONTENT_IMAGE",
+      contentId: entityId,
+      contentType: notificationContentType,
+    },
+  });
+};
+
+const finalizeQuestionContent = async ({
+  data,
+  body,
+}: {
+  data: ContentFinalizeJobData;
+  body: string;
+}) => {
   const {
     userId,
     entityId,
     version,
     basedOnVersion,
     title,
+    tags,
+    moderationStatus,
+    moderationUpdatedAt,
+  } = data;
+
+  await updateLiveQuestionBodyIfCurrent({
+    entityId,
+    version,
+    body,
+  });
+
+  await getRedisCacheClient().del(`question:${entityId}`);
+
+  await queueQuestionVersionCreation({
+    questionId: entityId,
+    intendedVersion: version,
+    basedOnVersion,
+    userId,
+    title,
     body,
     tags,
     moderationStatus,
     moderationUpdatedAt,
-    topicStatus,
-    embeddingStatus,
-  } = data;
+  });
+};
 
-  let entity: MutableBodyEntity | null = null;
-
-  if (QUESTION_LIKE_JOB_NAMES.has(jobName)) {
-    assertQuestionFinalizeSnapshot(data);
-  } else {
-    entity = await loadEntity(jobName, entityId);
-
-    if (!entity) throw new Error("Content not found");
-  }
-
-  const sourceBody = QUESTION_LIKE_JOB_NAMES.has(jobName)
-    ? String(body ?? "")
-    : String(entity?.body ?? "");
-
-  const { body: newBody, removedUnsafeImage } =
-    await rewriteBodyWithResolvedImages(sourceBody);
-
-  if (removedUnsafeImage) {
-    const notificationContentType = getNotificationContentType(jobName);
-
-    await routeNotification({
-      recipientId: userId,
-      event: "REMOVE_CONTENT",
-      target: {
-        entityType: notificationContentType,
-        entityId,
-        ...(version !== undefined ? { questionVersion: version } : {}),
-      },
-      meta: {
-        removalScope: "IMAGE",
-        removalReason: "UNSAFE_IMAGE",
-        removedResourceType: "CONTENT_IMAGE",
-        contentId: entityId,
-        contentType: notificationContentType,
-      },
-    });
-  }
-
-  if (
-    !QUESTION_LIKE_JOB_NAMES.has(jobName) &&
-    newBody !== String(entity?.body ?? "")
-  ) {
-    const mutableEntity = entity as MutableBodyEntity;
-    mutableEntity.body = newBody;
-    await mutableEntity.save();
-  }
-
-  if (jobName === "QUESTION") {
-    await updateLiveQuestionBodyIfCurrent({
-      entityId,
-      version,
-      body: newBody,
-    });
-
-    await getRedisCacheClient().del(`question:${entityId}`);
-
-    await queueQuestionVersionCreation({
-      questionId: entityId,
-      intendedVersion: version,
-      basedOnVersion,
-      userId,
-      title,
-      body: newBody,
-      tags,
-      moderationStatus,
-      moderationUpdatedAt,
-      topicStatus,
-      embeddingStatus,
-    });
-
-    return;
-  }
-
-  if (jobName === "QUESTION_EXISTING_VERSION") {
-    await QuestionVersion.findOneAndUpdate(
-      {
-        questionId: entityId,
-        version,
-      },
-      {
-        $set: {
-          body: newBody,
-        },
-      },
-    );
-
-    await updateLiveQuestionBodyIfCurrent({
-      entityId,
-      version,
-      body: newBody,
-    });
-
-    await getRedisCacheClient().del(
-      `question:${entityId}`,
-      `v:${version}:question:${entityId}`,
-    );
-
-    await queueQuestionContentPipeline(entityId, version);
-
-    return;
+const finalizeNonQuestionContent = async ({
+  jobName,
+  entity,
+  entityId,
+  body,
+}: {
+  jobName: Exclude<ContentFinalizeJobName, "QUESTION">;
+  entity: MutableBodyEntity;
+  entityId: string;
+  body: string;
+}) => {
+  if (body !== String(entity.body ?? "")) {
+    entity.body = body;
+    await entity.save();
   }
 
   await queueNonQuestionContentPipeline(
     jobName,
     entityId,
-    typeof entity?.moderationRevision === "number"
+    typeof entity.moderationRevision === "number"
       ? entity.moderationRevision
       : undefined,
   );
+};
+
+const processContentFinalizeJob = async (
+  jobName: ContentFinalizeJobName,
+  data: ContentFinalizeJobData,
+) => {
+  const { userId, entityId, version } = data;
+  const isQuestionJob = jobName === "QUESTION";
+  let entity: MutableBodyEntity | null = null;
+  let sourceBody = String(data.body ?? "");
+
+  if (!isQuestionJob) {
+    entity = await loadEntity(jobName, entityId);
+
+    if (!entity) throw new Error("Content not found");
+
+    sourceBody = String(entity.body ?? "");
+  }
+
+  if (isQuestionJob) {
+    assertQuestionFinalizeSnapshot(data);
+  }
+
+  const { body: newBody, removedUnsafeImage } =
+    await rewriteFinalizeBody(sourceBody);
+
+  if (removedUnsafeImage) {
+    await notifyUnsafeImageRemoval({
+      userId,
+      jobName,
+      entityId,
+      version,
+    });
+  }
+
+  if (isQuestionJob) {
+    await finalizeQuestionContent({
+      data,
+      body: newBody,
+    });
+
+    return;
+  }
+
+  if (!entity) throw new Error("Content not found");
+
+  await finalizeNonQuestionContent({
+    jobName,
+    entity,
+    entityId,
+    body: newBody,
+  });
 };
 
 export default processContentFinalizeJob;

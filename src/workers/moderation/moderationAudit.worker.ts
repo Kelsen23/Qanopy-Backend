@@ -5,7 +5,8 @@ import processModerationAuditJob from "../../services/moderation/worker/moderati
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
-import { createWorkerEventHandlers } from "./shared.js";
+
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 const workerFilePath = fileURLToPath(import.meta.url);
 

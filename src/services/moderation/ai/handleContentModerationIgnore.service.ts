@@ -1,13 +1,13 @@
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import type { LoadedModerationContent } from "./loadModerationContent.service.js";
+import { type ModeratableContentType } from "./contentModeration.shared.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
-import { type ModeratableContentType } from "./contentModeration.shared.js";
+import { queueContentPipelineRoute } from "../../question/pipelineRouter/pipelineRouting.service.js";
+
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
 import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
-
-import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
 type HandleContentModerationIgnoreInput = {
   contentId: string;
@@ -61,18 +61,11 @@ const handleContentModerationIgnore = async ({
   );
 
   if (contentType === "QUESTION")
-    await contentPipelineRouter.add(
-      "QUESTION",
-      {
-        contentId,
-        version: versionOrRevision,
-      },
-      {
-        jobId: makeJobId("contentPipelineRoute", contentId, versionOrRevision),
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+    await queueContentPipelineRoute({
+      contentType: "QUESTION",
+      contentId,
+      version: versionOrRevision as number,
+    });
 
   await moderationMetricsQueue.add(
     "IGNORE",

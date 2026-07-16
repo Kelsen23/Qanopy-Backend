@@ -1,3 +1,8 @@
+import {
+  canGetAIAnswer,
+  canGetAISuggestion,
+} from "./ai/questionAiHelp.shared.js";
+
 const toPublicQuestion = (question: any) => ({
   id: question.id ?? question._id,
   userId: question.userId,
@@ -10,9 +15,13 @@ const toPublicQuestion = (question: any) => ({
   acceptedAnswerCount: question.acceptedAnswerCount ?? 0,
   currentVersion: question.currentVersion,
   basedOnVersion: question.basedOnVersion,
+  canGetAISuggestion: canGetAISuggestion(question),
+  canGetAIAnswer: canGetAIAnswer(question),
   similarQuestionsReady:
     question.similarQuestionsReady ??
     question.similarQuestionsStatus === "READY",
+  isActive: question.isActive ?? true,
+  isDeleted: question.isDeleted ?? false,
   createdAt: question.createdAt,
   updatedAt: question.updatedAt,
 });
@@ -28,6 +37,8 @@ const toPublicAnswer = (answer: any) => ({
   isAccepted: Boolean(answer.isAccepted),
   isBestAnswerByAsker: Boolean(answer.isBestAnswerByAsker),
   questionVersion: answer.questionVersion,
+  isActive: answer.isActive ?? true,
+  isDeleted: answer.isDeleted ?? false,
   createdAt: answer.createdAt,
   updatedAt: answer.updatedAt,
 });
@@ -39,6 +50,8 @@ const toPublicReply = (reply: any) => ({
   body: reply.body,
   upvoteCount: reply.upvoteCount ?? 0,
   downvoteCount: reply.downvoteCount ?? 0,
+  isActive: reply.isActive ?? true,
+  isDeleted: reply.isDeleted ?? false,
   createdAt: reply.createdAt,
   updatedAt: reply.updatedAt,
 });
@@ -68,6 +81,8 @@ const toPublicAiAnswerFeedback = (feedback: any) => ({
   type: feedback.type,
   body: feedback.body ?? null,
   questionVersionAtFeedback: feedback.questionVersionAtFeedback,
+  isActive: feedback.isActive ?? true,
+  isDeleted: feedback.isDeleted ?? false,
   createdAt: feedback.createdAt,
   updatedAt: feedback.updatedAt,
 });
@@ -83,8 +98,6 @@ const toPublicQuestionVersion = (version: any) => ({
   version: version.version,
   basedOnVersion: version.basedOnVersion,
   isActive: Boolean(version.isActive),
-  moderationStatus: version.moderationStatus,
-  moderationUpdatedAt: version.moderationUpdatedAt ?? null,
   createdAt: version.createdAt,
   updatedAt: version.updatedAt,
 });

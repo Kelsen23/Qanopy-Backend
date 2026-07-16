@@ -94,8 +94,14 @@ describe("moderationAudit worker", () => {
     });
 
     expect(
-      mockModerationWorkerTestEnvironment.modActionLogCreate,
-    ).toHaveBeenCalledWith(payload);
+      mockModerationWorkerTestEnvironment.modActionLogUpdateOne,
+    ).toHaveBeenCalledWith(
+      { decisionId: payload.decisionId },
+      {
+        $setOnInsert: payload,
+      },
+      { upsert: true },
+    );
   });
 
   it("rejects cleanly when Mongo connection fails", async () => {

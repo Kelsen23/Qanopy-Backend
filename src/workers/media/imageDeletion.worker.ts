@@ -4,6 +4,9 @@ import processImageDeletionJob from "../../services/media/worker/imageDeletion.s
 
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
+
+const handlers = createWorkerEventHandlers("imageDeletion");
 const worker = new Worker(
   "imageDeletionQueue",
   async (job) => {
@@ -15,14 +18,6 @@ const worker = new Worker(
   },
 );
 
-worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed`);
-});
-
-worker.on("failed", (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err);
-});
-
-worker.on("error", (err) => {
-  console.error("Worker crashed:", err);
-});
+worker.on("completed", handlers.completed);
+worker.on("failed", handlers.failed);
+worker.on("error", handlers.error);

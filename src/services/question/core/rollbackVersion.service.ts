@@ -1,17 +1,17 @@
 import mongoose from "mongoose";
 
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
+
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
-import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
-import { hasTempContentImageUrls } from "../../../utils/media/contentImageMarkdown.util.js";
+import {
+  clearQuestionDiscoveryCache,
+  clearVersionHistoryCache,
+} from "../../../utils/cache/clearCache.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
-
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 
 import { isObjectId } from "../question.shared.js";
 import { toPublicQuestionVersion } from "../question.response.js";
@@ -153,7 +153,13 @@ const rollbackVersion = async (
             : rolledBackVersionIsWorse
               ? nextVersion
               : Number(freshQuestion.moderationSourceVersion ?? nextVersion),
-          topicStatus: "PENDING",
+          questionEligibilityStatus: "PENDING",
+          questionEligibilityUpdatedAt: null,
+          questionEligibilitySourceVersion: nextVersion,
+          securityVerifierStatus: "NOT_REQUIRED",
+          securityVerifierUpdatedAt: null,
+          securityVerifierSourceVersion: nextVersion,
+          embeddingStatus: "NONE",
           similarQuestionIds: [],
           similarQuestionsStatus: "NONE",
         },
@@ -172,46 +178,14 @@ const rollbackVersion = async (
     `v:${nextVersion}:question:${questionId}`,
   );
 
+  await clearQuestionDiscoveryCache();
   await clearVersionHistoryCache(questionId);
 
-  if (hasTempContentImageUrls(String(createdNewVersion.body ?? ""))) {
-    await contentFinalizeQueue.add(
-      "QUESTION_EXISTING_VERSION",
-      {
-        userId: String(createdNewVersion.userId),
-        entityId: questionId,
-        version: nextVersion,
-        title: String(createdNewVersion.title),
-        body: String(createdNewVersion.body ?? ""),
-        tags: Array.isArray(createdNewVersion.tags)
-          ? createdNewVersion.tags
-          : [],
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId: makeJobId(
-          "contentFinalize",
-          "QUESTION_EXISTING_VERSION",
-          questionId,
-          nextVersion,
-        ),
-      },
-    );
-  } else {
-    await contentPipelineRouter.add(
-      "QUESTION",
-      {
-        contentId: questionId,
-        version: nextVersion,
-      },
-      {
-        jobId: makeJobId("contentPipelineRoute", questionId, nextVersion),
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
-  }
+  await queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version: nextVersion,
+  });
 
   return {
     message: "Successfully rolled back",

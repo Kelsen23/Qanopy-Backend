@@ -1,31 +1,11 @@
 import prisma from "../../../config/prisma.config.js";
 
-type ModerationActionJobName = "BAN_PERM" | "BAN_TEMP" | "WARN" | "IGNORE";
-
-type ModerationReviewer = "AI_MODERATION" | "ADMIN_MODERATION";
-
-const assertModerationActionJobName = (
-  name: string,
-): ModerationActionJobName => {
-  if (
-    name === "BAN_PERM" ||
-    name === "BAN_TEMP" ||
-    name === "WARN" ||
-    name === "IGNORE"
-  ) {
-    return name;
-  }
-
-  throw new Error(`Unsupported moderation action job type: ${name}`);
-};
-
-const assertModerationReviewer = (value: unknown): ModerationReviewer => {
-  if (value === "AI_MODERATION" || value === "ADMIN_MODERATION") {
-    return value;
-  }
-
-  throw new Error(`Unsupported moderation reviewer: ${String(value)}`);
-};
+import {
+  assertModerationActionJobName,
+  assertModerationReviewer,
+  type ModerationActionJobName,
+  type ModerationReviewer,
+} from "../../../utils/moderation/shared.js";
 
 const getTrustScoreDelta = (jobName: ModerationActionJobName) => {
   switch (jobName) {

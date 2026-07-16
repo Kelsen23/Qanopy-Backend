@@ -1,34 +1,50 @@
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
+import { clearQuestionAggregateCache } from "../../../utils/cache/clearCache.util.js";
 import updateUserStats from "../../../utils/user/updateUserStats.util.js";
 
 import Answer from "../../../models/answer.model.js";
 import Question from "../../../models/question.model.js";
 
-type StatsUpdate = {
-  prisma?: any;
-  mongo?: {
-    model: "Question" | "Answer";
-    idKey: string;
-    update: any;
+type StatsDelta = {
+  increment?: number;
+  decrement?: number;
+};
+
+type PrismaStatsUpdate = {
+  data: Record<string, StatsDelta>;
+};
+
+type MongoStatsUpdate = {
+  model: "Question" | "Answer";
+  idKey: "questionId" | "answerId";
+  update: {
+    $inc: Record<string, number>;
   };
+};
+
+type StatsActionDescriptor = {
+  prisma?: PrismaStatsUpdate;
+  mongo?: MongoStatsUpdate;
+};
+
+type StatsJobData = {
+  userId: string;
+  action?: string;
+  eventId?: string;
+  mongoTargetId?: string;
+  questionId?: string;
+  answerId?: string;
 };
 
 const STATS_JOB_IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24 * 7;
 
-const getStatsJobIdempotencyKey = (
-  _jobName: string,
-  jobData: Record<string, any>,
-  jobId?: string,
-) => (jobData.eventId ? `stats:processed:${jobData.eventId}` : null);
-
-const actionMap: Record<string, StatsUpdate> = {
+const STATS_ACTIONS: Record<string, StatsActionDescriptor> = {
   ASK_QUESTION: {
-    prisma: { userIdKey: "userId", data: { questionsAsked: { increment: 1 } } },
+    prisma: { data: { questionsAsked: { increment: 1 } } },
   },
   GIVE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: {
         answersGiven: { increment: 1 },
         reputationPoints: { increment: 2 },
@@ -49,115 +65,96 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   CHANGE_DOWNVOTE_TO_UPVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 20 } },
     },
   },
   CHANGE_UPVOTE_TO_DOWNVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 20 } },
     },
   },
   CHANGE_DOWNVOTE_TO_UPVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 20 } },
     },
   },
   CHANGE_UPVOTE_TO_DOWNVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 20 } },
     },
   },
   CHANGE_DOWNVOTE_TO_UPVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 10 } },
     },
   },
   CHANGE_UPVOTE_TO_DOWNVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 10 } },
     },
   },
   RECEIVE_UPVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 10 } },
     },
   },
   RECEIVE_DOWNVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 10 } },
     },
   },
   RECEIVE_UPVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 10 } },
     },
   },
   RECEIVE_DOWNVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 10 } },
     },
   },
   RECEIVE_UPVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 5 } },
     },
   },
   RECEIVE_DOWNVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 5 } },
     },
   },
   UNVOTE_UPVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 10 } },
     },
   },
   UNVOTE_DOWNVOTE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 10 } },
     },
   },
   UNVOTE_UPVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 10 } },
     },
   },
   UNVOTE_DOWNVOTE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 10 } },
     },
   },
   UNVOTE_UPVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { decrement: 5 } },
     },
   },
   UNVOTE_DOWNVOTE_REPLY: {
     prisma: {
-      userIdKey: "userId",
       data: { reputationPoints: { increment: 5 } },
     },
   },
   ACCEPT_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: {
         acceptedAnswers: { increment: 1 },
         reputationPoints: { increment: 10 },
@@ -171,7 +168,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   UNACCEPT_BEST_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: {
         acceptedAnswers: { decrement: 1 },
         bestAnswers: { decrement: 1 },
@@ -186,7 +182,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   UNACCEPT_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: {
         acceptedAnswers: { decrement: 1 },
         reputationPoints: { decrement: 10 },
@@ -200,7 +195,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   MARK_ANSWER_AS_BEST: {
     prisma: {
-      userIdKey: "userId",
       data: {
         reputationPoints: { increment: 15 },
         bestAnswers: { increment: 1 },
@@ -209,7 +203,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   UNMARK_ANSWER_AS_BEST: {
     prisma: {
-      userIdKey: "userId",
       data: {
         reputationPoints: { decrement: 15 },
         bestAnswers: { decrement: 1 },
@@ -218,7 +211,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   DELETE_QUESTION: {
     prisma: {
-      userIdKey: "userId",
       data: {
         questionsAsked: { decrement: 1 },
       },
@@ -226,7 +218,6 @@ const actionMap: Record<string, StatsUpdate> = {
   },
   DELETE_ANSWER: {
     prisma: {
-      userIdKey: "userId",
       data: {
         answersGiven: { decrement: 1 },
         reputationPoints: { decrement: 2 },
@@ -247,66 +238,193 @@ const actionMap: Record<string, StatsUpdate> = {
   },
 };
 
-const processStatsJob = async (
+type StatsActionName = keyof typeof STATS_ACTIONS;
+
+type StatsPhase = "prisma" | "mongo";
+
+const getStatsJobStateKey = (eventId: string) => `stats:state:${eventId}`;
+
+const getStatsJobLockKey = (eventId: string) => `stats:lock:${eventId}`;
+
+const getStatsJobIdempotencyKey = (jobData: StatsJobData) =>
+  jobData.eventId ? getStatsJobStateKey(jobData.eventId) : null;
+
+const getStatsActionName = (
   jobName: string,
-  jobData: any,
-  jobId?: string,
+  jobData: StatsJobData,
+): StatsActionName | undefined => {
+  if (jobName in STATS_ACTIONS) {
+    return jobName as StatsActionName;
+  }
+
+  if (typeof jobData.action === "string" && jobData.action in STATS_ACTIONS) {
+    return jobData.action as StatsActionName;
+  }
+
+  return undefined;
+};
+
+const getStatsModel = (model: MongoStatsUpdate["model"]) =>
+  model === "Question" ? Question : Answer;
+
+const getCompletedStatsPhases = async (stateKey: string | null) => {
+  if (!stateKey) return { prisma: false, mongo: false } as const;
+
+  const state = await getRedisCacheClient().hgetall(stateKey);
+
+  return {
+    prisma: state.prisma === "1",
+    mongo: state.mongo === "1",
+  } as const;
+};
+
+const markStatsPhaseComplete = async (
+  stateKey: string | null,
+  phase: StatsPhase,
 ) => {
-  const idempotencyKey = getStatsJobIdempotencyKey(jobName, jobData, jobId);
+  if (!stateKey) return;
 
-  if (idempotencyKey) {
-    const cachedResult = await getRedisCacheClient().get(idempotencyKey);
+  const redis = getRedisCacheClient();
 
-    if (cachedResult) return;
+  await redis
+    .multi()
+    .hset(stateKey, phase, "1")
+    .expire(stateKey, STATS_JOB_IDEMPOTENCY_TTL_SECONDS)
+    .exec();
+};
+
+const acquireStatsJobLock = async (eventId: string | null) => {
+  if (!eventId) return null;
+
+  const lockKey = getStatsJobLockKey(eventId);
+  const lockToken = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
+
+  const acquired = await getRedisCacheClient().set(
+    lockKey,
+    lockToken,
+    "EX",
+    STATS_JOB_IDEMPOTENCY_TTL_SECONDS,
+    "NX",
+  );
+
+  return acquired === "OK" ? { lockKey, lockToken } : null;
+};
+
+const releaseStatsJobLock = async (
+  lockKey: string | null,
+  lockToken: string | null,
+) => {
+  if (!lockKey || !lockToken) return;
+
+  await getRedisCacheClient().eval(
+    `
+      if redis.call("GET", KEYS[1]) == ARGV[1] then
+        return redis.call("DEL", KEYS[1])
+      end
+      return 0
+    `,
+    1,
+    lockKey,
+    lockToken,
+  );
+};
+
+const applyPrismaStatsUpdate = async (
+  userId: string,
+  prismaUpdate: PrismaStatsUpdate,
+) => {
+  await updateUserStats(userId, prismaUpdate.data);
+  await getRedisCacheClient().del(`user:${userId}`);
+};
+
+const applyMongoStatsUpdate = async (
+  mongoUpdate: MongoStatsUpdate,
+  targetId: string,
+) => {
+  const model = getStatsModel(mongoUpdate.model);
+  await model.findByIdAndUpdate(targetId, mongoUpdate.update);
+
+  if (mongoUpdate.model === "Question") {
+    await getRedisCacheClient().del(`question:${targetId}`);
+    await clearQuestionAggregateCache();
   }
+};
 
-  const actionName = (jobName in actionMap ? jobName : jobData.action) as
-    | keyof typeof actionMap
-    | undefined;
+const processStatsPhase = async ({
+  phase,
+  completedPhases,
+  stateKey,
+  jobData,
+  action,
+  mongoTargetId,
+}: {
+  phase: StatsPhase;
+  completedPhases: { prisma: boolean; mongo: boolean };
+  stateKey: string | null;
+  jobData: StatsJobData;
+  action: StatsActionDescriptor;
+  mongoTargetId?: string;
+}) => {
+  if (completedPhases[phase]) return;
 
-  if (!actionName)
-    throw new Error(`Unknown action: ${jobData.action ?? jobName}`);
+  if (phase === "prisma") {
+    if (!action.prisma) return;
 
-  const action = actionMap[actionName];
-
-  if (!action) throw new Error(`Unknown action: ${jobData.action ?? jobName}`);
-
-  if (action.prisma) {
-    await updateUserStats(jobData.userId, action.prisma.data);
-    await getRedisCacheClient().del(`user:${jobData.userId}`);
-  }
-
-  if (!action.mongo) {
-    if (idempotencyKey) {
-      await getRedisCacheClient().set(
-        idempotencyKey,
-        "1",
-        "EX",
-        STATS_JOB_IDEMPOTENCY_TTL_SECONDS,
-      );
-    }
-
+    await applyPrismaStatsUpdate(jobData.userId, action.prisma);
+    await markStatsPhaseComplete(stateKey, phase);
     return;
   }
 
-  const model = action.mongo.model === "Question" ? Question : Answer;
-  const id = jobData.mongoTargetId || jobData[action.mongo.idKey];
+  if (!action.mongo || !mongoTargetId) return;
 
-  if (!id) throw new Error("Mongo target ID missing for action");
+  await applyMongoStatsUpdate(action.mongo, mongoTargetId);
+  await markStatsPhaseComplete(stateKey, phase);
+};
 
-  await model.findByIdAndUpdate(id, action.mongo.update);
+const processStatsJob = async (jobName: string, jobData: StatsJobData) => {
+  const actionName = getStatsActionName(jobName, jobData);
 
-  if (action.mongo.model === "Question") {
-    await getRedisCacheClient().del(`question:${id}`);
+  if (!actionName) {
+    throw new Error(`Unknown action: ${jobData.action ?? jobName}`);
   }
 
-  if (idempotencyKey) {
-    await getRedisCacheClient().set(
-      idempotencyKey,
-      "1",
-      "EX",
-      STATS_JOB_IDEMPOTENCY_TTL_SECONDS,
-    );
+  const action = STATS_ACTIONS[actionName];
+  const stateKey = getStatsJobIdempotencyKey(jobData);
+  const eventId = jobData.eventId ?? null;
+  const lock = await acquireStatsJobLock(eventId);
+
+  if (eventId && !lock) return;
+
+  const mongoTargetId = action.mongo
+    ? jobData.mongoTargetId || jobData[action.mongo.idKey]
+    : undefined;
+
+  if (action.mongo && !mongoTargetId) {
+    throw new Error("Mongo target ID missing for action");
+  }
+
+  try {
+    const completedPhases = await getCompletedStatsPhases(stateKey);
+
+    await processStatsPhase({
+      phase: "prisma",
+      completedPhases,
+      stateKey,
+      jobData,
+      action,
+      mongoTargetId,
+    });
+
+    await processStatsPhase({
+      phase: "mongo",
+      completedPhases,
+      stateKey,
+      jobData,
+      action,
+      mongoTargetId,
+    });
+  } finally {
+    await releaseStatsJobLock(lock?.lockKey ?? null, lock?.lockToken ?? null);
   }
 };
 

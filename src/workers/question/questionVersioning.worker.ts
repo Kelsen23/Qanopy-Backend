@@ -5,9 +5,13 @@ import processQuestionVersioningJob from "../../services/question/worker/questio
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
+
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
   console.log("Mongo connected, starting question versioning worker...");
+
+  const handlers = createWorkerEventHandlers("questionVersioning");
 
   const worker = new Worker(
     "questionVersioningQueue",
@@ -17,17 +21,9 @@ async function startWorker() {
     { connection: redisMessagingClientConnection, concurrency: 5 },
   );
 
-  worker.on("completed", (job) => {
-    console.log(`Job ${job.id} completed`);
-  });
-
-  worker.on("failed", (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err);
-  });
-
-  worker.on("error", (err) => {
-    console.error("Worker crashed:", err);
-  });
+  worker.on("completed", handlers.completed);
+  worker.on("failed", handlers.failed);
+  worker.on("error", handlers.error);
 }
 
 startWorker().catch((error) => {

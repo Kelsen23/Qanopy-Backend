@@ -70,7 +70,7 @@ describe("user profile media services", () => {
     await expect(
       requestProfilePictureUpdate({
         userId: "user_1",
-        objectKey: "temp/profilePictures/other/avatar.png",
+        objectKey: "profilePictures/temp/other/avatar.png",
       }),
     ).rejects.toMatchObject({
       message: "Invalid object key",
@@ -84,7 +84,7 @@ describe("user profile media services", () => {
     await expect(
       requestProfilePictureUpdate({
         userId: "user_1",
-        objectKey: "temp/profilePictures/user_1/avatar.png",
+        objectKey: "profilePictures/temp/user_1/avatar.png",
       }),
     ).rejects.toMatchObject({
       message: "Uploaded image could not be verified",
@@ -97,13 +97,13 @@ describe("user profile media services", () => {
 
     const result = await requestProfilePictureUpdate({
       userId: "user_1",
-      objectKey: "temp/profilePictures/user_1/avatar.png",
+      objectKey: "profilePictures/temp/user_1/avatar.png",
     });
 
     expect(result).toEqual({ message: "Profile picture update submitted" });
     expect(userUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith({
       where: { id: "user_1" },
-      data: { profilePictureKey: "temp/profilePictures/user_1/avatar.png" },
+      data: { profilePictureKey: "profilePictures/temp/user_1/avatar.png" },
     });
     expect(userUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
       "user:user_1",
@@ -114,7 +114,7 @@ describe("user profile media services", () => {
       "PROFILE_PICTURE",
       {
         userId: "user_1",
-        objectKey: "temp/profilePictures/user_1/avatar.png",
+        objectKey: "profilePictures/temp/user_1/avatar.png",
         uploadFingerprint: {
           eTag: "etag-1",
           contentLength: 99,
@@ -122,7 +122,7 @@ describe("user profile media services", () => {
       },
       expect.objectContaining({
         jobId:
-          "imageModeration__PROFILE_PICTURE__user_1__temp/profilePictures/user_1/avatar.png__etag-1__99",
+          "imageModeration__PROFILE_PICTURE__user_1__profilePictures/temp/user_1/avatar.png__etag-1__99",
       }),
     );
   });
@@ -200,7 +200,7 @@ describe("user profile media services", () => {
     userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValueOnce(null);
 
     await expect(
-      updateProfilePicture("user_1", "temp/profilePictures/user_1/avatar.png"),
+      updateProfilePicture("user_1", "profilePictures/temp/user_1/avatar.png"),
     ).rejects.toThrow("User not found");
   });
 
@@ -208,10 +208,10 @@ describe("user profile media services", () => {
     userUnitTestEnvironment.prismaUserFindUnique
       .mockResolvedValueOnce({
         id: "user_1",
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       })
       .mockResolvedValueOnce({
-        profilePictureKey: "temp/profilePictures/user_1/other.png",
+        profilePictureKey: "profilePictures/temp/user_1/other.png",
       });
     const warnSpy = vi
       .spyOn(console, "warn")
@@ -219,7 +219,7 @@ describe("user profile media services", () => {
 
     const result = await updateProfilePicture(
       "user_1",
-      "temp/profilePictures/user_1/avatar.png",
+      "profilePictures/temp/user_1/avatar.png",
     );
 
     expect(result).toEqual({
@@ -234,10 +234,10 @@ describe("user profile media services", () => {
     userUnitTestEnvironment.prismaUserFindUnique
       .mockResolvedValueOnce({
         id: "user_1",
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       })
       .mockResolvedValueOnce({
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       });
     queueS3SendResult({ ETag: "etag-now", ContentLength: 55 });
     const warnSpy = vi
@@ -246,7 +246,7 @@ describe("user profile media services", () => {
 
     const result = await updateProfilePicture(
       "user_1",
-      "temp/profilePictures/user_1/avatar.png",
+      "profilePictures/temp/user_1/avatar.png",
       { eTag: "etag-before", contentLength: 55 },
     );
 
@@ -262,10 +262,10 @@ describe("user profile media services", () => {
     userUnitTestEnvironment.prismaUserFindUnique
       .mockResolvedValueOnce({
         id: "user_1",
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       })
       .mockResolvedValueOnce({
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       });
     userUnitTestEnvironment.prismaUserUpdateMany.mockResolvedValue({
       count: 0,
@@ -276,7 +276,7 @@ describe("user profile media services", () => {
 
     const result = await updateProfilePicture(
       "user_1",
-      "temp/profilePictures/user_1/avatar.png",
+      "profilePictures/temp/user_1/avatar.png",
     );
 
     expect(result).toEqual({
@@ -287,7 +287,7 @@ describe("user profile media services", () => {
       expect.objectContaining({
         input: {
           Bucket: "test-bucket",
-          Key: "profilePictures/11111111-1111-1111-1111-111111111111.png",
+          Key: "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
         },
       }),
     );
@@ -301,15 +301,15 @@ describe("user profile media services", () => {
     userUnitTestEnvironment.prismaUserFindUnique
       .mockResolvedValueOnce({
         id: "user_1",
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       })
       .mockResolvedValueOnce({
-        profilePictureKey: "temp/profilePictures/user_1/avatar.png",
+        profilePictureKey: "profilePictures/temp/user_1/avatar.png",
       })
       .mockResolvedValueOnce({
         id: "user_1",
         profilePictureKey:
-          "profilePictures/11111111-1111-1111-1111-111111111111.png",
+          "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
       });
     userUnitTestEnvironment.prismaUserUpdateMany.mockResolvedValue({
       count: 1,
@@ -317,18 +317,18 @@ describe("user profile media services", () => {
 
     const result = await updateProfilePicture(
       "user_1",
-      "temp/profilePictures/user_1/avatar.png",
+      "profilePictures/temp/user_1/avatar.png",
     );
 
     expect(userUnitTestEnvironment.moderateFileService).toHaveBeenCalledWith(
       "user_1",
-      "temp/profilePictures/user_1/avatar.png",
+      "profilePictures/temp/user_1/avatar.png",
       "PROFILE_PICTURE",
     );
     expect(userUnitTestEnvironment.cacheUser).toHaveBeenCalledWith({
       id: "user_1",
       profilePictureKey:
-        "profilePictures/11111111-1111-1111-1111-111111111111.png",
+        "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
     });
     expect(userUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
       "auth:user:user_1",
@@ -336,7 +336,7 @@ describe("user profile media services", () => {
     expect(result).toEqual({
       message: "Successfully updated profile picture",
       profilePictureUrl:
-        "https://cdn.example.com/profilePictures/11111111-1111-1111-1111-111111111111.png",
+        "https://cdn.example.com/profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
     });
   });
 });

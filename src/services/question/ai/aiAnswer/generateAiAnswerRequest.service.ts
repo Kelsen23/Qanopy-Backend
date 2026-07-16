@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { canGetAIAnswer } from "../questionAiHelp.shared.js";
+
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import prisma from "../../../../config/prisma.config.js";
 
@@ -9,7 +11,7 @@ import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import Question from "../../../../models/question.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
-import aiAnswerQueue from "../../../../queues/aiAnswer.queue.js";
+import questionAiAnswerQueue from "../../../../queues/questionAiAnswer.queue.js";
 
 import { toPublicAiAnswer } from "../../question.response.js";
 
@@ -21,19 +23,14 @@ const generateAiAnswerRequest = async (
   if (!mongoose.Types.ObjectId.isValid(questionId))
     throw new HttpError("Invalid questionId", 400);
 
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${questionId}`,
-  );
-  const foundQuestion = cachedQuestion
-    ? JSON.parse(cachedQuestion)
-    : await Question.findOne({
-        _id: questionId,
-        userId,
-      })
-        .select(
-          "_id isActive currentVersion moderationStatus topicStatus embedding",
-        )
-        .lean();
+  const foundQuestion = await Question.findOne({
+    _id: questionId,
+    userId,
+  })
+    .select(
+      "_id isActive currentVersion moderationStatus embedding embeddingStatus questionEligibilityStatus securityVerifierStatus",
+    )
+    .lean();
 
   if (!foundQuestion) throw new HttpError("Question not found", 404);
   if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
@@ -47,14 +44,14 @@ const generateAiAnswerRequest = async (
   if (!["APPROVED", "FLAGGED"].includes(String(foundQuestion.moderationStatus)))
     throw new HttpError("Question moderation status is not eligible", 400);
 
-  if (foundQuestion.topicStatus !== "VALID")
-    throw new HttpError("Question topic is not valid", 400);
-
   if (
     !Array.isArray(foundQuestion.embedding) ||
     foundQuestion.embedding.length === 0
   )
     throw new HttpError("Question does not have embedding", 400);
+
+  if (!canGetAIAnswer(foundQuestion))
+    throw new HttpError("Question is not eligible for AI answer", 400);
 
   const foundAiAnswer = await AiAnswer.findOne({
     questionId,
@@ -102,17 +99,17 @@ const generateAiAnswerRequest = async (
 
   try {
     const jobId = makeJobId(
-      "aiAnswer",
-      "GENERATE_AI_ANSWER",
+      "questionAiAnswer",
+      "QUESTION_AI_ANSWER",
       userId,
       questionId,
       version,
     );
 
-    await aiAnswerQueue.remove(jobId);
+    await questionAiAnswerQueue.remove(jobId);
 
-    await aiAnswerQueue.add(
-      "GENERATE_AI_ANSWER",
+    await questionAiAnswerQueue.add(
+      "QUESTION_AI_ANSWER",
       {
         userId,
         questionId,

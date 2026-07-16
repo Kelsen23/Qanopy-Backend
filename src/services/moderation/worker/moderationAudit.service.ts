@@ -21,16 +21,22 @@ const processModerationAuditJob = async (jobData: {
     meta,
   } = jobData;
 
-  await ModActionLog.create({
-    decisionId,
-    targetType,
-    targetId,
-    targetUserId,
-    actorType,
-    adminId,
-    actionTaken,
-    meta,
-  });
+  await ModActionLog.updateOne(
+    { decisionId },
+    {
+      $setOnInsert: {
+        decisionId,
+        targetType,
+        targetId,
+        targetUserId,
+        actorType,
+        adminId,
+        actionTaken,
+        meta,
+      },
+    },
+    { upsert: true },
+  );
 };
 
 export default processModerationAuditJob;

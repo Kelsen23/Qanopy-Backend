@@ -11,6 +11,7 @@ const contextualAnswerService = async (
   questionTitle: string,
   questionBody: string,
   questionVersion: number,
+  securityConstraints: { securityVerifierStatus?: unknown } = {},
 ) => {
   const foundContextualAnswerBodies: string[] = [];
   const pushedIds = new Set<string>();
@@ -74,6 +75,7 @@ const contextualAnswerService = async (
       questionBody,
       questionVersion,
       foundContextualAnswerBodies,
+      securityConstraints,
     );
   } else {
     await fullAnswerService(
@@ -82,6 +84,7 @@ const contextualAnswerService = async (
       questionTitle,
       questionBody,
       questionVersion,
+      securityConstraints,
     );
   }
 };

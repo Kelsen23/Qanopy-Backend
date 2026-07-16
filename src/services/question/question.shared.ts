@@ -8,7 +8,6 @@ import {
   clearAnswerCache,
   clearReplyCache,
 } from "../../utils/cache/clearCache.util.js";
-import HttpError from "../../utils/http/httpError.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import Answer from "../../models/answer.model.js";
@@ -25,11 +24,13 @@ const getCachedQuestion = async (
   questionId: string,
   select?: string,
 ): Promise<any> => {
-  const cachedQuestion = await getRedisCacheClient().get(
-    `question:${questionId}`,
-  );
+  if (!select) {
+    const cachedQuestion = await getRedisCacheClient().get(
+      `question:${questionId}`,
+    );
 
-  if (cachedQuestion) return JSON.parse(cachedQuestion);
+    if (cachedQuestion) return JSON.parse(cachedQuestion);
+  }
 
   const query = Question.findById(questionId);
 
@@ -73,15 +74,15 @@ const getCachedReply = async (
 };
 
 const ensureActiveQuestion = (question: any) => {
-  if (!question) throw new HttpError("Question not found", 404);
+  if (!question) throw new Error("Question not found");
   if (question.isDeleted || !question.isActive)
-    throw new HttpError("Question not active", 410);
+    throw new Error("Question not active");
 };
 
 const ensureActiveAnswer = (answer: any) => {
-  if (!answer) throw new HttpError("Answer not found", 404);
+  if (!answer) throw new Error("Answer not found");
   if (answer.isDeleted || !answer.isActive)
-    throw new HttpError("Answer not active", 410);
+    throw new Error("Answer not active");
 };
 
 const clearQuestionCache = async (questionId: string) => {

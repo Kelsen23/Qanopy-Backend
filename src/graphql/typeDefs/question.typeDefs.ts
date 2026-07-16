@@ -16,6 +16,9 @@ const questionTypeDefs = gql`
 
     currentVersion: Int!
 
+    isActive: Boolean!
+    isDeleted: Boolean!
+
     createdAt: String!
     updatedAt: String
 
@@ -23,9 +26,9 @@ const questionTypeDefs = gql`
 
     searchScore: Float
 
+    canGetAISuggestion: Boolean
+    canGetAIAnswer: Boolean
     similarQuestionsReady: Boolean
-    canGenerateAiSuggestion: Boolean
-    canGenerateAiAnswer: Boolean
 
     aiAnswer: QuestionAiAnswer
   }
@@ -60,6 +63,9 @@ const questionTypeDefs = gql`
 
     questionVersion: Int!
 
+    isActive: Boolean!
+    isDeleted: Boolean!
+
     createdAt: String!
     updatedAt: String
 
@@ -73,6 +79,9 @@ const questionTypeDefs = gql`
 
     upvoteCount: Int!
     downvoteCount: Int!
+
+    isActive: Boolean!
+    isDeleted: Boolean!
 
     createdAt: String!
     updatedAt: String
@@ -113,6 +122,9 @@ const questionTypeDefs = gql`
     body: String
 
     questionVersionAtFeedback: Int!
+
+    isActive: Boolean!
+    isDeleted: Boolean!
 
     createdAt: String!
     updatedAt: String

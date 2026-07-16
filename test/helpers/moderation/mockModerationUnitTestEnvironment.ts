@@ -33,6 +33,7 @@ const redisEval = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 const redisDel = vi.fn<(...keys: string[]) => Promise<number>>(
   async (...keys: string[]) => keys.length,
 );
+const redisMessagingClientConnection = {};
 
 const reportFindOne = vi.fn();
 const reportFindOneAndUpdate = vi.fn();
@@ -79,6 +80,12 @@ const clearModeratedContentCache = vi.fn(async () => undefined);
 const clearAnswerCache = vi.fn(async () => undefined);
 const clearReplyCache = vi.fn(async () => undefined);
 const clearVersionHistoryCache = vi.fn(async () => undefined);
+const clearQuestionSearchCache = vi.fn(async () => undefined);
+const clearQuestionRankingCache = vi.fn(async () => undefined);
+const clearQuestionAggregateCache = vi.fn(async () => undefined);
+const clearSimilarQuestionsCache = vi.fn(async () => undefined);
+const clearQuestionDiscoveryCache = vi.fn(async () => undefined);
+const clearAiAnswersCache = vi.fn(async () => undefined);
 const makeJobId = vi.fn((...parts: unknown[]) => parts.join("__"));
 const makeUniqueJobId = vi.fn(
   (...parts: unknown[]) => `unique__${parts.join("__")}`,
@@ -87,6 +94,7 @@ const makeUniqueJobId = vi.fn(
 const moderationAuditQueueAdd = vi.fn(async () => ({ id: "audit-job-id" }));
 const moderationMetricsQueueAdd = vi.fn(async () => ({ id: "metrics-job-id" }));
 const contentPipelineRouterAdd = vi.fn(async () => ({ id: "pipeline-job-id" }));
+const contentPipelineRouterGetJob = vi.fn(async () => null);
 const emailQueueAdd = vi.fn(async () => ({ id: "email-job-id" }));
 const imageDeletionQueueAdd = vi.fn(async () => ({ id: "image-delete-job-id" }));
 const routeNotification = vi.fn(async () => undefined);
@@ -212,6 +220,7 @@ export const mockModerationUnitModules = {
       eval: redisEval,
       del: redisDel,
     }),
+    redisMessagingClientConnection,
   },
   reportModel: {
     default: {
@@ -270,6 +279,12 @@ export const mockModerationUnitModules = {
     clearAnswerCache,
     clearReplyCache,
     clearVersionHistoryCache,
+    clearQuestionSearchCache,
+    clearQuestionRankingCache,
+    clearQuestionAggregateCache,
+    clearSimilarQuestionsCache,
+    clearQuestionDiscoveryCache,
+    clearAiAnswersCache,
   },
   clearUserCache: {
     default: clearUserCache,
@@ -294,6 +309,7 @@ export const mockModerationUnitModules = {
   contentPipelineRouterQueue: {
     default: {
       add: contentPipelineRouterAdd,
+      getJob: contentPipelineRouterGetJob,
     },
   },
   emailQueue: {
@@ -448,6 +464,7 @@ export const mockModerationUnitTestEnvironment = {
   redisGet,
   redisEval,
   redisDel,
+  redisMessagingClientConnection,
   reportFindOne,
   reportFindOneAndUpdate,
   reportCreate,
@@ -486,6 +503,7 @@ export const mockModerationUnitTestEnvironment = {
   moderationAuditQueueAdd,
   moderationMetricsQueueAdd,
   contentPipelineRouterAdd,
+  contentPipelineRouterGetJob,
   emailQueueAdd,
   imageDeletionQueueAdd,
   routeNotification,
@@ -608,6 +626,7 @@ export const resetModerationUnitTestEnvironment = () => {
   contentPipelineRouterAdd
     .mockReset()
     .mockResolvedValue({ id: "pipeline-job-id" });
+  contentPipelineRouterGetJob.mockReset().mockResolvedValue(null);
   emailQueueAdd.mockReset().mockResolvedValue({ id: "email-job-id" });
   imageDeletionQueueAdd.mockReset().mockResolvedValue({ id: "image-delete-job-id" });
   routeNotification.mockReset().mockResolvedValue(undefined);

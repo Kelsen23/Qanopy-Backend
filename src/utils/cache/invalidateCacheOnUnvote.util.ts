@@ -3,7 +3,11 @@ import { getRedisCacheClient } from "../../config/redis.config.js";
 import Answer from "../../models/answer.model.js";
 import Reply from "../../models/reply.model.js";
 
-import { clearAnswerCache, clearReplyCache } from "./clearCache.util.js";
+import {
+  clearAnswerCache,
+  clearQuestionRankingCache,
+  clearReplyCache,
+} from "./clearCache.util.js";
 
 async function invalidateCacheOnUnvote(
   targetType: "QUESTION" | "ANSWER" | "REPLY",
@@ -12,6 +16,7 @@ async function invalidateCacheOnUnvote(
   switch (targetType) {
     case "QUESTION":
       await getRedisCacheClient().del(`question:${targetId}`);
+      await clearQuestionRankingCache();
       break;
 
     case "ANSWER": {

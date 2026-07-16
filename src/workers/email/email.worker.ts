@@ -5,7 +5,10 @@ import processEmailJob from "../../services/email/worker/email.service.js";
 
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
+import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
+
 const workerFilePath = fileURLToPath(import.meta.url);
+const handlers = createWorkerEventHandlers("email");
 
 async function startEmailWorker() {
   const worker = new Worker(
@@ -23,17 +26,9 @@ async function startEmailWorker() {
     },
   );
 
-  worker.on("completed", (job) => {
-    console.log(`Job ${job.id} completed`);
-  });
-
-  worker.on("failed", (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err);
-  });
-
-  worker.on("error", (err) => {
-    console.error("Worker crashed:", err);
-  });
+  worker.on("completed", handlers.completed);
+  worker.on("failed", handlers.failed);
+  worker.on("error", handlers.error);
 
   return worker;
 }

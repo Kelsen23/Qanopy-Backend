@@ -3,10 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const redisDel = vi.fn();
 const redisGet = vi.fn();
 const redisSet = vi.fn();
+const redisEval = vi.fn();
+const redisHgetall = vi.fn();
+const redisScan = vi.fn();
 const getRedisCacheClient = vi.fn(() => ({
   get: redisGet,
   set: redisSet,
   del: redisDel,
+  eval: redisEval,
+  hgetall: redisHgetall,
+  scan: redisScan,
+  multi: () => ({
+    hset: vi.fn().mockReturnThis(),
+    expire: vi.fn().mockReturnThis(),
+    exec: vi.fn(async () => []),
+  }),
 }));
 const updateUserStats = vi.fn();
 const questionFindByIdAndUpdate = vi.fn();
@@ -41,6 +52,9 @@ describe("stats worker service", () => {
     vi.clearAllMocks();
     redisGet.mockResolvedValue(null);
     redisSet.mockResolvedValue("OK");
+    redisEval.mockResolvedValue(1);
+    redisHgetall.mockResolvedValue({});
+    redisScan.mockResolvedValue(["0", []]);
   });
 
   it("updates prisma stats and clears the user cache", async () => {
@@ -90,7 +104,9 @@ describe("stats worker service", () => {
   });
 
   it("skips replayed reputation jobs with the same event id", async () => {
-    redisGet.mockResolvedValueOnce(null).mockResolvedValueOnce("1");
+    redisHgetall.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      prisma: "1",
+    });
 
     await processStatsJob("CHANGE_REPUTATION_POINTS", {
       userId: "user_1",
@@ -105,7 +121,8 @@ describe("stats worker service", () => {
     });
 
     expect(updateUserStats).toHaveBeenCalledTimes(1);
-    expect(redisSet).toHaveBeenCalledTimes(1);
+    expect(redisSet).toHaveBeenCalledTimes(2);
+    expect(redisHgetall).toHaveBeenCalledTimes(2);
   });
 
   it("rejects unknown actions and missing mongo target ids", async () => {

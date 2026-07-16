@@ -1,15 +1,16 @@
 import routeNotification from "../../notification/routeNotification.service.js";
 import { getEditSessionSockets } from "../../redis/editSession.service.js";
+import { canGetAISuggestion } from "./questionAiHelp.shared.js";
 import generateSuggestion from "./generateSuggestion.service.js";
 
 import prisma from "../../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
-import HttpError from "../../../utils/http/httpError.util.js";
 import convertQuestionToLLMText from "../../../utils/question/convertQuestionToLLMText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
 
+import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
@@ -31,21 +32,30 @@ const generateQuestionSuggestion = async ({
       .select("_id")
       .lean();
 
-    if (existingSuggestion)
-      throw new HttpError("AI suggestion already exists", 409);
+    if (existingSuggestion) throw new Error("AI suggestion already exists");
+
+    const foundQuestion = await Question.findOne({
+      _id: questionId,
+      userId,
+      currentVersion: version,
+    })
+      .select("_id questionEligibilityStatus securityVerifierStatus")
+      .lean();
+
+    if (!foundQuestion || !canGetAISuggestion(foundQuestion))
+      throw new Error("Question is not eligible for AI suggestion");
 
     const foundVersion = await QuestionVersion.findOne({
       questionId,
       userId,
       version,
       $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
-      topicStatus: "VALID",
     })
       .select("_id isActive title body tags")
       .lean();
 
-    if (!foundVersion) throw new HttpError("Version not found", 404);
-    if (!foundVersion.isActive) throw new HttpError("Version not active", 400);
+    if (!foundVersion) throw new Error("Version not found");
+    if (!foundVersion.isActive) throw new Error("Version not active");
 
     const questionText = convertQuestionToLLMText(
       normalizeText(foundVersion.title as string),
@@ -53,8 +63,12 @@ const generateQuestionSuggestion = async ({
       foundVersion.tags as string[],
     );
 
-    const { suggestions, notes, confidence } =
-      await generateSuggestion(questionText);
+    const { suggestions, notes, confidence } = await generateSuggestion(
+      questionText,
+      {
+        securityVerifierStatus: foundQuestion.securityVerifierStatus,
+      },
+    );
 
     const newSuggestion = await AiSuggestion.create({
       questionId,

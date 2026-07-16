@@ -1,6 +1,6 @@
-import { suggestionGenerationClient } from "../../../config/deepseek.config.js";
+import llmGateway from "../../llmGateway/llmGateway.service.js";
+import { buildSecurityConstraintInstructions } from "./questionAiHelp.shared.js";
 
-import HttpError from "../../../utils/http/httpError.util.js";
 import interests from "../../../utils/question/interests.util.js";
 
 import aiSuggestionSchema from "../../../validations/aiSuggestion.schema.js";
@@ -15,7 +15,13 @@ interface AISuggestion {
   confidence: number;
 }
 
-const generateSuggestion = async (questionText: string) => {
+const generateSuggestion = async (
+  questionText: string,
+  securityConstraints: { securityVerifierStatus?: unknown } = {},
+) => {
+  const securityConstraintInstructions =
+    buildSecurityConstraintInstructions(securityConstraints);
+
   const systemPrompt = `
     You are a senior, experienced software engineer and educator.
     Your task is to improve programming questions while preserving Markdown formatting.
@@ -131,6 +137,8 @@ const generateSuggestion = async (questionText: string) => {
 
     If any rule fails, fix the response before returning it.
 
+    ${securityConstraintInstructions}
+
     Return ONLY the JSON object and nothing else.
 `;
 
@@ -140,24 +148,24 @@ const generateSuggestion = async (questionText: string) => {
     ${questionText}
 `;
 
-  const res = await suggestionGenerationClient.chat.completions.create({
-    model: "deepseek/deepseek-chat",
+  const res = await llmGateway.generate({
+    feature: "aiSuggestion",
+    mode: "json",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
     temperature: 0.2,
-    max_tokens: 1500,
+    maxTokens: 1500,
+    structuredOutput: { enabled: true, required: false },
   });
 
-  const content = res.choices?.[0]?.message?.content;
-
-  if (!content) throw new HttpError("No suggestion returned by DeepSeek", 500);
-
   try {
-    const raw = content.trim();
-    const jsonString = raw.replace(/^```json\s*/, "").replace(/```$/, "");
-    const parsed: AISuggestion = JSON.parse(jsonString);
+    if (res.mode !== "json") {
+      throw new Error("AI suggestion gateway response was not JSON");
+    }
+
+    const parsed = res.data as AISuggestion;
 
     const allowedTags = new Set<string>([...interests]);
 
@@ -169,8 +177,7 @@ const generateSuggestion = async (questionText: string) => {
     return validated;
   } catch (error) {
     console.error("Invalid AI suggestion response:", error);
-    console.error("Raw AI response:", content);
-    throw new Error("Invalid AI suggestion returned by DeepSeek");
+    throw new Error("Invalid AI suggestion returned by LLM gateway");
   }
 };
 

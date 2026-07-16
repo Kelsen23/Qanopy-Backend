@@ -1,6 +1,24 @@
 import mongoose from "mongoose";
-
 import { Redis } from "ioredis";
+
+import { Interest, User } from "../../generated/prisma/index.js";
+
+import {
+  canGetAIAnswer,
+  canGetAISuggestion,
+} from "../../services/question/ai/questionAiHelp.shared.js";
+import queueUserInterest from "../../services/user/userInterest/queueUserInterest.service.js";
+
+import {
+  getQuestionAutocompleteIndexName,
+  getQuestionSearchIndexName,
+  getRecommendedQuestionsIndexName,
+} from "../../config/mongodb.config.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
+import getStableOffset from "../../utils/question/getStableOffset.util.js";
+import interests from "../../utils/question/interests.util.js";
+import rotateArray from "../../utils/question/rotateArray.util.js";
 
 import Question from "../../models/question.model.js";
 import Answer from "../../models/answer.model.js";
@@ -9,14 +27,6 @@ import QuestionVersion from "../../models/questionVersion.model.js";
 import AiAnswer from "../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../models/aiAnswerFeedback.model.js";
 import UserInterest from "../../models/userInterest.model.js";
-
-import HttpError from "../../utils/http/httpError.util.js";
-import interests from "../../utils/question/interests.util.js";
-import queueUserInterest from "../../utils/question/queueUserInterest.util.js";
-import rotateArray from "../../utils/question/rotateArray.util.js";
-import getStableOffset from "../../utils/question/getStableOffset.util.js";
-
-import { Interest, User } from "../../generated/prisma/index.js";
 
 type RecommendedQuestionsCursor = {
   id: string;
@@ -106,6 +116,14 @@ interface SearchQuestionStage {
 const isInterest = (tag: string): tag is Interest =>
   interests.includes(tag as Interest);
 
+const publicQuestionVisibilityMatch = {
+  moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+  questionEligibilityStatus: "ALLOWED",
+  securityVerifierStatus: {
+    $in: ["NOT_REQUIRED", "ALLOWED", "ALLOWED_WITH_CONSTRAINTS"],
+  },
+};
+
 const questionResolver = {
   Query: {
     recommendedQuestions: async (
@@ -166,7 +184,7 @@ const questionResolver = {
       const searchStage = topTags.length
         ? ({
             $search: {
-              index: "recommended_index",
+              index: getRecommendedQuestionsIndexName(),
               compound: {
                 should: topInterests.map((item) => ({
                   text: {
@@ -203,8 +221,7 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        topicStatus: "VALID",
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       };
 
       if (cursor) {
@@ -270,6 +287,8 @@ const questionResolver = {
             answerCount: 1,
             acceptedAnswerCount: 1,
             currentVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -337,11 +356,11 @@ const questionResolver = {
         const parsedCachedQuestion = JSON.parse(cachedQuestion);
 
         const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
           embedding: _embedding,
-          topicStatus: _topicStatus,
           moderationStatus: _moderationStatus,
+          questionEligibilityStatus,
+          securityVerifierStatus,
+          embeddingStatus,
           similarQuestionsStatus,
           ...publicQuestion
         } = parsedCachedQuestion;
@@ -356,6 +375,19 @@ const questionResolver = {
 
         return {
           ...publicQuestion,
+          canGetAISuggestion:
+            publicQuestion.canGetAISuggestion ??
+            canGetAISuggestion({
+              questionEligibilityStatus,
+              securityVerifierStatus,
+            }),
+          canGetAIAnswer:
+            publicQuestion.canGetAIAnswer ??
+            canGetAIAnswer({
+              questionEligibilityStatus,
+              securityVerifierStatus,
+              embeddingStatus,
+            }),
           similarQuestionsReady:
             publicQuestion.similarQuestionsReady ??
             similarQuestionsStatus === "READY",
@@ -392,14 +424,11 @@ const questionResolver = {
         downvoteCount: question.downvoteCount,
         answerCount: question.answerCount,
         currentVersion: question.currentVersion,
+        canGetAISuggestion: canGetAISuggestion(question),
+        canGetAIAnswer: canGetAIAnswer(question),
         similarQuestionsReady: question.similarQuestionsStatus === "READY",
-        canGenerateAiSuggestion:
-          question.topicStatus === "VALID" &&
-          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)),
-        canGenerateAiAnswer:
-          question.topicStatus === "VALID" &&
-          ["APPROVED", "FLAGGED"].includes(String(question.moderationStatus)) &&
-          question.embeddingStatus === "READY",
+        isActive: question.isActive,
+        isDeleted: question.isDeleted,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
         user: owner && !(owner as any)?.error ? owner : null,
@@ -427,8 +456,10 @@ const questionResolver = {
         isActive: question.isActive,
         isDeleted: question.isDeleted,
         embedding: Array.isArray(question.embedding) ? question.embedding : [],
-        topicStatus: question.topicStatus,
         moderationStatus: question.moderationStatus,
+        questionEligibilityStatus: question.questionEligibilityStatus,
+        securityVerifierStatus: question.securityVerifierStatus,
+        embeddingStatus: question.embeddingStatus,
       };
 
       if (user?.id) {
@@ -469,6 +500,7 @@ const questionResolver = {
         _id: new mongoose.Types.ObjectId(questionId),
         isActive: true,
         isDeleted: false,
+        ...publicQuestionVisibilityMatch,
       })
         .select("similarQuestionIds")
         .lean();
@@ -513,11 +545,10 @@ const questionResolver = {
         },
         isActive: true,
         isDeleted: false,
-        topicStatus: "VALID",
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       })
         .select(
-          "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion createdAt updatedAt",
+          "_id userId title body tags upvoteCount downvoteCount answerCount acceptedAnswerCount currentVersion isActive isDeleted createdAt updatedAt",
         )
         .lean();
 
@@ -546,6 +577,8 @@ const questionResolver = {
         answerCount: q.answerCount,
         acceptedAnswerCount: q.acceptedAnswerCount,
         currentVersion: q.currentVersion,
+        isActive: q.isActive,
+        isDeleted: q.isDeleted,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
         user: userMap.get(q.userId) || null,
@@ -576,12 +609,8 @@ const questionResolver = {
       if (cachedAnswer) {
         const parsedCacheAnswer = JSON.parse(cachedAnswer);
 
-        const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
-          moderationStatus: _moderationStatus,
-          ...publicAnswer
-        } = parsedCacheAnswer;
+        const { moderationStatus: _moderationStatus, ...publicAnswer } =
+          parsedCacheAnswer;
 
         return publicAnswer;
       }
@@ -608,6 +637,8 @@ const questionResolver = {
         isAccepted: answer.isAccepted,
         isBestAnswerByAsker: answer.isBestAnswerByAsker,
         questionVersion: answer.questionVersion,
+        isActive: answer.isActive,
+        isDeleted: answer.isDeleted,
         createdAt: answer.createdAt,
         updatedAt: answer.updatedAt,
         user: user && !(user as any)?.error ? user : null,
@@ -648,12 +679,8 @@ const questionResolver = {
       if (cachedReply) {
         const parsedCacheReply = JSON.parse(cachedReply);
 
-        const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
-          moderationStatus: _moderationStatus,
-          ...publicReply
-        } = parsedCacheReply;
+        const { moderationStatus: _moderationStatus, ...publicReply } =
+          parsedCacheReply;
 
         return publicReply;
       }
@@ -677,6 +704,8 @@ const questionResolver = {
 
         upvoteCount: reply.upvoteCount,
         downvoteCount: reply.downvoteCount,
+        isActive: reply.isActive,
+        isDeleted: reply.isDeleted,
 
         createdAt: reply.createdAt,
         updatedAt: reply.updatedAt,
@@ -716,12 +745,8 @@ const questionResolver = {
       if (cachedFeedback) {
         const parsedCacheFeedback = JSON.parse(cachedFeedback);
 
-        const {
-          isActive: _isActive,
-          isDeleted: _isDeleted,
-          moderationStatus: _moderationStatus,
-          ...publicFeedback
-        } = parsedCacheFeedback;
+        const { moderationStatus: _moderationStatus, ...publicFeedback } =
+          parsedCacheFeedback;
 
         return publicFeedback;
       }
@@ -744,6 +769,8 @@ const questionResolver = {
         body: feedback.body,
 
         questionVersionAtFeedback: feedback.questionVersionAtFeedback,
+        isActive: feedback.isActive,
+        isDeleted: feedback.isDeleted,
 
         createdAt: feedback.createdAt,
         updatedAt: feedback.updatedAt,
@@ -935,6 +962,8 @@ const questionResolver = {
             upvoteCount: 1,
             downvoteCount: 1,
             questionVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -959,6 +988,8 @@ const questionResolver = {
         upvoteCount: a.upvoteCount,
         downvoteCount: a.downvoteCount,
         questionVersion: a.questionVersion,
+        isActive: a.isActive,
+        isDeleted: a.isDeleted,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
         user: userMap.get(a.userId) || null,
@@ -1081,6 +1112,8 @@ const questionResolver = {
             body: 1,
             upvoteCount: 1,
             downvoteCount: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -1148,7 +1181,7 @@ const questionResolver = {
       const results = await Question.aggregate([
         {
           $search: {
-            index: "questions_autocomplete",
+            index: getQuestionAutocompleteIndexName(),
             autocomplete: {
               query: normalizedKeyword,
               path: "title",
@@ -1159,10 +1192,9 @@ const questionResolver = {
 
         {
           $match: {
-            topicStatus: "VALID",
             isDeleted: false,
             isActive: true,
-            moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+            ...publicQuestionVisibilityMatch,
           },
         },
 
@@ -1250,7 +1282,7 @@ const questionResolver = {
 
       const searchStage: SearchQuestionStage = {
         $search: {
-          index: "search_index",
+          index: getQuestionSearchIndexName(),
           compound: {
             must: [
               {
@@ -1280,8 +1312,7 @@ const questionResolver = {
       const matchStage: any = {
         isDeleted: false,
         isActive: true,
-        topicStatus: "VALID",
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
       };
 
       const pipeline: any[] = [searchStage];
@@ -1368,6 +1399,8 @@ const questionResolver = {
             downvoteCount: 1,
             answerCount: 1,
             currentVersion: 1,
+            isActive: 1,
+            isDeleted: 1,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -1478,7 +1511,6 @@ const questionResolver = {
             title: 1,
             body: 1,
             tags: 1,
-            topicStatus: 1,
             moderationStatus: 1,
             supersededByRollback: 1,
             version: 1,
@@ -1632,10 +1664,7 @@ const questionResolver = {
         userId,
         isDeleted: false,
         isActive: true,
-        $or: [
-          { moderationStatus: { $in: ["APPROVED", "FLAGGED"] } },
-          { userId: requesterUserId },
-        ],
+        $or: [publicQuestionVisibilityMatch, { userId: requesterUserId }],
       };
 
       const pipeline: any[] = [{ $match: matchStage }];
@@ -1734,6 +1763,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -1955,6 +1986,8 @@ const questionResolver = {
           upvoteCount: 1,
           downvoteCount: 1,
           questionVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2022,7 +2055,7 @@ const questionResolver = {
         userId,
         isActive: true,
         isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
         acceptedAnswerCount: { $eq: 0 },
       };
 
@@ -2054,6 +2087,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2112,7 +2147,7 @@ const questionResolver = {
         userId,
         isActive: true,
         isDeleted: false,
-        moderationStatus: { $in: ["APPROVED", "FLAGGED"] },
+        ...publicQuestionVisibilityMatch,
         answerCount: 0,
       };
 
@@ -2143,6 +2178,8 @@ const questionResolver = {
           answerCount: 1,
           acceptedAnswerCount: 1,
           currentVersion: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -2461,6 +2498,8 @@ const questionResolver = {
           type: 1,
           body: 1,
           questionVersionAtFeedback: 1,
+          isActive: 1,
+          isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
         },

@@ -2,7 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const ModActionLogSchema: Schema = new Schema(
   {
-    decisionId: { type: String, required: true },
+    decisionId: { type: String, required: true, unique: true, index: true },
 
     targetType: {
       type: String,
