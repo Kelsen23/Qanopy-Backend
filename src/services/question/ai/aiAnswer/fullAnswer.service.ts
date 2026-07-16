@@ -9,6 +9,7 @@ import { buildSecurityConstraintInstructions } from "../questionAiHelp.shared.js
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
 import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
+import { clearAiAnswersCache } from "../../../../utils/cache/clearCache.util.js";
 import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
@@ -229,6 +230,8 @@ const fullAnswer = async (
         mode: "FULL",
       },
     });
+
+    await clearAiAnswersCache(questionId);
 
     if (shouldPublishToSocket) {
       await publishSocketEvent(userId, "aiAnswerReady", newAiAnswer);

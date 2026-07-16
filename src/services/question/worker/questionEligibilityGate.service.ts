@@ -14,6 +14,7 @@ import routeNotification from "../../notification/routeNotification.service.js";
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import { clearQuestionDiscoveryCache } from "../../../utils/cache/clearCache.util.js";
 
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import Question from "../../../models/question.model.js";
@@ -59,6 +60,7 @@ const queueQuestionEligibilitySideEffects = async ({
     | "REJECTED";
 }) => {
   await getRedisCacheClient().del(`question:${questionId}`);
+  await clearQuestionDiscoveryCache();
 
   await queueContentPipelineRoute({
     contentType: "QUESTION",

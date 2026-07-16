@@ -8,6 +8,7 @@ import Reply from "../../models/reply.model.js";
 import {
   clearAiAnswerFeedbackCache,
   clearAnswerCache,
+  clearQuestionDiscoveryCache,
   clearReplyCache,
   clearVersionHistoryCache,
 } from "../cache/clearCache.util.js";
@@ -34,6 +35,7 @@ const clearModeratedContentCache = async (
     }
 
     await clearVersionHistoryCache(contentId);
+    await clearQuestionDiscoveryCache();
     return;
   }
 

@@ -2,6 +2,7 @@ import HttpError from "../../utils/http/httpError.util.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import {
   clearAnswerCache,
+  clearQuestionDiscoveryCache,
   clearReplyCache,
   clearVersionHistoryCache,
 } from "../../utils/cache/clearCache.util.js";
@@ -79,9 +80,11 @@ const removeModeratedContent = async (
   if (targetType === "QUESTION") {
     await getRedisCacheClient().del(`question:${targetId}`);
     await clearVersionHistoryCache(targetId);
+    await clearQuestionDiscoveryCache();
   } else if (targetType === "ANSWER") {
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(String(foundContent.questionId));
+    await clearQuestionDiscoveryCache();
   } else if (targetType === "REPLY") {
     const foundAnswer = await Answer.findById(foundContent.answerId)
       .select("questionId")

@@ -80,6 +80,12 @@ const clearModeratedContentCache = vi.fn(async () => undefined);
 const clearAnswerCache = vi.fn(async () => undefined);
 const clearReplyCache = vi.fn(async () => undefined);
 const clearVersionHistoryCache = vi.fn(async () => undefined);
+const clearQuestionSearchCache = vi.fn(async () => undefined);
+const clearQuestionRankingCache = vi.fn(async () => undefined);
+const clearQuestionAggregateCache = vi.fn(async () => undefined);
+const clearSimilarQuestionsCache = vi.fn(async () => undefined);
+const clearQuestionDiscoveryCache = vi.fn(async () => undefined);
+const clearAiAnswersCache = vi.fn(async () => undefined);
 const makeJobId = vi.fn((...parts: unknown[]) => parts.join("__"));
 const makeUniqueJobId = vi.fn(
   (...parts: unknown[]) => `unique__${parts.join("__")}`,
@@ -273,6 +279,12 @@ export const mockModerationUnitModules = {
     clearAnswerCache,
     clearReplyCache,
     clearVersionHistoryCache,
+    clearQuestionSearchCache,
+    clearQuestionRankingCache,
+    clearQuestionAggregateCache,
+    clearSimilarQuestionsCache,
+    clearQuestionDiscoveryCache,
+    clearAiAnswersCache,
   },
   clearUserCache: {
     default: clearUserCache,

@@ -5,7 +5,10 @@ import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.ser
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
-import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
+import {
+  clearQuestionDiscoveryCache,
+  clearVersionHistoryCache,
+} from "../../../utils/cache/clearCache.util.js";
 
 import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
@@ -175,6 +178,7 @@ const rollbackVersion = async (
     `v:${nextVersion}:question:${questionId}`,
   );
 
+  await clearQuestionDiscoveryCache();
   await clearVersionHistoryCache(questionId);
 
   await queueContentPipelineRoute({

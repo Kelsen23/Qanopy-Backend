@@ -27,6 +27,46 @@ async function clearVersionHistoryCache(questionId: string) {
   await deleteKeysByPattern(`v:question:${questionId}*`);
 }
 
+async function clearQuestionSearchCache() {
+  await Promise.all([
+    deleteKeysByPattern("recommendedQuestions:*"),
+    deleteKeysByPattern("searchSuggestions:*"),
+    deleteKeysByPattern("searchQuestions:*"),
+  ]);
+}
+
+async function clearQuestionRankingCache() {
+  await Promise.all([
+    deleteKeysByPattern("recommendedQuestions:*"),
+    deleteKeysByPattern("searchQuestions:*"),
+    deleteKeysByPattern("questions:u:*"),
+  ]);
+}
+
+async function clearQuestionAggregateCache() {
+  await Promise.all([
+    clearQuestionRankingCache(),
+    deleteKeysByPattern("questions:recent:unanswered:u:*"),
+    deleteKeysByPattern("questions:unanswered:u:*"),
+  ]);
+}
+
+async function clearSimilarQuestionsCache(questionId?: string) {
+  await deleteKeysByPattern(
+    questionId ? `similarQuestions:${questionId}` : "similarQuestions:*",
+  );
+}
+
+async function clearQuestionDiscoveryCache() {
+  await Promise.all([
+    clearQuestionSearchCache(),
+    deleteKeysByPattern("questions:u:*"),
+    deleteKeysByPattern("questions:recent:unanswered:u:*"),
+    deleteKeysByPattern("questions:unanswered:u:*"),
+    clearSimilarQuestionsCache(),
+  ]);
+}
+
 async function clearReportsCache() {
   await deleteKeysByPattern("reports:*");
 }
@@ -50,6 +90,10 @@ async function clearAiAnswerFeedbackCache(
   }
 }
 
+async function clearAiAnswersCache(questionId: string) {
+  await deleteKeysByPattern(`aiAnswers:${questionId}:*`);
+}
+
 async function clearUserBadgesCache(userId: string) {
   await deleteKeysByPattern(`user:badges:${userId}:*`);
 }
@@ -59,8 +103,14 @@ export {
   clearUserBadgesCache,
   clearReplyCache,
   clearVersionHistoryCache,
+  clearQuestionSearchCache,
+  clearQuestionRankingCache,
+  clearQuestionAggregateCache,
+  clearSimilarQuestionsCache,
+  clearQuestionDiscoveryCache,
   clearReportsCache,
   clearStrikesCache,
   clearNotificationCache,
   clearAiAnswerFeedbackCache,
+  clearAiAnswersCache,
 };

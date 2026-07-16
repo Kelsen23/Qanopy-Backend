@@ -3,7 +3,10 @@ import { queueQuestionContentFinalize } from "../contentFinalize/contentFinalize
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import HttpError from "../../../utils/http/httpError.util.js";
-import { clearVersionHistoryCache } from "../../../utils/cache/clearCache.util.js";
+import {
+  clearQuestionDiscoveryCache,
+  clearVersionHistoryCache,
+} from "../../../utils/cache/clearCache.util.js";
 
 import Question from "../../../models/question.model.js";
 
@@ -84,6 +87,7 @@ const editQuestion = async (
   });
 
   await getRedisCacheClient().del(`question:${editedQuestion?._id}`);
+  await clearQuestionDiscoveryCache();
   await clearVersionHistoryCache(questionId);
 
   return {

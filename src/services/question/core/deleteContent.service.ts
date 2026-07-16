@@ -3,6 +3,7 @@ import { getRedisCacheClient } from "../../../config/redis.config.js";
 import {
   clearAiAnswerFeedbackCache,
   clearAnswerCache,
+  clearQuestionDiscoveryCache,
   clearReplyCache,
 } from "../../../utils/cache/clearCache.util.js";
 import { getContentTypeLabel } from "../../../utils/content/contentTypeLabel.util.js";
@@ -101,6 +102,7 @@ const deleteContent = async (
       },
     );
     await getRedisCacheClient().del(`question:${targetId}`);
+    await clearQuestionDiscoveryCache();
   } else if (targetType === "ANSWER") {
     await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
       $set: { isDeleted: true, isActive: false },
@@ -121,6 +123,7 @@ const deleteContent = async (
     );
     await getRedisCacheClient().del(`question:${foundContent.questionId}`);
     await clearAnswerCache(foundContent.questionId as string);
+    await clearQuestionDiscoveryCache();
   } else if (targetType === "REPLY") {
     await Model.findByIdAndUpdate(foundContent._id || foundContent.id, {
       $set: { isDeleted: true, isActive: false },

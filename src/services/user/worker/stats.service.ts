@@ -1,5 +1,6 @@
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
+import { clearQuestionAggregateCache } from "../../../utils/cache/clearCache.util.js";
 import updateUserStats from "../../../utils/user/updateUserStats.util.js";
 
 import Answer from "../../../models/answer.model.js";
@@ -345,6 +346,7 @@ const applyMongoStatsUpdate = async (
 
   if (mongoUpdate.model === "Question") {
     await getRedisCacheClient().del(`question:${targetId}`);
+    await clearQuestionAggregateCache();
   }
 };
 
