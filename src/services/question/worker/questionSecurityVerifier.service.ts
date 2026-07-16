@@ -119,7 +119,7 @@ const resumeSecurityVerifierSideEffects = async ({
   });
 };
 
-const processSecurityVerifierJob = async ({
+const processQuestionSecurityVerifierJob = async ({
   questionId,
   version,
 }: ProcessSecurityVerifierJobData) => {
@@ -210,7 +210,7 @@ const processSecurityVerifierJob = async ({
       questionId,
       version,
       userId: String(lockedQuestion.userId),
-      stage: "SECURITY_VERIFIER",
+      stage: "QUESTION_SECURITY_VERIFIER",
       decision:
         questionGatewayAuditDecisionBySecurityDecision[
           securityResult.finalSecurityDecision
@@ -243,4 +243,4 @@ const processSecurityVerifierJob = async ({
   }
 };
 
-export default processSecurityVerifierJob;
+export default processQuestionSecurityVerifierJob;

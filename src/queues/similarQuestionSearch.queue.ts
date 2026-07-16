@@ -2,8 +2,8 @@ import { Queue } from "bullmq";
 
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-const similarQuestionsQueue = new Queue("similarQuestionsQueue", {
+const similarQuestionSearchQueue = new Queue("similarQuestionSearchQueue", {
   connection: redisMessagingClientConnection,
 });
 
-export default similarQuestionsQueue;
+export default similarQuestionSearchQueue;

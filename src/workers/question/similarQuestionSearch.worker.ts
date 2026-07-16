@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 
-import processAiAnswerJob from "../../services/question/worker/aiAnswer.service.js";
+import processSimilarQuestionSearchJob from "../../services/question/worker/similarQuestionSearch.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -9,25 +9,19 @@ import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting ai answer worker...");
+  console.log("Mongo connected, starting similar question search worker...");
 
-  const handlers = createWorkerEventHandlers("aiAnswer");
+  const handlers = createWorkerEventHandlers("similarQuestionSearch");
 
   const worker = new Worker(
-    "aiAnswerQueue",
+    "similarQuestionSearchQueue",
     async (job) => {
-      const { userId, questionId, version } = job.data;
-      await processAiAnswerJob({
-        userId,
-        questionId,
-        version,
-        jobId: String(job.id),
-      });
+      await processSimilarQuestionSearchJob(job.data);
     },
     {
       connection: redisMessagingClientConnection,
-      concurrency: 2,
-      limiter: { max: 2, duration: 1000 },
+      concurrency: 5,
+      limiter: { max: 10, duration: 1000 },
     },
   );
 
@@ -37,6 +31,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start ai answer worker:", error);
+  console.error("Failed to start similar question search worker:", error);
   process.exit(1);
 });

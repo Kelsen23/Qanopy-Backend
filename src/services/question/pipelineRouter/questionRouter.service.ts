@@ -10,7 +10,7 @@ type QuestionPipelineRouteDecision =
   | { type: "NOOP" }
   | { type: "MODERATE" }
   | { type: "ELIGIBILITY_GATE" }
-  | { type: "SECURITY_VERIFIER" }
+  | { type: "QUESTION_SECURITY_VERIFIER" }
   | { type: "EMBED" }
   | { type: "SIMILAR" };
 
@@ -108,7 +108,7 @@ const resolveQuestionPipelineRouteDecision = (
   if (state.questionEligibilityStatus !== "ALLOWED") return { type: "NOOP" };
 
   if (state.securityVerifierStatus === "PENDING") {
-    return { type: "SECURITY_VERIFIER" };
+    return { type: "QUESTION_SECURITY_VERIFIER" };
   }
 
   if (
@@ -153,11 +153,11 @@ const questionRouter = async (questionId: string, version: number) => {
     });
   }
 
-  if (routeDecision.type === "SECURITY_VERIFIER") {
+  if (routeDecision.type === "QUESTION_SECURITY_VERIFIER") {
     return queueQuestionPipelineStep({
       questionId,
       version,
-      step: "SECURITY_VERIFIER",
+      step: "QUESTION_SECURITY_VERIFIER",
     });
   }
 

@@ -34,7 +34,7 @@ const runReadySideEffectsIfCurrent = async ({
   });
 };
 
-const processSimilarQuestionsJob = async ({
+const processSimilarQuestionSearchJob = async ({
   questionId,
   version,
 }: SimilarQuestionsJobData) => {
@@ -80,4 +80,4 @@ const processSimilarQuestionsJob = async ({
   });
 };
 
-export default processSimilarQuestionsJob;
+export default processSimilarQuestionSearchJob;

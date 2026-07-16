@@ -8,7 +8,7 @@ type ProcessAiSuggestionJobData = {
   version: number;
 };
 
-const processAiSuggestionJob = async ({
+const processQuestionAiSuggestionJob = async ({
   userId,
   questionId,
   version,
@@ -22,4 +22,4 @@ const processAiSuggestionJob = async ({
   }
 };
 
-export default processAiSuggestionJob;
+export default processQuestionAiSuggestionJob;

@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 
-import processAiSuggestionJob from "../../services/question/worker/aiSuggestion.service.js";
+import processQuestionAiSuggestionJob from "../../services/question/worker/questionAiSuggestion.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -9,14 +9,14 @@ import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting ai suggestion worker...");
+  console.log("Mongo connected, starting question AI suggestion worker...");
 
-  const handlers = createWorkerEventHandlers("aiSuggestion");
+  const handlers = createWorkerEventHandlers("questionAiSuggestion");
 
   const worker = new Worker(
-    "aiSuggestionQueue",
+    "questionAiSuggestionQueue",
     async (job) => {
-      await processAiSuggestionJob(job.data);
+      await processQuestionAiSuggestionJob(job.data);
     },
     {
       connection: redisMessagingClientConnection,
@@ -31,6 +31,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start ai suggestion worker:", error);
+  console.error("Failed to start question AI suggestion worker:", error);
   process.exit(1);
 });

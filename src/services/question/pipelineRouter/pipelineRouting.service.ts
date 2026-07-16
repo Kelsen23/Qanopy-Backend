@@ -5,14 +5,14 @@ import contentModerationQueue from "../../../queues/contentModeration.queue.js";
 import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
 import questionEmbeddingQueue from "../../../queues/questionEmbedding.queue.js";
 import questionEligibilityGateQueue from "../../../queues/questionEligibilityGate.queue.js";
-import securityVerifierQueue from "../../../queues/securityVerifier.queue.js";
-import similarQuestionsQueue from "../../../queues/similarQuestions.queue.js";
+import questionSecurityVerifierQueue from "../../../queues/questionSecurityVerifier.queue.js";
+import similarQuestionSearchQueue from "../../../queues/similarQuestionSearch.queue.js";
 
 import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
 
 export type QuestionPipelineStep =
   | "ELIGIBILITY_GATE"
-  | "SECURITY_VERIFIER"
+  | "QUESTION_SECURITY_VERIFIER"
   | "EMBED"
   | "SIMILAR";
 
@@ -125,12 +125,12 @@ const queueQuestionPipelineStep = async ({
     });
   }
 
-  if (step === "SECURITY_VERIFIER") {
+  if (step === "QUESTION_SECURITY_VERIFIER") {
     return queueJobIfNeeded({
-      queue: securityVerifierQueue,
-      jobName: "SECURITY_VERIFIER",
+      queue: questionSecurityVerifierQueue,
+      jobName: "QUESTION_SECURITY_VERIFIER",
       data: { questionId, version },
-      jobId: makeJobId("securityVerifier", questionId, version),
+      jobId: makeJobId("questionSecurityVerifier", questionId, version),
     });
   }
 
@@ -144,10 +144,10 @@ const queueQuestionPipelineStep = async ({
   }
 
   return queueJobIfNeeded({
-    queue: similarQuestionsQueue,
-    jobName: "QUESTION_SIMILARITY",
+    queue: similarQuestionSearchQueue,
+    jobName: "SIMILAR_QUESTION_SEARCH",
     data: { questionId, version },
-    jobId: makeJobId("similar", questionId, version),
+    jobId: makeJobId("similarQuestionSearch", questionId, version),
   });
 };
 

@@ -22,7 +22,7 @@ type ProcessAiAnswerJobData = {
   jobId: string;
 };
 
-const processAiAnswerJob = async ({
+const processQuestionAiAnswerJob = async ({
   userId,
   questionId,
   version,
@@ -137,4 +137,4 @@ const processAiAnswerJob = async ({
   }
 };
 
-export default processAiAnswerJob;
+export default processQuestionAiAnswerJob;

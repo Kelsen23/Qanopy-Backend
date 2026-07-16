@@ -14,7 +14,7 @@ const EligibilityGateActionLogSchema: Schema = new Schema(
 
     stage: {
       type: String,
-      enum: ["QUESTION_ELIGIBILITY_GATE", "SECURITY_VERIFIER"],
+      enum: ["QUESTION_ELIGIBILITY_GATE", "QUESTION_SECURITY_VERIFIER"],
       required: true,
       index: true,
     },

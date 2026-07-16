@@ -2,8 +2,8 @@ import { Queue } from "bullmq";
 
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-const aiAnswerQueue = new Queue("aiAnswerQueue", {
+const questionAiSuggestionQueue = new Queue("questionAiSuggestionQueue", {
   connection: redisMessagingClientConnection,
 });
 
-export default aiAnswerQueue;
+export default questionAiSuggestionQueue;

@@ -11,7 +11,7 @@ import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import Question from "../../../../models/question.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
-import aiAnswerQueue from "../../../../queues/aiAnswer.queue.js";
+import questionAiAnswerQueue from "../../../../queues/questionAiAnswer.queue.js";
 
 import { toPublicAiAnswer } from "../../question.response.js";
 
@@ -99,17 +99,17 @@ const generateAiAnswerRequest = async (
 
   try {
     const jobId = makeJobId(
-      "aiAnswer",
-      "GENERATE_AI_ANSWER",
+      "questionAiAnswer",
+      "QUESTION_AI_ANSWER",
       userId,
       questionId,
       version,
     );
 
-    await aiAnswerQueue.remove(jobId);
+    await questionAiAnswerQueue.remove(jobId);
 
-    await aiAnswerQueue.add(
-      "GENERATE_AI_ANSWER",
+    await questionAiAnswerQueue.add(
+      "QUESTION_AI_ANSWER",
       {
         userId,
         questionId,

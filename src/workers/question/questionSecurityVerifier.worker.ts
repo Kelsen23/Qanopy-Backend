@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 
-import processSecurityVerifierJob from "../../services/question/worker/securityVerifier.service.js";
+import processQuestionSecurityVerifierJob from "../../services/question/worker/questionSecurityVerifier.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -9,14 +9,14 @@ import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
 async function startWorker() {
   await connectMongoDB(process.env.MONGO_URI as string);
-  console.log("Mongo connected, starting security verifier worker...");
+  console.log("Mongo connected, starting question security verifier worker...");
 
-  const handlers = createWorkerEventHandlers("securityVerifier");
+  const handlers = createWorkerEventHandlers("questionSecurityVerifier");
 
   const worker = new Worker(
-    "securityVerifierQueue",
+    "questionSecurityVerifierQueue",
     async (job) => {
-      await processSecurityVerifierJob(job.data);
+      await processQuestionSecurityVerifierJob(job.data);
     },
     {
       connection: redisMessagingClientConnection,
@@ -31,6 +31,6 @@ async function startWorker() {
 }
 
 startWorker().catch((error) => {
-  console.error("Failed to start security verifier worker:", error);
+  console.error("Failed to start question security verifier worker:", error);
   process.exit(1);
 });

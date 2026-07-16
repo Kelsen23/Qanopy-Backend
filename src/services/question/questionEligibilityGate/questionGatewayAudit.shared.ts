@@ -6,7 +6,7 @@ import type {
 
 type QuestionGatewayAuditStage =
   | "QUESTION_ELIGIBILITY_GATE"
-  | "SECURITY_VERIFIER";
+  | "QUESTION_SECURITY_VERIFIER";
 
 type QuestionGatewayAuditDecision =
   | "ALLOW"

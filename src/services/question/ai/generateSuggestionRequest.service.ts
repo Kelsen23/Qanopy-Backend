@@ -11,7 +11,7 @@ import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import Question from "../../../models/question.model.js";
 import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
-import aiSuggestionQueue from "../../../queues/aiSuggestion.queue.js";
+import questionAiSuggestionQueue from "../../../queues/questionAiSuggestion.queue.js";
 
 const generateSuggestionRequest = async (
   userId: string,
@@ -91,17 +91,17 @@ const generateSuggestionRequest = async (
 
   try {
     const jobId = makeJobId(
-      "aiSuggestion",
-      "GENERATE_SUGGESTION",
+      "questionAiSuggestion",
+      "QUESTION_AI_SUGGESTION",
       userId,
       questionId,
       version,
     );
 
-    await aiSuggestionQueue.remove(jobId);
+    await questionAiSuggestionQueue.remove(jobId);
 
-    await aiSuggestionQueue.add(
-      "GENERATE_SUGGESTION",
+    await questionAiSuggestionQueue.add(
+      "QUESTION_AI_SUGGESTION",
       {
         userId,
         questionId,

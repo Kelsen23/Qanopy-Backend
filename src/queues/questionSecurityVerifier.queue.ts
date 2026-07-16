@@ -2,8 +2,8 @@ import { Queue } from "bullmq";
 
 import { redisMessagingClientConnection } from "../config/redis.config.js";
 
-const securityVerifierQueue = new Queue("securityVerifierQueue", {
+const questionSecurityVerifierQueue = new Queue("questionSecurityVerifierQueue", {
   connection: redisMessagingClientConnection,
 });
 
-export default securityVerifierQueue;
+export default questionSecurityVerifierQueue;
