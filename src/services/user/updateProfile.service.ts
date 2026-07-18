@@ -1,8 +1,8 @@
-import HttpError from "../../utils/http/httpError.util.js";
-import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
-
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
+import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
 
 interface UpdateProfileInput {
   userId: string;
