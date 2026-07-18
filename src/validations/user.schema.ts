@@ -1,35 +1,14 @@
-import { createRequire } from "module";
-
 import z from "zod";
+
+import {
+  profileBioSchema,
+  profileDisplayNameSchema,
+} from "../utils/user/profileFieldValidation.util.js";
 
 import { activeEmailSchema, otpSchema } from "./auth.schema.js";
 
-const require = createRequire(import.meta.url);
-const leoProfanity = require("leo-profanity");
-
-const normalizeText = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
-
-const displayNameSchema = z
-  .string()
-  .min(3, "Display name must be at least 3 characters")
-  .max(20, "Display name must be at most 20 characters")
-  .regex(
-    /^[a-zA-Z0-9_. ]+$/,
-    "Only letters, numbers, spaces, underscores, and dots allowed",
-  )
-  .refine((displayName) => displayName.trim().length > 0, {
-    message: "Display name cannot be only spaces",
-  })
-  .refine((displayName) => !leoProfanity.check(normalizeText(displayName)), {
-    message: "Display name contains inappropriate language",
-  });
-
-const bioSchema = z
-  .string()
-  .max(200, "Bio must be at most 200 characters")
-  .refine((bio) => (bio ? !leoProfanity.check(bio) : true), {
-    message: "Bio contains inappropriate language",
-  });
+const displayNameSchema = profileDisplayNameSchema;
+const bioSchema = profileBioSchema;
 
 const profilePictureObjectKeySchema = z
   .string()
