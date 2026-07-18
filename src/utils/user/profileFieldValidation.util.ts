@@ -48,7 +48,7 @@ const HOMOGLYPH_MAP: Record<string, string> = {
   "4": "a",
   "5": "s",
   "7": "t",
-  "$": "s",
+  $: "s",
   "!": "i",
   "|": "i",
   а: "a",
@@ -71,18 +71,31 @@ const HOMOGLYPH_MAP: Record<string, string> = {
   ѕ: "s",
 };
 
-const BLOCKED_PROFANITY_FRAGMENTS = ["shit", "fuck", "bitch", "asshole", "cunt"];
+const BLOCKED_PROFANITY_FRAGMENTS = [
+  "shit",
+  "fuck",
+  "bitch",
+  "asshole",
+  "cunt",
+];
 
 type ProfileNameField = "username" | "displayName";
 
 const fieldLabel = (field: ProfileNameField | "bio") =>
-  field === "displayName" ? "Display name" : field === "username" ? "Username" : "Bio";
+  field === "displayName"
+    ? "Display name"
+    : field === "username"
+      ? "Username"
+      : "Bio";
 
 const isHiddenOrControlCharacter = (char: string) => {
   const codePoint = char.codePointAt(0) ?? 0;
 
   return (
-    (codePoint <= 0x1f && codePoint !== 0x09 && codePoint !== 0x0a && codePoint !== 0x0d) ||
+    (codePoint <= 0x1f &&
+      codePoint !== 0x09 &&
+      codePoint !== 0x0a &&
+      codePoint !== 0x0d) ||
     (codePoint >= 0x7f && codePoint <= 0x9f) ||
     codePoint === 0x00ad ||
     codePoint === 0x034f ||
@@ -115,7 +128,9 @@ const makeDetectionForms = (value: string) => {
   const homoglyphNormalized = applyHomoglyphMap(lower);
   const punctuationStripped = lower.replace(PUNCTUATION_REGEX, "");
   const compact = lower.replace(/\s+/g, "");
-  const compactNoPunctuation = lower.replace(PUNCTUATION_REGEX, "").replace(/\s+/g, "");
+  const compactNoPunctuation = lower
+    .replace(PUNCTUATION_REGEX, "")
+    .replace(/\s+/g, "");
   const homoglyphCompact = homoglyphNormalized
     .replace(PUNCTUATION_REGEX, "")
     .replace(/\s+/g, "");
@@ -157,7 +172,10 @@ const getProfileThreatMessage = (
   if (field !== "bio") {
     const compact = cleaned.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-    if (RESERVED_PROFILE_NAMES.has(compact) || IMPERSONATION_REGEX.test(joinedForms)) {
+    if (
+      RESERVED_PROFILE_NAMES.has(compact) ||
+      IMPERSONATION_REGEX.test(joinedForms)
+    ) {
       return `${fieldLabel(field)} is reserved`;
     }
   } else if (BIO_IMPERSONATION_REGEX.test(cleaned)) {
@@ -246,7 +264,10 @@ const parseProfileField = <T>(schema: z.ZodType<T>, value: unknown) => {
   const parsed = schema.safeParse(value);
 
   if (!parsed.success) {
-    throw new HttpError(parsed.error.issues[0]?.message ?? "Invalid profile field", 400);
+    throw new HttpError(
+      parsed.error.issues[0]?.message ?? "Invalid profile field",
+      400,
+    );
   }
 
   return parsed.data;
@@ -256,7 +277,8 @@ const validateProfileName = (value: unknown, field: ProfileNameField) => {
   return parseProfileField(profileNameSchema(field), value);
 };
 
-const validateUsername = (value: unknown) => validateProfileName(value, "username");
+const validateUsername = (value: unknown) =>
+  validateProfileName(value, "username");
 
 const validateDisplayName = (value: unknown) => {
   if (value === null) return null;
