@@ -1,11 +1,7 @@
-import { createRequire } from "module";
-
 import z from "zod";
 
-const require = createRequire(import.meta.url);
-const leoProfanity = require("leo-profanity");
+import { profileUsernameSchema } from "../utils/user/profileFieldValidation.util.js";
 
-const normalizeText = (text: string) => text.replace(/[^a-zA-Z]+/g, " ");
 const isDeletedEmail = (email: string) =>
   email.toLowerCase().endsWith("@deleted.local");
 
@@ -31,20 +27,7 @@ const passwordSchema = z
 
 const otpSchema = z.string().length(6, "OTP should be exactly 6 characters");
 
-const usernameSchema = z
-  .string()
-  .min(3, "Username must be at least 3 characters")
-  .max(20, "Username must be at most 20 characters")
-  .regex(
-    /^[a-zA-Z0-9_. ]+$/,
-    "Only letters, numbers, spaces, underscores, and dots allowed",
-  )
-  .refine((username) => username.trim().length > 0, {
-    message: "Username cannot be only spaces",
-  })
-  .refine((username) => !leoProfanity.check(normalizeText(username)), {
-    message: "Username contains inappropriate language",
-  });
+const usernameSchema = profileUsernameSchema;
 
 const registerSchema = z.object({
   username: usernameSchema,
