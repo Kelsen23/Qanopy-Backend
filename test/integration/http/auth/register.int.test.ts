@@ -96,4 +96,36 @@ describe("POST /api/auth/register", () => {
     expect(response.body.message).toBe("Validation Failed");
     expect(mocks.registerService).not.toHaveBeenCalled();
   });
+
+  it("cleans usernames through zod before calling the service", async () => {
+    mocks.registerService.mockResolvedValue({
+      user: {
+        id: "user_1",
+        tokenVersion: 0,
+        username: "Alice Smith",
+        email: "test@example.com",
+        isVerified: false,
+      },
+      otpExpireAt: new Date("2026-01-01T00:00:00.000Z"),
+      otpResendAvailableAt: new Date("2026-01-01T00:00:30.000Z"),
+    });
+
+    const response = await request(app).post("/api/auth/register").send({
+      username: "  Ａlice\u200b\tSmith  ",
+      email: "test@example.com",
+      password: "Password1!",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.registerService).toHaveBeenCalledWith({
+      username: "Alice Smith",
+      email: "test@example.com",
+      password: "Password1!",
+      deviceInfo: {
+        browser: "Chrome",
+        os: "Linux",
+        ip: "127.0.0.1",
+      },
+    });
+  });
 });

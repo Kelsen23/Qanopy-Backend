@@ -76,6 +76,28 @@ describe("PATCH /api/user/profile", () => {
     });
   });
 
+  it("cleans profile fields through zod before calling the service", async () => {
+    mocks.updateProfileService.mockResolvedValue({
+      user: {
+        id: "user_1",
+        displayName: "Alice Smith",
+        bio: "I help with TypeScript.",
+      },
+    });
+
+    const response = await request(app).patch("/api/user/profile").send({
+      displayName: "  Ａlice\u200b\tSmith  ",
+      bio: "  I help\u200b with\nTypeScript.  ",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateProfileService).toHaveBeenCalledWith({
+      userId: "user_1",
+      displayName: "Alice Smith",
+      bio: "I help with TypeScript.",
+    });
+  });
+
   it("rejects invalid payloads", async () => {
     const response = await request(app).patch("/api/user/profile").send({
       displayName: "ab",
@@ -83,6 +105,43 @@ describe("PATCH /api/user/profile", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Validation Failed");
+    expect(mocks.updateProfileService).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe profile fields at zod validation", async () => {
+    const response = await request(app).patch("/api/user/profile").send({
+      displayName: "Qanopy Staff",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Validation Failed");
+    expect(response.body.errors[0].message).toBe("Display name is reserved");
+    expect(mocks.updateProfileService).not.toHaveBeenCalled();
+  });
+
+  it("rejects cussing hidden inside display name tokens", async () => {
+    const response = await request(app).patch("/api/user/profile").send({
+      displayName: "sh1t_user",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Validation Failed");
+    expect(response.body.errors[0].message).toBe(
+      "Display name contains inappropriate language",
+    );
+    expect(mocks.updateProfileService).not.toHaveBeenCalled();
+  });
+
+  it("rejects bios longer than the database limit", async () => {
+    const response = await request(app)
+      .patch("/api/user/profile")
+      .send({ bio: "a".repeat(151) });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Validation Failed");
+    expect(response.body.errors[0].message).toBe(
+      "Bio must be at most 150 characters",
+    );
     expect(mocks.updateProfileService).not.toHaveBeenCalled();
   });
 
