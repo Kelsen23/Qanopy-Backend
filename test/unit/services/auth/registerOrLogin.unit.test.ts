@@ -1,3 +1,5 @@
+import { Prisma } from "../../../../src/generated/prisma/index.js";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -107,6 +109,90 @@ describe("registerOrLogin service", () => {
     expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
       userId: "user_1",
     });
+  });
+
+  it("retries google registration when a generated username loses a create race", async () => {
+    authUnitTestEnvironment.verifyGoogleToken.mockResolvedValue({
+      email: "alice@example.com",
+      name: "Alice",
+      picture: "pic",
+      email_verified: true,
+      googleId: "g-1",
+    });
+    authUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
+    authUnitTestEnvironment.generateOAuthUsername
+      .mockResolvedValueOnce("oauth-user")
+      .mockResolvedValueOnce("oauth-user-2");
+    authUnitTestEnvironment.prismaUserCreate
+      .mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("conflict", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { target: ["username"] },
+        }),
+      )
+      .mockResolvedValueOnce({
+        id: "user_1",
+        email: "alice@example.com",
+        username: "oauth-user-2",
+        profilePictureUrl: "pic",
+        authProvider: "GOOGLE",
+        isVerified: true,
+        status: "ACTIVE",
+        isDeleted: false,
+      });
+
+    const result = await registerOrLogin({
+      provider: "google",
+      idToken: "token",
+    });
+
+    expect(result.action).toBe("registered");
+    expect(authUnitTestEnvironment.generateOAuthUsername).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(authUnitTestEnvironment.prismaUserCreate).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: expect.objectContaining({
+          username: "oauth-user-2",
+          email: "alice@example.com",
+          authProvider: "GOOGLE",
+        }),
+      },
+    );
+  });
+
+  it("fails google registration after repeated username create races", async () => {
+    authUnitTestEnvironment.verifyGoogleToken.mockResolvedValue({
+      email: "alice@example.com",
+      name: "Alice",
+      picture: "pic",
+      email_verified: true,
+      googleId: "g-1",
+    });
+    authUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
+    authUnitTestEnvironment.generateOAuthUsername.mockResolvedValue(
+      "oauth-user",
+    );
+    authUnitTestEnvironment.prismaUserCreate.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("conflict", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["username"] },
+      }),
+    );
+
+    await expect(
+      registerOrLogin({ provider: "google", idToken: "token" }),
+    ).rejects.toMatchObject({
+      message: "Unable to reserve OAuth username",
+      statusCode: 409,
+    });
+    expect(authUnitTestEnvironment.generateOAuthUsername).toHaveBeenCalledTimes(
+      3,
+    );
+    expect(authUnitTestEnvironment.prismaUserCreate).toHaveBeenCalledTimes(3);
   });
 
   it("logs in existing google users", async () => {
