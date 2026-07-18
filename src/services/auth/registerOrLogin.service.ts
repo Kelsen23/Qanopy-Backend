@@ -5,6 +5,8 @@ import {
   queueBadgeAwardSafely,
 } from "./auth.shared.js";
 
+import { Prisma } from "../../generated/prisma/index.js";
+
 import prisma from "../../config/prisma.config.js";
 
 import HttpError from "../../utils/http/httpError.util.js";
@@ -20,6 +22,53 @@ type OAuthInput =
       provider: "github";
       accessToken: string;
     };
+
+type OAuthRegistrationInput = {
+  email: string;
+  name: string;
+  profilePictureUrl?: string | null;
+  authProvider: "GOOGLE" | "GITHUB";
+};
+
+const MAX_OAUTH_CREATE_ATTEMPTS = 3;
+
+const isUsernameUniqueConstraintError = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2002" &&
+  Array.isArray(error.meta?.target) &&
+  error.meta.target.includes("username");
+
+const createOAuthUserWithUniqueUsername = async ({
+  email,
+  name,
+  profilePictureUrl,
+  authProvider,
+}: OAuthRegistrationInput) => {
+  const registeredStage = await getRegisteredStage();
+
+  for (let attempt = 0; attempt < MAX_OAUTH_CREATE_ATTEMPTS; attempt++) {
+    const uniqueUsername = await generateOAuthUsername(name);
+
+    try {
+      return await prisma.user.create({
+        data: {
+          username: uniqueUsername,
+          email,
+          profilePictureUrl,
+          isVerified: true,
+          authProvider,
+          registeredStage,
+          moderationStats: { create: {} },
+          notificationSettings: { create: {} },
+        },
+      });
+    } catch (error) {
+      if (!isUsernameUniqueConstraintError(error)) throw error;
+    }
+  }
+
+  throw new HttpError("Unable to reserve OAuth username", 409);
+};
 
 const registerOrLogin = async (input: OAuthInput) => {
   if (input.provider === "google") {
@@ -39,20 +88,11 @@ const registerOrLogin = async (input: OAuthInput) => {
     }
 
     if (!foundUser) {
-      const uniqueUsername = await generateOAuthUsername(name);
-      const registeredStage = await getRegisteredStage();
-
-      const newUser = await prisma.user.create({
-        data: {
-          username: uniqueUsername,
-          email,
-          profilePictureUrl: picture,
-          isVerified: true,
-          authProvider: "GOOGLE",
-          registeredStage,
-          moderationStats: { create: {} },
-          notificationSettings: { create: {} },
-        },
+      const newUser = await createOAuthUserWithUniqueUsername({
+        email,
+        name,
+        profilePictureUrl: picture,
+        authProvider: "GOOGLE",
       });
 
       await cacheUser(newUser);
@@ -87,20 +127,11 @@ const registerOrLogin = async (input: OAuthInput) => {
   }
 
   if (!foundUser) {
-    const uniqueUsername = await generateOAuthUsername(name);
-    const registeredStage = await getRegisteredStage();
-
-    const newUser = await prisma.user.create({
-      data: {
-        username: uniqueUsername,
-        email,
-        profilePictureUrl: avatar_url,
-        isVerified: true,
-        authProvider: "GITHUB",
-        registeredStage,
-        moderationStats: { create: {} },
-        notificationSettings: { create: {} },
-      },
+    const newUser = await createOAuthUserWithUniqueUsername({
+      email,
+      name,
+      profilePictureUrl: avatar_url,
+      authProvider: "GITHUB",
     });
 
     await cacheUser(newUser);
