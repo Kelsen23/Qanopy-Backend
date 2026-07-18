@@ -89,7 +89,31 @@ describe("auth utils", () => {
         where.username === "alice" ? ({ id: "user_1" } as any) : null,
     );
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.12);
-    await expect(generateOAuthUsername("alice")).resolves.toBe("20alic");
+    await expect(generateOAuthUsername("alice")).resolves.toBe("4bipx4bi_alice");
+    randomSpy.mockRestore();
+  });
+
+  it("falls back when an oauth username source is unusable", async () => {
+    env.prismaUserFindUnique.mockResolvedValue(null);
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.34);
+
+    await expect(generateOAuthUsername("admin")).resolves.toBe("user_c8n1fu8n");
+
+    expect(env.prismaUserFindUnique).toHaveBeenCalledWith({
+      where: { username: "user_c8n1fu8n" },
+    });
+    randomSpy.mockRestore();
+  });
+
+  it("throws when oauth username generation cannot find an available candidate", async () => {
+    env.prismaUserFindUnique.mockResolvedValue({ id: "user_1" });
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.12);
+
+    await expect(generateOAuthUsername("alice")).rejects.toThrow(
+      "Unable to generate a unique OAuth username",
+    );
+
+    expect(env.prismaUserFindUnique).toHaveBeenCalledTimes(26);
     randomSpy.mockRestore();
   });
 
