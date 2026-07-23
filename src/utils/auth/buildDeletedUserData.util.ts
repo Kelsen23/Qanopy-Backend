@@ -42,8 +42,6 @@ const buildDeletedUserData = async (
     acceptedAnswers: 0,
     bestAnswers: 0,
     status: "TERMINATED" as const,
-    credits: 0,
-    creditsLastRedeemedAt: null,
     otp: null,
     otpResendAvailableAt: null,
     otpExpireAt: null,

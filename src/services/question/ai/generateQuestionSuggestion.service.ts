@@ -3,9 +3,6 @@ import { getEditSessionSockets } from "../../redis/editSession.service.js";
 import { canGetAISuggestion } from "./questionAiHelp.shared.js";
 import generateSuggestion from "./generateSuggestion.service.js";
 
-import prisma from "../../../config/prisma.config.js";
-import { getRedisCacheClient } from "../../../config/redis.config.js";
-
 import convertQuestionToLLMText from "../../../utils/question/convertQuestionToLLMText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
@@ -23,97 +20,84 @@ const generateQuestionSuggestion = async ({
   questionId: string;
   version: number;
 }) => {
-  let suggestionCreated = false;
-  try {
-    const existingSuggestion = await AiSuggestion.findOne({
+  const existingSuggestion = await AiSuggestion.findOne({
+    questionId,
+    version,
+  })
+    .select("_id")
+    .lean();
+
+  if (existingSuggestion) throw new Error("AI suggestion already exists");
+
+  const foundQuestion = await Question.findOne({
+    _id: questionId,
+    userId,
+    currentVersion: version,
+  })
+    .select("_id questionEligibilityStatus securityVerifierStatus")
+    .lean();
+
+  if (!foundQuestion || !canGetAISuggestion(foundQuestion))
+    throw new Error("Question is not eligible for AI suggestion");
+
+  const foundVersion = await QuestionVersion.findOne({
+    questionId,
+    userId,
+    version,
+    $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
+  })
+    .select("_id isActive title body tags")
+    .lean();
+
+  if (!foundVersion) throw new Error("Version not found");
+  if (!foundVersion.isActive) throw new Error("Version not active");
+
+  const questionText = convertQuestionToLLMText(
+    normalizeText(foundVersion.title as string),
+    normalizeText(foundVersion.body as string),
+    foundVersion.tags as string[],
+  );
+
+  const { suggestions, notes, confidence } = await generateSuggestion(
+    questionText,
+    {
+      securityVerifierStatus: foundQuestion.securityVerifierStatus,
+    },
+  );
+
+  const newSuggestion = await AiSuggestion.create({
+    questionId,
+    version,
+    suggestions,
+    notes,
+    confidence: Math.min(confidence, 1),
+    meta: {
+      questionVersion: version,
       questionId,
-      version,
-    })
-      .select("_id")
-      .lean();
+      generatedAt: new Date().toISOString(),
+      source: "DeepSeek-Chat",
+    },
+  });
 
-    if (existingSuggestion) throw new Error("AI suggestion already exists");
+  const sockets = await getEditSessionSockets(version);
 
-    const foundQuestion = await Question.findOne({
-      _id: questionId,
-      userId,
-      currentVersion: version,
-    })
-      .select("_id questionEligibilityStatus securityVerifierStatus")
-      .lean();
-
-    if (!foundQuestion || !canGetAISuggestion(foundQuestion))
-      throw new Error("Question is not eligible for AI suggestion");
-
-    const foundVersion = await QuestionVersion.findOne({
-      questionId,
-      userId,
-      version,
-      $or: [{ moderationStatus: "APPROVED" }, { moderationStatus: "FLAGGED" }],
-    })
-      .select("_id isActive title body tags")
-      .lean();
-
-    if (!foundVersion) throw new Error("Version not found");
-    if (!foundVersion.isActive) throw new Error("Version not active");
-
-    const questionText = convertQuestionToLLMText(
-      normalizeText(foundVersion.title as string),
-      normalizeText(foundVersion.body as string),
-      foundVersion.tags as string[],
-    );
-
-    const { suggestions, notes, confidence } = await generateSuggestion(
-      questionText,
-      {
-        securityVerifierStatus: foundQuestion.securityVerifierStatus,
+  if (sockets.length > 0)
+    await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
+  else
+    await routeNotification({
+      recipientId: userId,
+      event: "AI_SUGGESTION_READY",
+      target: {
+        entityType: "QUESTION",
+        entityId: questionId,
       },
-    );
-
-    const newSuggestion = await AiSuggestion.create({
-      questionId,
-      version,
-      suggestions,
-      notes,
-      confidence: Math.min(confidence, 1),
       meta: {
-        questionVersion: version,
         questionId,
+        questionVersion: version,
         generatedAt: new Date().toISOString(),
         source: "DeepSeek-Chat",
       },
     });
-    suggestionCreated = true;
-
-    const sockets = await getEditSessionSockets(version);
-
-    if (sockets.length > 0)
-      await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
-    else
-      await routeNotification({
-        recipientId: userId,
-        event: "AI_SUGGESTION_READY",
-        target: {
-          entityType: "QUESTION",
-          entityId: questionId,
-        },
-        meta: {
-          questionId,
-          questionVersion: version,
-          generatedAt: new Date().toISOString(),
-          source: "DeepSeek-Chat",
-        },
-      });
-  } catch (error) {
-    if (!suggestionCreated) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { credits: { increment: 5 } },
-      });
-      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
-    }
-    throw error;
-  }
 };
 
 export default generateQuestionSuggestion;
