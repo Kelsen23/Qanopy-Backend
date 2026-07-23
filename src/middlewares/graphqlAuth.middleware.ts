@@ -1,12 +1,12 @@
 import jwt from "jsonwebtoken";
 
-import HttpError from "../utils/http/httpError.util.js";
-import sanitizeUserForAuth from "../utils/auth/sanitizeUserForAuth.util.js";
+import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
 import prisma from "../config/prisma.config.js";
 import { getRedisCacheClient } from "../config/redis.config.js";
 
-import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
+import sanitizeUserForAuth from "../utils/auth/sanitizeUserForAuth.util.js";
+import HttpError from "../utils/http/httpError.util.js";
 
 const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
   const token = req.cookies?.token;
@@ -45,17 +45,38 @@ const authenticateGraphQLUser = async (req: AuthenticatedRequest) => {
     return cachedUserObj;
   }
 
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      tokenVersion: true,
-      status: true,
-      isVerified: true,
-      role: true,
-      isDeleted: true,
-    },
-  });
+  const foundUser = await prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        auth: {
+          select: {
+            tokenVersion: true,
+            isVerified: true,
+          },
+        },
+        statusState: {
+          select: {
+            status: true,
+            isDeleted: true,
+          },
+        },
+      },
+    })
+    .then((user) =>
+      user
+        ? {
+            id: user.id,
+            role: user.role,
+            tokenVersion: user.auth?.tokenVersion ?? 0,
+            isVerified: user.auth?.isVerified ?? false,
+            status: user.statusState?.status ?? "ACTIVE",
+            isDeleted: user.statusState?.isDeleted ?? false,
+          }
+        : null,
+    );
   if (!foundUser) throw new HttpError("User not found", 404);
 
   await getRedisCacheClient().set(
