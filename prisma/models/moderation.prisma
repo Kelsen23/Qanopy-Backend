@@ -1,0 +1,119 @@
+model ModerationStats {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+
+  totalStrikes  Int @default(0)
+  rejectedCount Int @default(0)
+  flaggedCount  Int @default(0)
+
+  lastStrikeAt DateTime?
+  trustScore   Float     @default(1.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ContentType {
+  QUESTION
+  ANSWER
+  REPLY
+  AI_ANSWER_FEEDBACK
+}
+
+enum Mods {
+  ADMIN_MODERATION
+  AI_MODERATION
+}
+
+enum AiDecision {
+  BAN_TEMP
+  BAN_PERM
+  WARN
+  IGNORE
+}
+
+enum ModerationActionTaken {
+  PENDING
+  BAN_TEMP
+  BAN_PERM
+  WARN
+  IGNORE
+}
+
+enum BanType {
+  PERM
+  TEMP
+}
+
+model ModerationStrike {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  aiDecision   AiDecision?
+  aiConfidence Float?
+  aiReasons    String[]
+  severity     Int?
+  riskScore    Float?
+
+  targetContentId      String
+  targetType           ContentType
+  targetContentVersion Int?
+
+  strikedBy Mods
+
+  adminId       String?
+  strikeComment String? @db.VarChar(150)
+
+  reviewedBy        String?
+  reviewComment     String?               @db.VarChar(150)
+  actionTaken       ModerationActionTaken @default(PENDING)
+  isRemovingContent Boolean               @default(false)
+  reviewedAt        DateTime?
+
+  claimedAt      DateTime?
+  claimExpiresAt DateTime?
+  claimToken     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewedBy, claimExpiresAt])
+}
+
+model Warning {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  title    String   @db.VarChar(80)
+  reasons  String[]
+  severity Int?
+  warnedBy Mods
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ban {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  title    String   @db.VarChar(80)
+  reasons  String[]
+  banType  BanType
+  severity Int?
+  bannedBy Mods
+
+  isActive Boolean @default(true)
+
+  expiresAt  DateTime?
+  durationMs Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
