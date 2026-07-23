@@ -1,9 +1,8 @@
 import { Response } from "express";
 
-import asyncHandler from "../middlewares/asyncHandler.middleware.js";
-
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
+import refundCreditCharge from "../services/user/credits/refundCreditCharge.service.js";
 import {
   acceptAnswer as acceptAnswerService,
   createAnswerOnQuestion as createAnswerOnQuestionService,
@@ -24,6 +23,8 @@ import {
   unvote as unvoteService,
   vote as voteService,
 } from "../services/question/question.service.js";
+
+import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 const createQuestion = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -159,11 +160,24 @@ const generateSuggestion = asyncHandler(
     const { id: userId } = req.user;
     const { questionId } = req.params;
 
-    const result = await generateSuggestionRequestService(
-      userId,
-      questionId,
-      Number(req.body.version),
-    );
+    let result;
+    try {
+      result = await generateSuggestionRequestService(
+        userId,
+        questionId,
+        Number(req.body.version),
+        req.creditCharge,
+      );
+    } catch (error) {
+      if (req.creditCharge?.chargedNow) {
+        await refundCreditCharge({
+          operationKey: req.creditCharge.operationKey,
+          reason: "AI suggestion request failed",
+        });
+      }
+
+      throw error;
+    }
 
     return res.status(200).json(result);
   },
@@ -174,11 +188,24 @@ const generateAiAnswer = asyncHandler(
     const { id: userId } = req.user;
     const { questionId } = req.params;
 
-    const result = await generateAiAnswerRequestService(
-      userId,
-      questionId,
-      Number(req.body.version),
-    );
+    let result;
+    try {
+      result = await generateAiAnswerRequestService(
+        userId,
+        questionId,
+        Number(req.body.version),
+        req.creditCharge,
+      );
+    } catch (error) {
+      if (req.creditCharge?.chargedNow) {
+        await refundCreditCharge({
+          operationKey: req.creditCharge.operationKey,
+          reason: "AI answer request failed",
+        });
+      }
+
+      throw error;
+    }
 
     return res.status(200).json(result);
   },
