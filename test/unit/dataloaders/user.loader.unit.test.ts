@@ -11,7 +11,7 @@ const { default: createUserLoader } = await import(
 );
 
 describe("user dataloader", () => {
-  it("returns GraphQL-compatible top-level user fields", async () => {
+  it("returns the nested sanitized user shape", async () => {
     getFlattenedUsersByIds.mockResolvedValue([
       {
         id: "user_1",
@@ -48,16 +48,27 @@ describe("user dataloader", () => {
 
     await expect(loader.load("user_1")).resolves.toMatchObject({
       id: "user_1",
-      displayName: "Kelsen",
-      bio: "Builder",
-      profilePictureUrl: "https://cdn.example.com/avatar.png",
-      profilePictureKey: "avatar-key",
-      reputationPoints: 250,
-      questionsAsked: 3,
-      answersGiven: 4,
-      bestAnswers: 2,
-      status: "ACTIVE",
-      isVerified: true,
+      auth: {
+        authProvider: "LOCAL",
+        isVerified: true,
+      },
+      profile: {
+        displayName: "Kelsen",
+        bio: "Builder",
+        profilePictureUrl: "https://cdn.example.com/avatar.png",
+        profilePictureKey: "avatar-key",
+      },
+      stats: {
+        reputationPoints: 250,
+        questionsAsked: 3,
+        answersGiven: 4,
+        acceptedAnswers: 1,
+        bestAnswers: 2,
+      },
+      statusState: {
+        status: "ACTIVE",
+        isDeleted: false,
+      },
     });
   });
 });

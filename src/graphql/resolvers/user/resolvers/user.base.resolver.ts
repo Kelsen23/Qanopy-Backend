@@ -4,10 +4,7 @@ import { getFlattenedUserById } from "../../../../services/user/userData.service
 
 import sanitizeUser from "../../../../utils/auth/sanitizeUser.util.js";
 
-import {
-  SanitizedUser,
-  toGraphqlUser,
-} from "../helpers/user.graphql.helper.js";
+type SanitizedUser = ReturnType<typeof sanitizeUser>;
 
 const userBaseResolver = {
   Query: {
@@ -18,8 +15,7 @@ const userBaseResolver = {
     ) => {
       const cachedUser = await getRedisCacheClient().get(`user:${id}`);
 
-      if (cachedUser)
-        return toGraphqlUser(JSON.parse(cachedUser) as SanitizedUser);
+      if (cachedUser) return JSON.parse(cachedUser) as SanitizedUser;
 
       const foundUser = await getFlattenedUserById(id);
       if (!foundUser) throw new Error("User not found");
@@ -33,7 +29,7 @@ const userBaseResolver = {
         60 * 20,
       );
 
-      return toGraphqlUser(sanitizedUser);
+      return sanitizedUser;
     },
   },
 };

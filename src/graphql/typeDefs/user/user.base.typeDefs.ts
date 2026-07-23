@@ -1,21 +1,34 @@
 import { gql } from "graphql-tag";
 
 const userBaseTypeDefs = gql`
+  type UserProfile {
+    displayName: String
+    bio: String
+    profilePictureUrl: String
+    profilePictureKey: String
+  }
+
+  type UserStats {
+    reputationPoints: Int!
+    questionsAsked: Int!
+    answersGiven: Int!
+    acceptedAnswers: Int!
+    bestAnswers: Int!
+  }
+
+  type UserStatusState {
+    status: String!
+    isDeleted: Boolean!
+  }
+
   type User {
     id: String!
     username: String!
-    displayName: String
     email: String!
-    profilePictureKey: String
-    profilePictureUrl: String
-    bio: String
-    reputationPoints: Int!
     role: Role!
-    questionsAsked: Int!
-    answersGiven: Int!
-    bestAnswers: Int!
-    status: String!
-    isVerified: Boolean!
+    profile: UserProfile!
+    stats: UserStats!
+    statusState: UserStatusState!
     createdAt: String!
   }
 

@@ -24,15 +24,25 @@ const query = `
     user(id: $id) {
       id
       username
-      displayName
       email
-      bio
       role
-      questionsAsked
-      answersGiven
-      bestAnswers
-      status
-      isVerified
+      profile {
+        displayName
+        bio
+        profilePictureUrl
+        profilePictureKey
+      }
+      stats {
+        reputationPoints
+        questionsAsked
+        answersGiven
+        acceptedAnswers
+        bestAnswers
+      }
+      statusState {
+        status
+        isDeleted
+      }
       createdAt
     }
   }
@@ -42,15 +52,25 @@ type UserQueryResult = {
   user: {
     id: string;
     username: string;
-    displayName: string | null;
     email: string;
-    bio: string | null;
     role: string;
-    questionsAsked: number;
-    answersGiven: number;
-    bestAnswers: number;
-    status: string;
-    isVerified: boolean;
+    profile: {
+      displayName: string | null;
+      bio: string | null;
+      profilePictureUrl: string | null;
+      profilePictureKey: string | null;
+    };
+    stats: {
+      reputationPoints: number;
+      questionsAsked: number;
+      answersGiven: number;
+      acceptedAnswers: number;
+      bestAnswers: number;
+    };
+    statusState: {
+      status: string;
+      isDeleted: boolean;
+    };
     createdAt: string;
   } | null;
 };
@@ -88,15 +108,29 @@ describe("GraphQL user query", () => {
       JSON.stringify({
         id: "user_1",
         username: "cachedUser",
-        displayName: "Cached User",
         email: "cached@example.com",
-        bio: "Cached bio",
         role: "USER",
-        questionsAsked: 3,
-        answersGiven: 4,
-        bestAnswers: 1,
-        status: "ACTIVE",
-        isVerified: true,
+        auth: {
+          authProvider: "LOCAL",
+          isVerified: true,
+        },
+        profile: {
+          displayName: "Cached User",
+          bio: "Cached bio",
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+        stats: {
+          reputationPoints: 11,
+          questionsAsked: 3,
+          answersGiven: 4,
+          acceptedAnswers: 1,
+          bestAnswers: 1,
+        },
+        statusState: {
+          status: "ACTIVE",
+          isDeleted: false,
+        },
         createdAt: "2026-01-01T00:00:00.000Z",
       }),
     );
@@ -113,15 +147,25 @@ describe("GraphQL user query", () => {
     expect(result.data?.user).toEqual({
       id: "user_1",
       username: "cachedUser",
-      displayName: "Cached User",
       email: "cached@example.com",
-      bio: "Cached bio",
       role: "USER",
-      questionsAsked: 3,
-      answersGiven: 4,
-      bestAnswers: 1,
-      status: "ACTIVE",
-      isVerified: true,
+      profile: {
+        displayName: "Cached User",
+        bio: "Cached bio",
+        profilePictureUrl: null,
+        profilePictureKey: null,
+      },
+      stats: {
+        reputationPoints: 11,
+        questionsAsked: 3,
+        answersGiven: 4,
+        acceptedAnswers: 1,
+        bestAnswers: 1,
+      },
+      statusState: {
+        status: "ACTIVE",
+        isDeleted: false,
+      },
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     expect(redisGet).toHaveBeenCalledWith("user:user_1");
@@ -142,6 +186,7 @@ describe("GraphQL user query", () => {
       otp: "123456",
       deletedAt: null,
       auth: {
+        authProvider: "LOCAL",
         isVerified: true,
       },
       profile: {
@@ -149,12 +194,15 @@ describe("GraphQL user query", () => {
         bio: "Fresh bio",
       },
       stats: {
+        reputationPoints: 0,
         questionsAsked: 7,
         answersGiven: 9,
+        acceptedAnswers: 0,
         bestAnswers: 2,
       },
       statusState: {
         status: "ACTIVE",
+        isDeleted: false,
       },
     });
 
@@ -170,15 +218,25 @@ describe("GraphQL user query", () => {
     expect(result.data?.user).toEqual({
       id: "user_1",
       username: "freshUser",
-      displayName: "Fresh User",
       email: "fresh@example.com",
-      bio: "Fresh bio",
       role: "USER",
-      questionsAsked: 7,
-      answersGiven: 9,
-      bestAnswers: 2,
-      status: "ACTIVE",
-      isVerified: true,
+      profile: {
+        displayName: "Fresh User",
+        bio: "Fresh bio",
+        profilePictureUrl: null,
+        profilePictureKey: null,
+      },
+      stats: {
+        reputationPoints: 0,
+        questionsAsked: 7,
+        answersGiven: 9,
+        acceptedAnswers: 0,
+        bestAnswers: 2,
+      },
+      statusState: {
+        status: "ACTIVE",
+        isDeleted: false,
+      },
       createdAt: "2026-02-01T00:00:00.000Z",
     });
     expect(getFlattenedUserById).toHaveBeenCalledWith("user_1");
@@ -195,6 +253,7 @@ describe("GraphQL user query", () => {
       role: "USER",
       createdAt: "2026-02-01T00:00:00.000Z",
       auth: {
+        authProvider: "LOCAL",
         isVerified: true,
       },
       profile: {
