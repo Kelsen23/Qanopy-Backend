@@ -19,7 +19,7 @@ const redisMessagingClientConnection = {
   port: 6379,
 };
 
-const prismaUserFindUnique = vi.fn();
+const getFlattenedUserById = vi.fn();
 const sendMail = vi.fn(async () => ({ accepted: ["test@example.com"] }));
 const isExpiredUnverifiedLocalUser = vi.fn(() => false);
 
@@ -62,12 +62,8 @@ export const mockEmailWorkerModules = {
   redisConfig: {
     redisMessagingClientConnection,
   },
-  prismaConfig: {
-    default: {
-      user: {
-        findUnique: prismaUserFindUnique,
-      },
-    },
+  userDataService: {
+    getFlattenedUserById,
   },
   nodemailerConfig: {
     default: {
@@ -83,7 +79,8 @@ export const mockEmailWorkerTestEnvironment = {
   workerInstances,
   workerConstructor,
   redisMessagingClientConnection,
-  prismaUserFindUnique,
+  prismaUserFindUnique: getFlattenedUserById,
+  getFlattenedUserById,
   sendMail,
   isExpiredUnverifiedLocalUser,
 };
@@ -102,7 +99,7 @@ export const resetEmailWorkerTestEnvironment = () => {
       return buildWorkerInstance(name, processor, options);
     });
 
-  prismaUserFindUnique.mockReset();
+  getFlattenedUserById.mockReset();
   sendMail.mockReset().mockResolvedValue({ accepted: ["test@example.com"] });
   isExpiredUnverifiedLocalUser.mockReset().mockReturnValue(false);
 };

@@ -1,7 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import executeUserGraphql from "../../../helpers/user/executeUserGraphql.js";
 import type { UserGraphqlContext } from "../../../helpers/user/executeUserGraphql.js";
+
+const getFlattenedUserById = vi.fn();
+
+vi.mock("../../../../src/services/user/userData.service.js", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../../../src/services/user/userData.service.js")
+  >("../../../../src/services/user/userData.service.js");
+
+  return {
+    ...actual,
+    getFlattenedUserById,
+  };
+});
+
+const { default: executeUserGraphql } = await import(
+  "../../../helpers/user/executeUserGraphql.js"
+);
 
 const query = `
   query User($id: String!) {
@@ -42,16 +58,13 @@ type UserQueryResult = {
 describe("GraphQL user query", () => {
   const redisGet = vi.fn();
   const redisSet = vi.fn();
-  const prismaUserFindUnique = vi.fn();
 
   const contextValue: UserGraphqlContext = {
     user: {
       id: "user_1",
     },
     prisma: {
-      user: {
-        findUnique: prismaUserFindUnique,
-      },
+      user: {},
     },
     getRedisCacheClient: () => ({
       get: redisGet,
@@ -67,7 +80,7 @@ describe("GraphQL user query", () => {
   beforeEach(() => {
     redisGet.mockReset();
     redisSet.mockReset();
-    prismaUserFindUnique.mockReset();
+    getFlattenedUserById.mockReset();
   });
 
   it("returns a sanitized user from cache without prisma lookup", async () => {
@@ -112,29 +125,37 @@ describe("GraphQL user query", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     expect(redisGet).toHaveBeenCalledWith("user:user_1");
-    expect(prismaUserFindUnique).not.toHaveBeenCalled();
+    expect(getFlattenedUserById).not.toHaveBeenCalled();
   });
 
   it("loads, sanitizes, and caches users on a cache miss", async () => {
     redisGet.mockResolvedValue(null);
     redisSet.mockResolvedValue("OK");
-    prismaUserFindUnique.mockResolvedValue({
+    getFlattenedUserById.mockResolvedValue({
       id: "user_1",
       username: "freshUser",
-      displayName: "Fresh User",
       email: "fresh@example.com",
-      bio: "Fresh bio",
       role: "USER",
-      questionsAsked: 7,
-      answersGiven: 9,
-      bestAnswers: 2,
-      status: "ACTIVE",
-      isVerified: true,
       createdAt: "2026-02-01T00:00:00.000Z",
       password: "hashed-password",
       tokenVersion: 3,
       otp: "123456",
       deletedAt: null,
+      auth: {
+        isVerified: true,
+      },
+      profile: {
+        displayName: "Fresh User",
+        bio: "Fresh bio",
+      },
+      stats: {
+        questionsAsked: 7,
+        answersGiven: 9,
+        bestAnswers: 2,
+      },
+      statusState: {
+        status: "ACTIVE",
+      },
     });
 
     const result = await executeUserGraphql<UserQueryResult>({
@@ -160,35 +181,45 @@ describe("GraphQL user query", () => {
       isVerified: true,
       createdAt: "2026-02-01T00:00:00.000Z",
     });
-    expect(prismaUserFindUnique).toHaveBeenCalledWith({
-      where: {
-        id: "user_1",
-      },
-    });
+    expect(getFlattenedUserById).toHaveBeenCalledWith("user_1");
     expect(redisSet).toHaveBeenCalledWith(
       "user:user_1",
-      JSON.stringify({
-        id: "user_1",
-        username: "freshUser",
-        displayName: "Fresh User",
-        email: "fresh@example.com",
-        bio: "Fresh bio",
-        role: "USER",
-        questionsAsked: 7,
-        answersGiven: 9,
-        bestAnswers: 2,
-        status: "ACTIVE",
-        isVerified: true,
-        createdAt: "2026-02-01T00:00:00.000Z",
-      }),
+      expect.any(String),
       "EX",
       60 * 20,
     );
+    expect(JSON.parse(redisSet.mock.calls[0][1])).toEqual({
+      id: "user_1",
+      username: "freshUser",
+      email: "fresh@example.com",
+      role: "USER",
+      createdAt: "2026-02-01T00:00:00.000Z",
+      auth: {
+        isVerified: true,
+      },
+      profile: {
+        displayName: "Fresh User",
+        bio: "Fresh bio",
+        profilePictureUrl: null,
+        profilePictureKey: null,
+      },
+      stats: {
+        reputationPoints: 0,
+        questionsAsked: 7,
+        answersGiven: 9,
+        acceptedAnswers: 0,
+        bestAnswers: 2,
+      },
+      statusState: {
+        status: "ACTIVE",
+        isDeleted: false,
+      },
+    });
   });
 
   it("returns not found errors when the user does not exist", async () => {
     redisGet.mockResolvedValue(null);
-    prismaUserFindUnique.mockResolvedValue(null);
+    getFlattenedUserById.mockResolvedValue(null);
 
     const result = await executeUserGraphql<UserQueryResult>({
       query,

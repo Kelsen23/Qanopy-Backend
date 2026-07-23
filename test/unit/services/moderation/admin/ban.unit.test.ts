@@ -71,12 +71,12 @@ describe("unbanUser", () => {
       },
       data: { isActive: false },
     });
-    expect(moderationUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith(
-      {
-        where: { id: "user_1" },
+    expect(
+      moderationUnitTestEnvironment.prismaUserStatusUpdate,
+    ).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
         data: { status: "ACTIVE" },
-      },
-    );
+    });
     expect(moderationUnitTestEnvironment.clearUserCache).toHaveBeenCalledWith(
       "user_1",
     );

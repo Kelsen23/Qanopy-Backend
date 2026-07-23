@@ -115,7 +115,7 @@ describe("verifyResetPasswordOtp service", () => {
 
     expect(result).toEqual({ verified: true });
     expect(authUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith({
-      where: { id: "user_1" },
+      where: { userId: "user_1" },
       data: expect.objectContaining({
         resetPasswordOtpVerified: true,
         resetPasswordOtp: null,

@@ -14,9 +14,36 @@ type AuthUser = {
   isDeleted: boolean;
 };
 
+const normalizeAuthUserResult = (value: unknown): unknown => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const row = value as Record<string, unknown>;
+
+  return {
+    ...row,
+    auth: row.auth ?? {
+      tokenVersion: row.tokenVersion ?? 0,
+      isVerified: row.isVerified ?? false,
+    },
+    statusState: row.statusState ?? {
+      status: row.status ?? "ACTIVE",
+      isDeleted: row.isDeleted ?? false,
+    },
+  };
+};
+
 const prismaUserFindUnique = vi.fn();
+const prismaUserFindUniqueMockResolvedValue =
+  prismaUserFindUnique.mockResolvedValue.bind(prismaUserFindUnique);
+const prismaUserFindUniqueMockResolvedValueOnce =
+  prismaUserFindUnique.mockResolvedValueOnce.bind(prismaUserFindUnique);
 const redisStore = new Map<string, string>();
 const jwtPayloads = new Map<string, DecodedToken>();
+
+prismaUserFindUnique.mockResolvedValue = (value: unknown) =>
+  prismaUserFindUniqueMockResolvedValue(normalizeAuthUserResult(value));
+prismaUserFindUnique.mockResolvedValueOnce = (value: unknown) =>
+  prismaUserFindUniqueMockResolvedValueOnce(normalizeAuthUserResult(value));
 
 const redisGet = vi.fn(async (key: string) => redisStore.get(key) ?? null);
 const redisSet = vi.fn(async (key: string, value: string) => {

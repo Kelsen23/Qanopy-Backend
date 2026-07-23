@@ -71,7 +71,7 @@ describe("user utils", () => {
       .mockReset()
       .mockImplementation(async (cb: (tx: any) => Promise<unknown>) =>
         cb({
-          user: {
+          userStats: {
             update: prismaUserUpdate,
           },
           $executeRaw: prismaExecuteRaw,
@@ -92,7 +92,7 @@ describe("user utils", () => {
     });
 
     expect(prismaUserUpdate).toHaveBeenCalledWith({
-      where: { id: "user_1" },
+      where: { userId: "user_1" },
       data: {
         answersGiven: { increment: 1 },
       },

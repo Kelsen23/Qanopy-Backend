@@ -42,9 +42,6 @@ const { default: updateProfile } = await import(
 const { default: deleteAccount } = await import(
   "../../../../src/services/user/deleteAccount.service.js"
 );
-const { default: redeemCredits } = await import(
-  "../../../../src/services/user/redeemCredits.service.js"
-);
 
 const makeFullUser = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -65,16 +62,52 @@ const makeFullUser = (overrides: Record<string, unknown> = {}) =>
     emailChangeOtp: null,
     emailChangeOtpResendAvailableAt: null,
     emailChangeOtpExpireAt: null,
-    creditsLastRedeemedAt: null,
     deletedAt: null,
     accountDeletionRequestedAt: null,
     accountDeletionCompletedAt: null,
     displayName: "Alice",
     bio: "bio",
     role: "USER",
-    status: "ACTIVE",
-    isDeleted: false,
-    credits: 10,
+    auth: {
+      password: "hashed-password",
+      tokenVersion: 2,
+      authProvider: "LOCAL",
+      isVerified: true,
+      otp: null,
+      otpResendAvailableAt: null,
+      otpExpireAt: null,
+      resetPasswordOtp: null,
+      resetPasswordOtpVerified: null,
+      resetPasswordOtpResendAvailableAt: null,
+      resetPasswordOtpExpireAt: null,
+    },
+    profile: {
+      displayName: "Alice",
+      bio: "bio",
+      profilePictureUrl: null,
+      profilePictureKey: null,
+    },
+    stats: {
+      reputationPoints: 0,
+      questionsAsked: 0,
+      answersGiven: 0,
+      acceptedAnswers: 0,
+      bestAnswers: 0,
+      registeredStage: "beta",
+    },
+    statusState: {
+      status: "ACTIVE",
+      isDeleted: false,
+      deletedAt: null,
+      accountDeletionRequestedAt: null,
+      accountDeletionCompletedAt: null,
+    },
+    emailChange: {
+      pendingEmail: null,
+      otp: null,
+      otpResendAvailableAt: null,
+      otpExpireAt: null,
+    },
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     ...overrides,
@@ -86,9 +119,36 @@ describe("user account and profile services", () => {
   });
 
   it("loads users from redis cache before falling back to prisma", async () => {
-    seedRedisValue("user:user_1", makeFullUser({ displayName: "Old Name" }));
+    seedRedisValue(
+      "user:user_1",
+      makeFullUser({
+        profile: {
+          displayName: "Old Name",
+          bio: "bio",
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+      }),
+    );
     userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue(
-      makeFullUser({ displayName: "New Name", password: "secret" }),
+      makeFullUser({
+        profile: {
+          displayName: "New Name",
+          bio: "bio",
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+      }),
+    );
+    userUnitTestEnvironment.prismaUserFindUniqueOrThrow.mockResolvedValue(
+      makeFullUser({
+        profile: {
+          displayName: "New Name",
+          bio: "bio",
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+      }),
     );
 
     const result = await updateProfile({
@@ -97,7 +157,7 @@ describe("user account and profile services", () => {
     });
 
     expect(userUnitTestEnvironment.prismaUserFindUnique).not.toHaveBeenCalled();
-    expect(result.user.displayName).toBe("New Name");
+    expect(result.user.profile.displayName).toBe("New Name");
     expect(result.user).not.toHaveProperty("password");
     expect(userUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
       "user:user_1",
@@ -143,8 +203,11 @@ describe("user account and profile services", () => {
   it("rejects already completed account deletions", async () => {
     userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
       id: "user_1",
-      isDeleted: true,
-      accountDeletionCompletedAt: new Date(),
+      statusState: {
+        isDeleted: true,
+        accountDeletionCompletedAt: new Date(),
+      },
+      profile: { profilePictureKey: null },
     });
 
     await expect(deleteAccount({ userId: "user_1" })).rejects.toMatchObject({
@@ -158,25 +221,23 @@ describe("user account and profile services", () => {
       .mockResolvedValueOnce({
         id: "user_1",
         tokenVersion: 2,
-        status: "DELETED",
-        isDeleted: true,
-        accountDeletionRequestedAt: null,
-        accountDeletionCompletedAt: null,
-        profilePictureKey: "profilePictures/avatar.png",
-        deletedAt: new Date("2026-02-01T00:00:00.000Z"),
+        statusState: {
+          status: "DELETED",
+          isDeleted: true,
+          accountDeletionRequestedAt: null,
+          accountDeletionCompletedAt: null,
+          deletedAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+        profile: { profilePictureKey: "profilePictures/avatar.png" },
       })
       .mockResolvedValueOnce(null);
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue(
-      makeFullUser({
-        status: "DELETED",
-        isDeleted: true,
-        accountDeletionRequestedAt: new Date("2026-02-01T00:00:00.000Z"),
-      }),
+    userUnitTestEnvironment.prismaUserFindUniqueOrThrow.mockResolvedValue(
+      makeFullUser({ status: "DELETED", isDeleted: true }),
     );
 
     const result = await deleteAccount({ userId: "user_1" });
 
-    expect(userUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith(
+    expect(userUnitTestEnvironment.prismaUserStatusUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
           accountDeletionRequestedAt: new Date("2026-02-01T00:00:00.000Z"),
@@ -191,15 +252,24 @@ describe("user account and profile services", () => {
       .mockResolvedValueOnce({
         id: "user_1",
         tokenVersion: 2,
-        status: "ACTIVE",
-        isDeleted: false,
-        accountDeletionRequestedAt: null,
-        accountDeletionCompletedAt: null,
-        profilePictureKey: "profilePictures/avatar.png",
-        deletedAt: null,
+        statusState: {
+          status: "ACTIVE",
+          isDeleted: false,
+          accountDeletionRequestedAt: null,
+          accountDeletionCompletedAt: null,
+          deletedAt: null,
+        },
+        profile: { profilePictureKey: "profilePictures/avatar.png" },
       })
       .mockResolvedValueOnce(null);
     userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue(
+      makeFullUser({
+        status: "DELETED",
+        isDeleted: true,
+        deletedAt: new Date("2026-03-01T00:00:00.000Z"),
+      }),
+    );
+    userUnitTestEnvironment.prismaUserFindUniqueOrThrow.mockResolvedValue(
       makeFullUser({
         status: "DELETED",
         isDeleted: true,
@@ -234,53 +304,5 @@ describe("user account and profile services", () => {
         jobId: "accountDeletion__DELETE_ACCOUNT__user_1",
       }),
     );
-  });
-
-  it("rejects missing users during credit redemption", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(null);
-
-    await expect(redeemCredits("user_1")).rejects.toMatchObject({
-      message: "User not found",
-      statusCode: 404,
-    });
-  });
-
-  it("adds daily credits after the redemption window elapses", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      credits: 10,
-      creditsLastRedeemedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
-    });
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
-      credits: 20,
-    });
-
-    const result = await redeemCredits("user_1");
-
-    expect(result).toEqual({
-      credited: 10,
-      totalCredits: 20,
-    });
-    expect(userUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
-      "credits:user_1",
-      10,
-    );
-    expect(userUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
-      "user:user_1",
-    );
-  });
-
-  it("returns zero credits when the redemption window has not elapsed", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      credits: 15,
-      creditsLastRedeemedAt: new Date(),
-    });
-
-    const result = await redeemCredits("user_1");
-
-    expect(result).toEqual({
-      credited: 0,
-      totalCredits: 15,
-    });
-    expect(userUnitTestEnvironment.prismaUserUpdate).not.toHaveBeenCalled();
   });
 });

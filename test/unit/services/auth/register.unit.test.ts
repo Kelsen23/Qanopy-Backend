@@ -120,17 +120,30 @@ describe("register service", () => {
     );
     expect(authUnitTestEnvironment.prismaTransaction).toHaveBeenCalled();
     expect(authUnitTestEnvironment.prismaUserCreate).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         username: "alice",
         email: "alice@example.com",
-        password: "hashed:Password1!:10",
-        otp: "hashed:211110:6",
-        otpExpireAt: new Date(1_700_000_120_000),
-        otpResendAvailableAt: new Date(1_700_000_030_000),
-        registeredStage: "DEMO",
+        auth: {
+          create: expect.objectContaining({
+            password: "hashed:Password1!:10",
+            otp: "hashed:211110:6",
+            otpExpireAt: new Date(1_700_000_120_000),
+            otpResendAvailableAt: new Date(1_700_000_030_000),
+          }),
+        },
+        stats: { create: { registeredStage: "DEMO" } },
+        statusState: { create: {} },
+        emailChange: { create: {} },
+        creditPeriodUsages: {
+          create: expect.arrayContaining([
+            expect.objectContaining({ periodType: "DAILY" }),
+            expect.objectContaining({ periodType: "WEEKLY" }),
+          ]),
+        },
         moderationStats: { create: {} },
         notificationSettings: { create: {} },
-      },
+      }),
+      include: expect.any(Object),
     });
     expect(authUnitTestEnvironment.redisStore.get("user:user_1")).toBeTruthy();
     expect(authUnitTestEnvironment.verificationHtml).toHaveBeenCalledWith(

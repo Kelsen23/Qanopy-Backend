@@ -102,7 +102,7 @@ describe("user profile media services", () => {
 
     expect(result).toEqual({ message: "Profile picture update submitted" });
     expect(userUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith({
-      where: { id: "user_1" },
+      where: { userId: "user_1" },
       data: { profilePictureKey: "profilePictures/temp/user_1/avatar.png" },
     });
     expect(userUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
@@ -308,8 +308,10 @@ describe("user profile media services", () => {
       })
       .mockResolvedValueOnce({
         id: "user_1",
-        profilePictureKey:
-          "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
+        profile: {
+          profilePictureKey:
+            "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
+        },
       });
     userUnitTestEnvironment.prismaUserUpdateMany.mockResolvedValue({
       count: 1,
@@ -325,11 +327,13 @@ describe("user profile media services", () => {
       "profilePictures/temp/user_1/avatar.png",
       "PROFILE_PICTURE",
     );
-    expect(userUnitTestEnvironment.cacheUser).toHaveBeenCalledWith({
-      id: "user_1",
-      profilePictureKey:
-        "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
-    });
+    expect(userUnitTestEnvironment.cacheUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "user_1",
+        profilePictureKey:
+          "profilePictures/perm/user_1/11111111-1111-1111-1111-111111111111.png",
+      }),
+    );
     expect(userUnitTestEnvironment.redisDel).toHaveBeenCalledWith(
       "auth:user:user_1",
     );

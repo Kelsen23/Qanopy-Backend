@@ -255,6 +255,9 @@ describe("moderation core services", () => {
         user: {
           update: moderationUnitTestEnvironment.prismaUserUpdate,
         },
+        userStatus: {
+          update: moderationUnitTestEnvironment.prismaUserStatusUpdate,
+        },
       } as any,
       {
         userId: "user_1",
@@ -278,12 +281,12 @@ describe("moderation core services", () => {
         }),
       }),
     );
-    expect(moderationUnitTestEnvironment.prismaUserUpdate).toHaveBeenCalledWith(
-      {
-        where: { id: "user_1" },
+    expect(
+      moderationUnitTestEnvironment.prismaUserStatusUpdate,
+    ).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
         data: { status: "SUSPENDED" },
-      },
-    );
+    });
     expect(result).toEqual({
       createdBan: true,
       status: "SUSPENDED",

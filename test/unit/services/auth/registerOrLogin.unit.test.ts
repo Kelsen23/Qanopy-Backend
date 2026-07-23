@@ -1,4 +1,4 @@
-import { Prisma } from "../../../../src/generated/prisma/index.js";
+import { Prisma } from "../../../../src/generated/prisma/client.js";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -101,10 +101,15 @@ describe("registerOrLogin service", () => {
       data: expect.objectContaining({
         username: "oauth-user",
         email: "alice@example.com",
-        profilePictureUrl: "pic",
-        isVerified: true,
-        authProvider: "GOOGLE",
+        auth: {
+          create: expect.objectContaining({
+            isVerified: true,
+            authProvider: "GOOGLE",
+          }),
+        },
+        profile: { create: { profilePictureUrl: "pic" } },
       }),
+      include: expect.any(Object),
     });
     expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
       userId: "user_1",
@@ -157,8 +162,13 @@ describe("registerOrLogin service", () => {
         data: expect.objectContaining({
           username: "oauth-user-2",
           email: "alice@example.com",
-          authProvider: "GOOGLE",
+          auth: {
+            create: expect.objectContaining({
+              authProvider: "GOOGLE",
+            }),
+          },
         }),
+        include: expect.any(Object),
       },
     );
   });
@@ -265,10 +275,15 @@ describe("registerOrLogin service", () => {
       data: expect.objectContaining({
         username: "oauth-user",
         email: "alice@example.com",
-        profilePictureUrl: "avatar",
-        isVerified: true,
-        authProvider: "GITHUB",
+        auth: {
+          create: expect.objectContaining({
+            isVerified: true,
+            authProvider: "GITHUB",
+          }),
+        },
+        profile: { create: { profilePictureUrl: "avatar" } },
       }),
+      include: expect.any(Object),
     });
     expect(authUnitTestEnvironment.queueBadgeAward).toHaveBeenCalledWith({
       userId: "user_1",

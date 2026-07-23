@@ -23,6 +23,10 @@ vi.mock(
   "../../../../src/services/auth/unverifiedAccountCleanup.service.js",
   () => mockEmailWorkerModules.unverifiedAccountCleanupService,
 );
+vi.mock(
+  "../../../../src/services/user/userData.service.js",
+  () => mockEmailWorkerModules.userDataService,
+);
 
 const { startEmailWorker } = await import(
   "../../../../src/workers/email/email.worker.js"

@@ -3,21 +3,95 @@ import { vi } from "vitest";
 type RedisEntry = string;
 
 type BcryptCompareKey = `${string}::${string}`;
+type MockCallback = (tx: typeof prismaMocks.transactionClient) => Promise<unknown>;
+
+const normalizeUserResult = (value: unknown): unknown => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const row = value as Record<string, unknown>;
+
+  return {
+    ...row,
+    auth: row.auth ?? {
+      password: row.password ?? null,
+      authProvider: row.authProvider ?? "LOCAL",
+      isVerified: row.isVerified ?? false,
+      tokenVersion: row.tokenVersion ?? 0,
+      otp: row.otp ?? null,
+      otpResendAvailableAt: row.otpResendAvailableAt ?? null,
+      otpExpireAt: row.otpExpireAt ?? null,
+      resetPasswordOtp: row.resetPasswordOtp ?? null,
+      resetPasswordOtpVerified: row.resetPasswordOtpVerified ?? null,
+      resetPasswordOtpResendAvailableAt:
+        row.resetPasswordOtpResendAvailableAt ?? null,
+      resetPasswordOtpExpireAt: row.resetPasswordOtpExpireAt ?? null,
+    },
+    profile: row.profile ?? {
+      displayName: row.displayName ?? null,
+      bio: row.bio ?? null,
+      profilePictureUrl: row.profilePictureUrl ?? null,
+      profilePictureKey: row.profilePictureKey ?? null,
+    },
+    stats: row.stats ?? {
+      reputationPoints: row.reputationPoints ?? 0,
+      questionsAsked: row.questionsAsked ?? 0,
+      answersGiven: row.answersGiven ?? 0,
+      acceptedAnswers: row.acceptedAnswers ?? 0,
+      bestAnswers: row.bestAnswers ?? 0,
+      registeredStage: row.registeredStage ?? "DEMO",
+    },
+    statusState: row.statusState ?? {
+      status: row.status ?? "ACTIVE",
+      isDeleted: row.isDeleted ?? false,
+      deletedAt: row.deletedAt ?? null,
+      accountDeletionRequestedAt: row.accountDeletionRequestedAt ?? null,
+      accountDeletionCompletedAt: row.accountDeletionCompletedAt ?? null,
+    },
+    emailChange: row.emailChange ?? {
+      pendingEmail: row.emailChangePendingEmail ?? null,
+      otp: row.emailChangeOtp ?? null,
+      otpExpireAt: row.emailChangeOtpExpireAt ?? null,
+      otpResendAvailableAt: row.emailChangeOtpResendAvailableAt ?? null,
+    },
+  };
+};
+
+const normalizeResolvedUserMock = () => {
+  const mock = vi.fn();
+  const mockResolvedValue = mock.mockResolvedValue.bind(mock);
+  const mockResolvedValueOnce = mock.mockResolvedValueOnce.bind(mock);
+
+  mock.mockResolvedValue = (value: unknown) =>
+    mockResolvedValue(normalizeUserResult(value));
+  mock.mockResolvedValueOnce = (value: unknown) =>
+    mockResolvedValueOnce(normalizeUserResult(value));
+
+  return mock;
+};
 
 const redisStore = new Map<string, RedisEntry>();
 const bcryptCompareResults = new Map<BcryptCompareKey, boolean>();
 
-const prismaUserFindFirst = vi.fn();
-const prismaUserFindUnique = vi.fn();
-const prismaAppConfigFindUnique = vi.fn<
-  (args?: unknown) => Promise<{ value: string } | null>
->(async () => null);
+const prismaUserFindFirst = normalizeResolvedUserMock();
+const prismaUserFindUnique = normalizeResolvedUserMock();
+const prismaUserFindUniqueOrThrow = normalizeResolvedUserMock();
 const prismaUserFindMany = vi.fn();
-const prismaUserCreate = vi.fn();
-const prismaUserUpdate = vi.fn();
+const prismaUserCreate = normalizeResolvedUserMock();
+const prismaUserUpdate = normalizeResolvedUserMock();
+const prismaUserUpdateMockResolvedValue =
+  prismaUserUpdate.mockResolvedValue.bind(prismaUserUpdate);
+const prismaUserUpdateMockResolvedValueOnce =
+  prismaUserUpdate.mockResolvedValueOnce.bind(prismaUserUpdate);
 const prismaUserDeleteMany = vi.fn();
 const prismaUserDelete = vi.fn();
-const prismaTransaction = vi.fn(async (cb: (tx: any) => Promise<unknown>) =>
+const prismaUserAuthUpdate = vi.fn();
+const prismaUserProfileUpdate = vi.fn();
+const prismaUserStatsUpdate = vi.fn();
+const prismaUserStatusUpdate = vi.fn();
+const prismaUserEmailChangeUpdate = vi.fn();
+const prismaCreditPeriodUsageDeleteMany = vi.fn();
+const prismaCreditOperationDeleteMany = vi.fn();
+const prismaTransaction = vi.fn(async (cb: MockCallback) =>
   cb(prismaMocks.transactionClient),
 );
 const prismaFindUniqueByUsername = vi.fn();
@@ -29,6 +103,15 @@ const prismaDeleteManyWarning = vi.fn();
 const prismaDeleteManyModerationStrike = vi.fn();
 const prismaDeleteManyAchievement = vi.fn();
 const prismaDeleteManyUserBadge = vi.fn();
+
+prismaUserUpdate.mockResolvedValue = (value: unknown) => {
+  prismaUserFindUniqueOrThrow.mockResolvedValue(value);
+  return prismaUserUpdateMockResolvedValue(normalizeUserResult(value));
+};
+prismaUserUpdate.mockResolvedValueOnce = (value: unknown) => {
+  prismaUserFindUniqueOrThrow.mockResolvedValueOnce(value);
+  return prismaUserUpdateMockResolvedValueOnce(normalizeUserResult(value));
+};
 
 const redisGet = vi.fn(async (key: string) => redisStore.get(key) ?? null);
 const redisSet = vi.fn(async (key: string, value: string) => {
@@ -90,19 +173,35 @@ const prismaMocks = {
   transactionClient: {
     user: {
       create: prismaUserCreate,
+      update: prismaUserUpdate,
+      findUnique: prismaUserFindUnique,
+      findUniqueOrThrow: prismaUserFindUniqueOrThrow,
+    },
+    userAuth: {
+      update: prismaUserUpdate,
+    },
+    userProfile: {
+      update: prismaUserProfileUpdate,
+    },
+    userStats: {
+      update: prismaUserStatsUpdate,
+    },
+    userStatus: {
+      update: prismaUserStatusUpdate,
+    },
+    userEmailChange: {
+      update: prismaUserEmailChangeUpdate,
     },
   },
   user: {
     findFirst: prismaUserFindFirst,
     findUnique: prismaUserFindUnique,
+    findUniqueOrThrow: prismaUserFindUniqueOrThrow,
     findMany: prismaUserFindMany,
     create: prismaUserCreate,
     update: prismaUserUpdate,
     deleteMany: prismaUserDeleteMany,
     delete: prismaUserDelete,
-  },
-  appConfig: {
-    findUnique: prismaAppConfigFindUnique,
   },
   achievement: {
     deleteMany: prismaDeleteManyAchievement,
@@ -124,6 +223,27 @@ const prismaMocks = {
   },
   notificationSettings: {
     deleteMany: prismaDeleteManyNotificationSettings,
+  },
+  userAuth: {
+    update: prismaUserUpdate,
+  },
+  userProfile: {
+    update: prismaUserProfileUpdate,
+  },
+  userStats: {
+    update: prismaUserStatsUpdate,
+  },
+  userStatus: {
+    update: prismaUserStatusUpdate,
+  },
+  userEmailChange: {
+    update: prismaUserEmailChangeUpdate,
+  },
+  creditPeriodUsage: {
+    deleteMany: prismaCreditPeriodUsageDeleteMany,
+  },
+  creditOperation: {
+    deleteMany: prismaCreditOperationDeleteMany,
   },
   $transaction: prismaTransaction,
 };
@@ -211,12 +331,19 @@ export const mockAuthUnitTestEnvironment = {
   bcryptCompareResults,
   prismaUserFindFirst,
   prismaUserFindUnique,
-  prismaAppConfigFindUnique,
+  prismaUserFindUniqueOrThrow,
   prismaUserFindMany,
   prismaUserCreate,
   prismaUserUpdate,
   prismaUserDeleteMany,
   prismaUserDelete,
+  prismaUserAuthUpdate,
+  prismaUserProfileUpdate,
+  prismaUserStatsUpdate,
+  prismaUserStatusUpdate,
+  prismaUserEmailChangeUpdate,
+  prismaCreditPeriodUsageDeleteMany,
+  prismaCreditOperationDeleteMany,
   prismaTransaction,
   prismaFindUniqueByUsername,
   prismaDeleteManyGeneric,
@@ -263,13 +390,24 @@ export const resetAuthUnitTestEnvironment = () => {
 
   prismaUserFindFirst.mockReset();
   prismaUserFindUnique.mockReset();
-  prismaAppConfigFindUnique.mockReset().mockResolvedValue(null);
+  prismaUserFindUniqueOrThrow.mockReset();
   prismaUserFindMany.mockReset();
   prismaUserCreate.mockReset();
   prismaUserUpdate.mockReset();
   prismaUserDeleteMany.mockReset();
   prismaUserDelete.mockReset();
-  prismaTransaction.mockClear();
+  prismaUserAuthUpdate.mockReset();
+  prismaUserProfileUpdate.mockReset();
+  prismaUserStatsUpdate.mockReset();
+  prismaUserStatusUpdate.mockReset();
+  prismaUserEmailChangeUpdate.mockReset();
+  prismaCreditPeriodUsageDeleteMany.mockReset();
+  prismaCreditOperationDeleteMany.mockReset();
+  prismaTransaction
+    .mockReset()
+    .mockImplementation(async (cb: MockCallback) =>
+      cb(prismaMocks.transactionClient),
+    );
   prismaFindUniqueByUsername.mockClear();
   prismaDeleteManyGeneric.mockClear();
   prismaDeleteManyNotificationSettings.mockClear();

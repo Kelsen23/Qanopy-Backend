@@ -98,33 +98,8 @@ describe("auth shared utils", () => {
     );
   });
 
-  it("returns registered stage from cache before prisma", async () => {
-    authUnitTestEnvironment.redisStore.set("app:stage", "beta");
-
-    await expect(getRegisteredStage()).resolves.toBe("beta");
-    expect(
-      authUnitTestEnvironment.prismaAppConfigFindUnique,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("loads and caches registered stage from prisma when cache misses", async () => {
-    authUnitTestEnvironment.prismaAppConfigFindUnique.mockResolvedValueOnce({
-      value: "alpha",
-    });
-
-    await expect(getRegisteredStage()).resolves.toBe("alpha");
-    expect(
-      authUnitTestEnvironment.prismaAppConfigFindUnique,
-    ).toHaveBeenCalledWith({
-      where: { key: "appStage" },
-      select: { value: true },
-    });
-    expect(authUnitTestEnvironment.redisSet).toHaveBeenCalledWith(
-      "app:stage",
-      "alpha",
-      "EX",
-      60,
-    );
+  it("returns registered stage from app stage config", () => {
+    expect(getRegisteredStage()).toBe("DEMO");
   });
 
   it("only cleans up expired unverified users", async () => {
