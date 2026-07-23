@@ -1,6 +1,6 @@
 import z from "zod";
 
-import { Interest } from "../generated/prisma/index.js";
+import { Interest } from "../generated/prisma/client.js";
 
 const aiSuggestionSchema = z
   .object({
