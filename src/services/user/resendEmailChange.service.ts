@@ -1,17 +1,18 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
+import { getDeviceIp, type DeviceInfo } from "../auth/auth.shared.js";
+import { getFlattenedUserById } from "./userData.service.js";
+
+import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
+import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+
 import emailQueue from "../../queues/email.queue.js";
-
-import { getDeviceIp, type DeviceInfo } from "../auth/auth.shared.js";
-
-import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 
 type ResendEmailChangeInput = {
   userId: string;
@@ -22,17 +23,7 @@ const resendEmailChange = async ({
   userId,
   deviceInfo,
 }: ResendEmailChangeInput) => {
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      emailChangePendingEmail: true,
-      emailChangeOtp: true,
-      emailChangeOtpExpireAt: true,
-      emailChangeOtpResendAvailableAt: true,
-    },
-  });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -59,18 +50,18 @@ const resendEmailChange = async ({
 
   const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  const updatedUser = await prisma.userEmailChange.update({
+    where: { userId },
     data: {
-      emailChangeOtp: hashedOtp,
-      emailChangeOtpExpireAt,
-      emailChangeOtpResendAvailableAt,
+      otp: hashedOtp,
+      otpExpireAt: emailChangeOtpExpireAt,
+      otpResendAvailableAt: emailChangeOtpResendAvailableAt,
     },
   });
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = emailChangeHtml(
-    updatedUser.username,
+    foundUser.username,
     otp,
     deviceName,
     getDeviceIp(deviceInfo),
@@ -80,8 +71,8 @@ const resendEmailChange = async ({
     await emailQueue.add(
       "RESEND_EMAIL_CHANGE",
       {
-        email: updatedUser.emailChangePendingEmail,
-        userId: updatedUser.id,
+        email: updatedUser.pendingEmail,
+        userId,
         purpose: "CHANGE_EMAIL",
         subject: "Change Email Request",
         htmlContent,
@@ -93,18 +84,18 @@ const resendEmailChange = async ({
         jobId: makeUniqueJobId(
           "email",
           "RESEND_EMAIL_CHANGE",
-          updatedUser.id,
-          updatedUser.emailChangePendingEmail,
+          userId,
+          updatedUser.pendingEmail,
         ),
       },
     );
   } catch (error) {
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.userEmailChange.update({
+      where: { userId },
       data: {
-        emailChangeOtp: previousOtp,
-        emailChangeOtpExpireAt: previousOtpExpireAt,
-        emailChangeOtpResendAvailableAt: previousOtpResendAvailableAt,
+        otp: previousOtp,
+        otpExpireAt: previousOtpExpireAt,
+        otpResendAvailableAt: previousOtpResendAvailableAt,
       },
     });
 
@@ -119,7 +110,7 @@ const resendEmailChange = async ({
   }
 
   try {
-    await removeEmailChangeAttempts(updatedUser.id);
+    await removeEmailChangeAttempts(userId);
   } catch (error) {
     console.error("[resendEmailChange] Failed to clear OTP attempts", {
       userId,
@@ -128,10 +119,9 @@ const resendEmailChange = async ({
   }
 
   return {
-    emailChangeOtpExpireAt: updatedUser.emailChangeOtpExpireAt,
-    emailChangeOtpResendAvailableAt:
-      updatedUser.emailChangeOtpResendAvailableAt,
-    pendingEmail: updatedUser.emailChangePendingEmail,
+    emailChangeOtpExpireAt: updatedUser.otpExpireAt,
+    emailChangeOtpResendAvailableAt: updatedUser.otpResendAvailableAt,
+    pendingEmail: updatedUser.pendingEmail,
   };
 };
 

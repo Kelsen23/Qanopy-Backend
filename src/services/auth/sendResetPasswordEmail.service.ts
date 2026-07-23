@@ -1,18 +1,19 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { resetPasswordHtml } from "../../utils/email/renderTemplate.util.js";
-
-import prisma from "../../config/prisma.config.js";
-
-import emailQueue from "../../queues/email.queue.js";
-
 import {
   getDeviceIp,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "./auth.shared.js";
+import { getFlattenedUserByEmail } from "../user/userData.service.js";
+
+import prisma from "../../config/prisma.config.js";
+
+import { resetPasswordHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+
+import emailQueue from "../../queues/email.queue.js";
 
 type SendResetPasswordEmailInput = {
   email: string;
@@ -23,20 +24,7 @@ const sendResetPasswordEmail = async ({
   email,
   deviceInfo,
 }: SendResetPasswordEmailInput) => {
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: {
-      id: true,
-      authProvider: true,
-      isVerified: true,
-      createdAt: true,
-      email: true,
-      username: true,
-      resetPasswordOtp: true,
-      resetPasswordOtpExpireAt: true,
-      resetPasswordOtpResendAvailableAt: true,
-    },
-  });
+  const foundUser = await getFlattenedUserByEmail(email);
 
   if (!foundUser || foundUser.authProvider !== "LOCAL") {
     return { sent: true };
@@ -58,8 +46,8 @@ const sendResetPasswordEmail = async ({
 
   const hashedResetPasswordOtp = await bcrypt.hash(resetPasswordOtp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { email },
+  const updatedUser = await prisma.userAuth.update({
+    where: { userId: foundUser.id },
     data: {
       resetPasswordOtp: hashedResetPasswordOtp,
       resetPasswordOtpExpireAt,
@@ -73,7 +61,7 @@ const sendResetPasswordEmail = async ({
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
 
   const htmlContent = resetPasswordHtml(
-    updatedUser.username,
+    foundUser.username,
     resetPasswordOtp,
     deviceName,
     getDeviceIp(deviceInfo),
@@ -82,8 +70,8 @@ const sendResetPasswordEmail = async ({
   await emailQueue.add(
     "SEND_RESET_PASSWORD_EMAIL",
     {
-      email: updatedUser.email,
-      userId: updatedUser.id,
+      email: foundUser.email,
+      userId: foundUser.id,
       purpose: "RESET_PASSWORD",
       subject: "Reset Password Request",
       htmlContent,
@@ -94,8 +82,8 @@ const sendResetPasswordEmail = async ({
       jobId: makeUniqueJobId(
         "email",
         "SEND_RESET_PASSWORD_EMAIL",
-        updatedUser.id,
-        updatedUser.email,
+        foundUser.id,
+        foundUser.email,
       ),
     },
   );

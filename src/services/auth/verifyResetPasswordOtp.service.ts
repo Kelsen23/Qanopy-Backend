@@ -1,14 +1,15 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-
-import prisma from "../../config/prisma.config.js";
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
 import {
   handleExpiredUnverifiedUser,
   removeResetPasswordAttempts,
 } from "./auth.shared.js";
+import { getFlattenedUserByEmail } from "../user/userData.service.js";
+
+import prisma from "../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
 
 type VerifyResetPasswordOtpInput = {
   email: string;
@@ -19,20 +20,7 @@ const verifyResetPasswordOtp = async ({
   email,
   otp,
 }: VerifyResetPasswordOtpInput) => {
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: {
-      id: true,
-      authProvider: true,
-      isVerified: true,
-      createdAt: true,
-      email: true,
-      username: true,
-      resetPasswordOtp: true,
-      resetPasswordOtpExpireAt: true,
-      resetPasswordOtpResendAvailableAt: true,
-    },
-  });
+  const foundUser = await getFlattenedUserByEmail(email);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -75,8 +63,8 @@ const verifyResetPasswordOtp = async ({
     throw new HttpError("Invalid reset password OTP", 400);
   }
 
-  await prisma.user.update({
-    where: { id: foundUser.id },
+  await prisma.userAuth.update({
+    where: { userId: foundUser.id },
     data: {
       resetPasswordOtpVerified: true,
       resetPasswordOtp: null,

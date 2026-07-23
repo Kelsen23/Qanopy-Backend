@@ -1,9 +1,8 @@
-import prisma from "../../config/prisma.config.js";
-
-import Notification from "../../models/notification.model.js";
-import UserInterest from "../../models/userInterest.model.js";
+import type { Prisma } from "../../generated/prisma/client.js";
 
 import deleteSingleImageService from "../media/deleteSingleImage.service.js";
+
+import prisma from "../../config/prisma.config.js";
 
 import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js";
 import {
@@ -12,6 +11,9 @@ import {
 } from "../../utils/cache/clearCache.util.js";
 import clearModerationCachesForUser from "../../utils/cache/clearModerationCachesForUser.util.js";
 import clearUserCache from "../../utils/cache/clearUserCache.util.js";
+
+import Notification from "../../models/notification.model.js";
+import UserInterest from "../../models/userInterest.model.js";
 
 type DeleteAccountJobData = {
   userId: string;
@@ -40,6 +42,8 @@ const purgeAccountData = async ({
     prisma.moderationStats.deleteMany({ where: { userId } }),
     prisma.notificationSettings.deleteMany({ where: { userId } }),
     prisma.userBadge.deleteMany({ where: { userId } }),
+    prisma.creditPeriodUsage.deleteMany({ where: { userId } }),
+    prisma.creditOperation.deleteMany({ where: { userId } }),
   ]);
 
   await Notification.deleteMany({
@@ -59,18 +63,15 @@ const softDeleteAccount = async (userId: string) => {
     where: { id: userId },
     select: {
       id: true,
-      status: true,
-      isDeleted: true,
-      deletedAt: true,
-      accountDeletionCompletedAt: true,
+      statusState: true,
     },
   });
 
   if (!foundUser) return null;
 
-  if (foundUser.accountDeletionCompletedAt) return foundUser;
+  if (foundUser.statusState?.accountDeletionCompletedAt) return foundUser;
 
-  const deletedAt = foundUser.deletedAt ?? new Date();
+  const deletedAt = foundUser.statusState?.deletedAt ?? new Date();
   const deletedUserData = await buildDeletedUserData(
     userId,
     deletedAt,
@@ -81,18 +82,79 @@ const softDeleteAccount = async (userId: string) => {
       })),
   );
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      ...deletedUserData,
-      accountDeletionCompletedAt: new Date(),
-    },
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        username: deletedUserData.username,
+        email: deletedUserData.email,
+        role: deletedUserData.role,
+      },
+    });
+
+    await tx.userAuth.update({
+      where: { userId },
+      data: {
+        password: null,
+        tokenVersion: { increment: 1 },
+        otp: null,
+        otpExpireAt: null,
+        otpResendAvailableAt: null,
+        resetPasswordOtp: null,
+        resetPasswordOtpVerified: null,
+        resetPasswordOtpExpireAt: null,
+        resetPasswordOtpResendAvailableAt: null,
+        isVerified: false,
+        authProvider: "LOCAL",
+      },
+    });
+
+    await tx.userProfile.update({
+      where: { userId },
+      data: {
+        displayName: deletedUserData.displayName,
+        bio: null,
+        profilePictureKey: null,
+        profilePictureUrl: null,
+      },
+    });
+
+    await tx.userStats.update({
+      where: { userId },
+      data: {
+        reputationPoints: 0,
+        questionsAsked: 0,
+        answersGiven: 0,
+        acceptedAnswers: 0,
+        bestAnswers: 0,
+      },
+    });
+
+    await tx.userStatus.update({
+      where: { userId },
+      data: {
+        status: "TERMINATED",
+        isDeleted: true,
+        deletedAt,
+        accountDeletionCompletedAt: new Date(),
+      },
+    });
+
+    await tx.userEmailChange.update({
+      where: { userId },
+      data: {
+        pendingEmail: null,
+        otp: null,
+        otpExpireAt: null,
+        otpResendAvailableAt: null,
+      },
+    });
   });
 
-  await clearUserCache(updatedUser.id);
-  await clearModerationCachesForUser(updatedUser.id);
+  await clearUserCache(userId);
+  await clearModerationCachesForUser(userId);
 
-  return updatedUser;
+  return foundUser;
 };
 
 const processAccountDeletion = async (jobData: DeleteAccountJobData) => {

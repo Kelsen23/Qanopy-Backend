@@ -1,13 +1,4 @@
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
-import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
-
-import prisma from "../../../../config/prisma.config.js";
-
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-
-import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
-import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
+import type { Prisma } from "../../../../generated/prisma/client.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
@@ -24,6 +15,16 @@ import {
   type StrikeSideEffectContext,
   type TargetContentState,
 } from "./shared.js";
+
+import prisma from "../../../../config/prisma.config.js";
+
+import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
+import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
+
+import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 
 const moderateStrikeBanPerm = async (
   title: string,
@@ -134,7 +135,7 @@ const moderateStrikeBanPerm = async (
   }
 
   if (context.targetUserExists) {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await applyUserBan(tx, {
         userId: context.targetUserId,
         banType: "PERM",

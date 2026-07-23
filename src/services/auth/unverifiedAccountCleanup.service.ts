@@ -1,9 +1,10 @@
+import { getFlattenedUserById } from "../user/userData.service.js";
+import { purgeAccountData } from "../user/processAccountDeletion.service.js";
+
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
 import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
-
-import { purgeAccountData } from "../user/processAccountDeletion.service.js";
 
 type UnverifiedLocalUser = {
   id: string;
@@ -25,17 +26,7 @@ const isExpiredUnverifiedLocalUser = (
   now - user.createdAt.getTime() >= UNVERIFIED_ACCOUNT_TTL_MS;
 
 const cleanupExpiredUnverifiedUserById = async (userId: string) => {
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      createdAt: true,
-      authProvider: true,
-      isVerified: true,
-      profilePictureKey: true,
-    },
-  });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) return false;
 
@@ -61,8 +52,10 @@ const cleanupAllExpiredUnverifiedUsers = async () => {
 
   const expiredUsers = await prisma.user.findMany({
     where: {
-      authProvider: "LOCAL",
-      isVerified: false,
+      auth: {
+        authProvider: "LOCAL",
+        isVerified: false,
+      },
       createdAt: { lte: cutoffAt },
     },
     select: { id: true },

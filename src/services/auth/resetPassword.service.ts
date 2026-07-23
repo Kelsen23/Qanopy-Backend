@@ -1,19 +1,25 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
-import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
-
 import {
   getDeviceIp,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
   removeResetPasswordAttempts,
 } from "./auth.shared.js";
+import {
+  flattenUser,
+  getFlattenedUserByEmail,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
+
 import emailQueue from "../../queues/email.queue.js";
 
 type ResetPasswordInput = {
@@ -27,19 +33,7 @@ const resetPassword = async ({
   newPassword,
   deviceInfo,
 }: ResetPasswordInput) => {
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: {
-      id: true,
-      password: true,
-      authProvider: true,
-      isVerified: true,
-      createdAt: true,
-      email: true,
-      username: true,
-      resetPasswordOtpVerified: true,
-    },
-  });
+  const foundUser = await getFlattenedUserByEmail(email);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -69,8 +63,8 @@ const resetPassword = async ({
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  const updatedUser = await prisma.user.update({
-    where: { email },
+  await prisma.userAuth.update({
+    where: { userId: foundUser.id },
     data: {
       password: hashedPassword,
       tokenVersion: { increment: 1 },
@@ -80,6 +74,13 @@ const resetPassword = async ({
       resetPasswordOtpVerified: null,
     },
   });
+
+  const updatedUser = flattenUser(
+    await prisma.user.findUniqueOrThrow({
+      where: { id: foundUser.id },
+      include: normalizedUserInclude,
+    }),
+  );
 
   await getRedisCacheClient().del(`auth:user:${updatedUser.id}`);
   await getRedisCacheClient().del(`user:${updatedUser.id}`);

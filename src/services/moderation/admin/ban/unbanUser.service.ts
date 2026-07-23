@@ -1,15 +1,17 @@
 import crypto from "crypto";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
-import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
-
-import prisma from "../../../../config/prisma.config.js";
-
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import type { Prisma } from "../../../../generated/prisma/client.js";
 
 import sendUnbanNoticeEmail from "../../sendUnbanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+
+import prisma from "../../../../config/prisma.config.js";
+
+import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+
+import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
 
 type UnbanUserInput = {
   userId: string;
@@ -19,53 +21,59 @@ type UnbanUserInput = {
 const unbanUser = async ({ userId, reviewedBy }: UnbanUserInput) => {
   const decisionId = crypto.randomUUID();
 
-  const transactionResult = await prisma.$transaction(async (tx) => {
-    const foundUser = await tx.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
+  const transactionResult = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const foundUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          statusState: {
+            select: {
+              status: true,
+            },
+          },
+        },
+      });
 
-    if (!foundUser) {
-      throw new HttpError("User not found", 404);
-    }
+      if (!foundUser) {
+        throw new HttpError("User not found", 404);
+      }
 
-    const activeBans = await tx.ban.findMany({
-      where: {
-        userId,
-        isActive: true,
-      },
-      select: {
-        id: true,
-      },
-    });
+      const activeBans = await tx.ban.findMany({
+        where: {
+          userId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+        },
+      });
 
-    if (activeBans.length === 0) {
-      throw new HttpError("User has no active bans", 404);
-    }
+      if (activeBans.length === 0) {
+        throw new HttpError("User has no active bans", 404);
+      }
 
-    const activeBanIds = activeBans.map((ban) => ban.id);
+      const activeBanIds = activeBans.map((ban) => ban.id);
 
-    await tx.ban.updateMany({
-      where: {
-        id: { in: activeBanIds },
-      },
-      data: { isActive: false },
-    });
+      await tx.ban.updateMany({
+        where: {
+          id: { in: activeBanIds },
+        },
+        data: { isActive: false },
+      });
 
-    await tx.user.update({
-      where: { id: userId },
-      data: { status: "ACTIVE" },
-    });
+      await tx.userStatus.update({
+        where: { userId },
+        data: { status: "ACTIVE" },
+      });
 
-    return {
-      previousStatus: foundUser.status,
-      activeBanIds,
-      deactivatedBanCount: activeBanIds.length,
-    };
-  });
+      return {
+        previousStatus: foundUser.statusState?.status ?? "ACTIVE",
+        activeBanIds,
+        deactivatedBanCount: activeBanIds.length,
+      };
+    },
+  );
 
   const sideEffectContext = {
     decisionId,

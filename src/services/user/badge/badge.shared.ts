@@ -1,5 +1,3 @@
-import type { User } from "../../../generated/prisma/index.js";
-
 const badgeTriggers = {
   ACCOUNT_CREATED: "ACCOUNT_CREATED",
 } as const;
@@ -13,7 +11,10 @@ type BadgeTrigger = (typeof badgeTriggers)[keyof typeof badgeTriggers];
 
 type BadgeRuleContext = {
   trigger: BadgeTrigger;
-  user: Pick<User, "id" | "registeredStage">;
+  user: {
+    id: string;
+    registeredStage: string;
+  };
 };
 
 type BadgeRule = {

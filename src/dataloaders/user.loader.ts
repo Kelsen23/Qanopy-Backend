@@ -1,12 +1,11 @@
 import DataLoader from "dataloader";
 
-import prisma from "../config/prisma.config.js";
+import { getFlattenedUsersByIds } from "../services/user/userData.service.js";
+
 import sanitizeUser from "../utils/auth/sanitizeUser.util.js";
 
 const batchUsers = async (userIds: readonly string[]) => {
-  const users = await prisma.user.findMany({
-    where: { id: { in: [...userIds] } },
-  });
+  const users = await getFlattenedUsersByIds([...userIds]);
 
   const userMap: Record<string, unknown> = {};
 

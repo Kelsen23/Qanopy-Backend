@@ -1,9 +1,9 @@
-import HttpError from "../../utils/http/httpError.util.js";
+import { cacheUser } from "./auth.shared.js";
+import { getFlattenedUserById } from "../user/userData.service.js";
 
-import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import { cacheUser } from "./auth.shared.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 type IsAuthInput = {
   userId: string;
@@ -13,7 +13,7 @@ const isAuth = async ({ userId }: IsAuthInput) => {
   const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
   const foundUser = cachedUser
     ? JSON.parse(cachedUser)
-    : await prisma.user.findUnique({ where: { id: userId } });
+    : await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 

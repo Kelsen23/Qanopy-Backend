@@ -46,17 +46,38 @@ const processNotificationJob = async (jobData: {
 
   if (sockets.length > 0) {
     if (actorId) {
-      actor = await prisma.user.findUnique({
-        where: { id: actorId },
-        select: {
-          id: true,
-          username: true,
-          displayName: true,
-          profilePictureKey: true,
-          profilePictureUrl: true,
-          isDeleted: true,
-        },
-      });
+      actor = await prisma.user
+        .findUnique({
+          where: { id: actorId },
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                profilePictureKey: true,
+                profilePictureUrl: true,
+              },
+            },
+            statusState: {
+              select: {
+                isDeleted: true,
+              },
+            },
+          },
+        })
+        .then((user) =>
+          user
+            ? {
+                id: user.id,
+                username: user.username,
+                displayName: user.profile?.displayName ?? null,
+                profilePictureKey: user.profile?.profilePictureKey ?? null,
+                profilePictureUrl: user.profile?.profilePictureUrl ?? null,
+                isDeleted: user.statusState?.isDeleted ?? false,
+              }
+            : null,
+        );
     }
 
     await publishSocketEvent(recipientId, "notification", {

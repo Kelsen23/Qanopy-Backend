@@ -15,14 +15,27 @@ const awardBadge = async ({ userId, trigger }: AwardBadgeInput) => {
     where: { id: userId },
     select: {
       id: true,
-      registeredStage: true,
-      isDeleted: true,
+      stats: {
+        select: {
+          registeredStage: true,
+        },
+      },
+      statusState: {
+        select: {
+          isDeleted: true,
+        },
+      },
     },
   });
 
-  if (!user || user.isDeleted) {
+  if (!user || user.statusState?.isDeleted) {
     throw new Error(`Badge user not found: ${userId}`);
   }
+
+  const badgeUser = {
+    id: user.id,
+    registeredStage: user.stats?.registeredStage ?? "DEMO",
+  };
 
   const rules = getBadgeRulesForTrigger(trigger);
 
@@ -33,7 +46,7 @@ const awardBadge = async ({ userId, trigger }: AwardBadgeInput) => {
   for (const rule of rules) {
     const shouldAward = await rule.shouldAward({
       trigger,
-      user,
+      user: badgeUser,
     });
 
     if (!shouldAward) {
@@ -58,12 +71,12 @@ const awardBadge = async ({ userId, trigger }: AwardBadgeInput) => {
     await prisma.userBadge.upsert({
       where: {
         userId_badgeId: {
-          userId: user.id,
+          userId: badgeUser.id,
           badgeId: badge.id,
         },
       },
       create: {
-        userId: user.id,
+        userId: badgeUser.id,
         badgeId: badge.id,
         source: trigger,
       },

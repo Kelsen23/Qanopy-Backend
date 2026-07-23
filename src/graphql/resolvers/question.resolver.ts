@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Redis } from "ioredis";
 
-import { Interest, User } from "../../generated/prisma/index.js";
+import { Interest, User } from "../../generated/prisma/client.js";
 
 import {
   canGetAIAnswer,

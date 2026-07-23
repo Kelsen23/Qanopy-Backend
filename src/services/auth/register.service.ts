@@ -1,5 +1,7 @@
 import bcrypt from "bcrypt";
 
+import type { Prisma } from "../../generated/prisma/client.js";
+
 import {
   cacheUser,
   getDeviceIp,
@@ -8,6 +10,13 @@ import {
   queueBadgeAwardSafely,
   type DeviceInfo,
 } from "./auth.shared.js";
+import {
+  createUserDefaults,
+  flattenUser,
+  getFlattenedUserByEmail,
+  getFlattenedUserByUsername,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -30,10 +39,7 @@ const register = async ({
   password,
   deviceInfo,
 }: RegisterInput) => {
-  const emailExists = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
+  const emailExists = await getFlattenedUserByEmail(email);
 
   if (emailExists) {
     if (!(await handleExpiredUnverifiedUser(emailExists))) {
@@ -41,10 +47,7 @@ const register = async ({
     }
   }
 
-  const usernameExists = await prisma.user.findUnique({
-    where: { username },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
+  const usernameExists = await getFlattenedUserByUsername(username);
 
   if (usernameExists) {
     if (!(await handleExpiredUnverifiedUser(usernameExists))) {
@@ -61,23 +64,33 @@ const register = async ({
 
   const registeredStage = await getRegisteredStage();
 
-  const newUser = await prisma.$transaction(async (tx) => {
-    return tx.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        otp: hashedOtp,
-        otpExpireAt,
-        otpResendAvailableAt,
-        registeredStage,
-        moderationStats: { create: {} },
-        notificationSettings: { create: {} },
-      },
-    });
-  });
+  const newUser = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      return tx.user.create({
+        data: {
+          username,
+          email,
+          ...createUserDefaults({
+            registeredStage,
+            password: hashedPassword,
+          }),
+          auth: {
+            create: {
+              password: hashedPassword,
+              otp: hashedOtp,
+              otpExpireAt,
+              otpResendAvailableAt,
+            },
+          },
+        },
+        include: normalizedUserInclude,
+      });
+    },
+  );
 
-  await cacheUser(newUser);
+  const flattenedUser = flattenUser(newUser);
+
+  await cacheUser(flattenedUser);
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = verificationHtml(
@@ -111,9 +124,9 @@ const register = async ({
   await queueBadgeAwardSafely(newUser.id);
 
   return {
-    user: newUser,
-    otpExpireAt: newUser.otpExpireAt,
-    otpResendAvailableAt: newUser.otpResendAvailableAt,
+    user: flattenedUser,
+    otpExpireAt: flattenedUser.otpExpireAt,
+    otpResendAvailableAt: flattenedUser.otpResendAvailableAt,
   };
 };
 

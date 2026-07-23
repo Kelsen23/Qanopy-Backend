@@ -1,4 +1,4 @@
-import { ContentType } from "../../../generated/prisma/index.js";
+import { ContentType } from "../../../generated/prisma/client.js";
 
 import { isLowConfidenceHighRiskCategory } from "./aiModeration.policy.js";
 

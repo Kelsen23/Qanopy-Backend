@@ -1,11 +1,16 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
+import { cacheUser, handleExpiredUnverifiedUser } from "./auth.shared.js";
+import {
+  flattenUser,
+  getFlattenedUserById,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import { cacheUser, handleExpiredUnverifiedUser } from "./auth.shared.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 type VerifyEmailInput = {
   userId: string;
@@ -13,7 +18,7 @@ type VerifyEmailInput = {
 };
 
 const verifyEmail = async ({ userId, otp: inputOtp }: VerifyEmailInput) => {
-  const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -58,8 +63,8 @@ const verifyEmail = async ({ userId, otp: inputOtp }: VerifyEmailInput) => {
     throw new HttpError("Invalid OTP", 400);
   }
 
-  const verifiedUser = await prisma.user.update({
-    where: { id: userId },
+  await prisma.userAuth.update({
+    where: { userId },
     data: {
       isVerified: true,
       otp: null,
@@ -67,6 +72,13 @@ const verifyEmail = async ({ userId, otp: inputOtp }: VerifyEmailInput) => {
       otpResendAvailableAt: null,
     },
   });
+
+  const verifiedUser = flattenUser(
+    await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: normalizedUserInclude,
+    }),
+  );
 
   await cacheUser(verifiedUser);
   await getRedisCacheClient().del(`auth:user:${verifiedUser.id}`);

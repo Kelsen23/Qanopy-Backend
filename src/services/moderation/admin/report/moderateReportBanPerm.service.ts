@@ -1,17 +1,18 @@
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import type { Prisma } from "../../../../generated/prisma/client.js";
 
-import prisma from "../../../../config/prisma.config.js";
-
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
-
-import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
-import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
+import type { ReportModerationContext } from "./shared.js";
 
 import applyUserBan from "../../applyUserBan.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 
-import type { ReportModerationContext } from "./shared.js";
+import prisma from "../../../../config/prisma.config.js";
+
+import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
+
+import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
 
 const moderateReportBanPerm = async (
   title: string,
@@ -30,7 +31,7 @@ const moderateReportBanPerm = async (
   },
 ) => {
   if (context.targetUserExists) {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await applyUserBan(tx, {
         userId: context.reportTargetUserId,
         banType: "PERM",
