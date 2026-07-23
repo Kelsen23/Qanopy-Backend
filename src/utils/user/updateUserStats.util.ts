@@ -1,3 +1,5 @@
+import type { Prisma } from "../../generated/prisma/client.js";
+
 import prisma from "../../config/prisma.config.js";
 
 async function updateUserStats(userId: string, data: any) {
@@ -11,20 +13,20 @@ async function updateUserStats(userId: string, data: any) {
       increment = -reputationPoints.decrement;
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     if (Object.keys(rest).length > 0) {
-      await tx.user.update({
-        where: { id: userId },
+      await tx.userStats.update({
+        where: { userId },
         data: rest,
       });
     }
 
     if (reputationPoints) {
       await tx.$executeRaw`
-            UPDATE "User"
+            UPDATE "UserStats"
             SET "reputationPoints" =
               GREATEST(0, "reputationPoints" + ${increment})
-            WHERE id = ${userId};
+            WHERE "userId" = ${userId};
           `;
     }
   });

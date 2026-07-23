@@ -1,14 +1,14 @@
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeJobId } from "../../utils/job/makeJobId.util.js";
-
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
 import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
 
 const deleteProfilePicture = async (userId: string) => {
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
+  const foundUser = await prisma.userProfile.findUnique({
+    where: { userId },
     select: { profilePictureKey: true, profilePictureUrl: true },
   });
 
@@ -17,8 +17,8 @@ const deleteProfilePicture = async (userId: string) => {
   if (foundUser.profilePictureKey) {
     const profilePictureKey = foundUser.profilePictureKey;
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
+    const updatedUser = await prisma.userProfile.update({
+      where: { userId },
       data: { profilePictureKey: null, profilePictureUrl: null },
     });
 
@@ -44,8 +44,8 @@ const deleteProfilePicture = async (userId: string) => {
   }
 
   if (foundUser.profilePictureUrl) {
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
+    const updatedUser = await prisma.userProfile.update({
+      where: { userId },
       data: { profilePictureKey: null, profilePictureUrl: null },
     });
 

@@ -1,12 +1,6 @@
 import { Request, Response } from "express";
 
-import asyncHandler from "../middlewares/asyncHandler.middleware.js";
-
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
-
-import generateToken from "../utils/auth/generateToken.util.js";
-import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
-import sanitizeUser from "../utils/auth/sanitizeUser.util.js";
 
 import {
   changePassword as changePasswordService,
@@ -21,6 +15,12 @@ import {
   verifyEmail as verifyEmailService,
   verifyResetPasswordOtp as verifyResetPasswordOtpService,
 } from "../services/auth/auth.service.js";
+
+import generateToken from "../utils/auth/generateToken.util.js";
+import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
+import sanitizeUser from "../utils/auth/sanitizeUser.util.js";
+
+import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password } = req.body;

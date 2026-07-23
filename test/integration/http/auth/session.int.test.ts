@@ -53,7 +53,26 @@ describe("GET /api/auth/session", () => {
         id: "user_1",
         username: "testUser",
         email: "test@example.com",
-        isVerified: true,
+        auth: {
+          isVerified: true,
+        },
+        profile: {
+          displayName: null,
+          bio: null,
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+        stats: {
+          reputationPoints: 0,
+          questionsAsked: 0,
+          answersGiven: 0,
+          acceptedAnswers: 0,
+          bestAnswers: 0,
+        },
+        statusState: {
+          status: "ACTIVE",
+          isDeleted: false,
+        },
       },
     });
 
@@ -66,7 +85,26 @@ describe("GET /api/auth/session", () => {
         id: "user_1",
         username: "testUser",
         email: "test@example.com",
-        isVerified: true,
+        auth: {
+          isVerified: true,
+        },
+        profile: {
+          displayName: null,
+          bio: null,
+          profilePictureUrl: null,
+          profilePictureKey: null,
+        },
+        stats: {
+          reputationPoints: 0,
+          questionsAsked: 0,
+          answersGiven: 0,
+          acceptedAnswers: 0,
+          bestAnswers: 0,
+        },
+        statusState: {
+          status: "ACTIVE",
+          isDeleted: false,
+        },
       },
     });
     expect(mocks.isAuthService).toHaveBeenCalledWith({

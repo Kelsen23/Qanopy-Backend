@@ -3,6 +3,7 @@ import express from "express";
 import {
   deleteAccount,
   deleteProfilePicture,
+  getCredits,
   getNotificationSettings,
   markNotificationsAsSeen,
   resendEmailChange,
@@ -104,6 +105,10 @@ router
 router
   .route("/account")
   .delete(isAuthenticated, userAccountDeletionLimiterMiddleware, deleteAccount);
+
+router
+  .route("/credits")
+  .get(isAuthenticated, isVerified, requireActiveUser, getCredits);
 
 router
   .route("/notifications/settings")

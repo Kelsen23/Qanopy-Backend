@@ -1,12 +1,15 @@
-import prisma from "../../config/prisma.config.js";
+import type { Prisma } from "../../generated/prisma/client.js";
+
 import getActiveBanState from "./getActiveBanState.service.js";
+
+import prisma from "../../config/prisma.config.js";
 
 const resolveUserBanState = async (userId: string) => {
   const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: userId },
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const userStatus = await tx.userStatus.findUnique({
+      where: { userId },
       select: { status: true },
     });
 
@@ -50,9 +53,9 @@ const resolveUserBanState = async (userId: string) => {
       }
     }
 
-    if (user?.status !== status) {
-      await tx.user.update({
-        where: { id: userId },
+    if (userStatus?.status !== status) {
+      await tx.userStatus.update({
+        where: { userId },
         data: { status },
       });
 

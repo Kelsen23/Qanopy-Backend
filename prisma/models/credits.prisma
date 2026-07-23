@@ -1,0 +1,54 @@
+enum CreditPeriodType {
+  DAILY
+  WEEKLY
+}
+
+enum CreditOperationType {
+  AI_SUGGESTION
+  AI_ANSWER
+}
+
+enum CreditOperationStatus {
+  CHARGED
+  REFUNDED
+  REFUND_PENDING
+}
+
+model CreditPeriodUsage {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  periodType CreditPeriodType
+  used       Int              @default(0)
+  resetAt    DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, periodType])
+}
+
+model CreditOperation {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  operationKey String                @unique
+  type         CreditOperationType
+  status       CreditOperationStatus
+  chargeAmount Int
+
+  dailyResetAt  DateTime?
+  weeklyResetAt DateTime?
+
+  attemptCount Int     @default(1)
+  reason       String?
+
+  chargedAt  DateTime  @default(now())
+  refundedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, status])
+}

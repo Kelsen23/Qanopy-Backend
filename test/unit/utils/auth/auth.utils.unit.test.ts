@@ -171,7 +171,6 @@ describe("auth utils", () => {
       emailChangeOtp: null,
       emailChangeOtpResendAvailableAt: null,
       emailChangeOtpExpireAt: null,
-      creditsLastRedeemedAt: null,
       deletedAt: null,
       accountDeletionRequestedAt: null,
       accountDeletionCompletedAt: null,
@@ -184,10 +183,28 @@ describe("auth utils", () => {
     expect(sanitizeUser(user)).toEqual({
       id: "user_1",
       email: "alice@example.com",
-      status: "ACTIVE",
-      isVerified: true,
       role: "USER",
-      isDeleted: false,
+      auth: {
+        authProvider: undefined,
+        isVerified: true,
+      },
+      profile: {
+        displayName: null,
+        bio: null,
+        profilePictureUrl: null,
+        profilePictureKey: null,
+      },
+      stats: {
+        reputationPoints: 0,
+        questionsAsked: 0,
+        answersGiven: 0,
+        acceptedAnswers: 0,
+        bestAnswers: 0,
+      },
+      statusState: {
+        status: "ACTIVE",
+        isDeleted: false,
+      },
     });
     expect(
       sanitizeUserForAuth({

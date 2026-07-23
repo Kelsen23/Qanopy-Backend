@@ -1,8 +1,8 @@
 import shouldSkipForPurpose, {
   type EmailJobPurpose,
 } from "../shouldSkipForPurpose.service.js";
+import { getFlattenedUserById } from "../../user/userData.service.js";
 
-import prisma from "../../../config/prisma.config.js";
 import transporter from "../../../config/nodemailer.config.js";
 
 type EmailJobData = {
@@ -29,22 +29,7 @@ const processEmailJob = async (jobData: EmailJobData) => {
   }
 
   if (userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
-        authProvider: true,
-        isVerified: true,
-        isDeleted: true,
-        otpExpireAt: true,
-        resetPasswordOtpExpireAt: true,
-        emailChangePendingEmail: true,
-        emailChangeOtpExpireAt: true,
-        emailChangeOtp: true,
-      },
-    });
+    const user = await getFlattenedUserById(userId);
 
     if (!user) return;
 

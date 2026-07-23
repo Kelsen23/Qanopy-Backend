@@ -1,5 +1,7 @@
 import { Redis } from "ioredis";
 
+import { getFlattenedUserById } from "../../../../services/user/userData.service.js";
+
 import sanitizeUser from "../../../../utils/auth/sanitizeUser.util.js";
 
 type SanitizedUser = ReturnType<typeof sanitizeUser>;
@@ -7,18 +9,15 @@ type SanitizedUser = ReturnType<typeof sanitizeUser>;
 const userBaseResolver = {
   Query: {
     user: async (
-      _: any,
+      _: unknown,
       { id }: { id: string },
-      {
-        prisma,
-        getRedisCacheClient,
-      }: { prisma: any; getRedisCacheClient: () => Redis },
+      { getRedisCacheClient }: { getRedisCacheClient: () => Redis },
     ) => {
       const cachedUser = await getRedisCacheClient().get(`user:${id}`);
 
       if (cachedUser) return JSON.parse(cachedUser) as SanitizedUser;
 
-      const foundUser = await prisma.user.findUnique({ where: { id } });
+      const foundUser = await getFlattenedUserById(id);
       if (!foundUser) throw new Error("User not found");
 
       const sanitizedUser = sanitizeUser(foundUser);

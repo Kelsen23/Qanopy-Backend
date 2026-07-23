@@ -1,4 +1,4 @@
-import { Prisma } from "../../../../src/generated/prisma/index.js";
+import { Prisma } from "../../../../src/generated/prisma/client.js";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,6 +60,65 @@ const deviceInfo = {
   ip: "127.0.0.1",
 };
 
+const makeUser = (overrides: Record<string, unknown> = {}) => ({
+  id: "user_1",
+  username: "alice",
+  email: "alice@example.com",
+  role: "USER",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  auth: {
+    password: "secret",
+    tokenVersion: 1,
+    authProvider: "LOCAL",
+    isVerified: true,
+    otp: null,
+    otpResendAvailableAt: null,
+    otpExpireAt: null,
+    resetPasswordOtp: null,
+    resetPasswordOtpVerified: null,
+    resetPasswordOtpResendAvailableAt: null,
+    resetPasswordOtpExpireAt: null,
+  },
+  profile: {
+    displayName: "Alice",
+    bio: "bio",
+    profilePictureUrl: null,
+    profilePictureKey: null,
+  },
+  stats: {
+    reputationPoints: 0,
+    questionsAsked: 0,
+    answersGiven: 0,
+    acceptedAnswers: 0,
+    bestAnswers: 0,
+    registeredStage: "beta",
+  },
+  statusState: {
+    status: "ACTIVE",
+    isDeleted: false,
+    deletedAt: null,
+    accountDeletionRequestedAt: null,
+    accountDeletionCompletedAt: null,
+  },
+  emailChange: {
+    pendingEmail: null,
+    otp: null,
+    otpExpireAt: null,
+    otpResendAvailableAt: null,
+  },
+  ...overrides,
+});
+
+const makeEmailChange = (overrides: Record<string, unknown> = {}) => ({
+  userId: "user_1",
+  pendingEmail: "new@example.com",
+  otp: "hashed-otp",
+  otpExpireAt: new Date("2026-01-01T00:02:00.000Z"),
+  otpResendAvailableAt: new Date("2026-01-01T00:00:30.000Z"),
+  ...overrides,
+});
+
 describe("user email change services", () => {
   beforeEach(() => {
     resetUserUnitTestEnvironment();
@@ -85,18 +144,15 @@ describe("user email change services", () => {
   });
 
   it("rejects expired unverified users when sending an email change", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "alice@example.com",
-      authProvider: "LOCAL",
-      isVerified: false,
-      createdAt: new Date("2020-01-01T00:00:00.000Z"),
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpExpireAt: null,
-      emailChangeOtpResendAvailableAt: null,
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        createdAt: new Date("2020-01-01T00:00:00.000Z"),
+        auth: {
+          ...makeUser().auth,
+          isVerified: false,
+        },
+      }),
+    );
     userUnitTestEnvironment.handleExpiredUnverifiedUser.mockResolvedValue(true);
 
     await expect(
@@ -112,24 +168,10 @@ describe("user email change services", () => {
   });
 
   it("rejects conflicting active users when sending an email change", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "alice@example.com",
-      authProvider: "LOCAL",
-      isVerified: true,
-      createdAt: new Date(),
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpExpireAt: null,
-      emailChangeOtpResendAvailableAt: null,
-    });
-    userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue({
-      id: "user_2",
-      createdAt: new Date(),
-      authProvider: "LOCAL",
-      isVerified: true,
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(makeUser());
+    userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(
+      makeUser({ id: "user_2" }),
+    );
 
     await expect(
       sendEmailChange({
@@ -145,26 +187,11 @@ describe("user email change services", () => {
 
   it("hashes the otp, updates the user, clears attempts, and enqueues the email change otp", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.123456);
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "alice@example.com",
-      authProvider: "LOCAL",
-      isVerified: true,
-      createdAt: new Date(),
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpExpireAt: null,
-      emailChangeOtpResendAvailableAt: null,
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(makeUser());
     userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtpExpireAt: new Date("2026-01-01T00:02:00.000Z"),
-      emailChangeOtpResendAvailableAt: new Date("2026-01-01T00:00:30.000Z"),
-    });
+    userUnitTestEnvironment.prismaUserEmailChangeUpdate.mockResolvedValue(
+      makeEmailChange(),
+    );
 
     const result = await sendEmailChange({
       userId: "user_1",
@@ -190,27 +217,19 @@ describe("user email change services", () => {
   });
 
   it("rolls state back and clears cache if sending the email change job fails", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "alice@example.com",
-      authProvider: "LOCAL",
-      isVerified: true,
-      createdAt: new Date(),
-      emailChangePendingEmail: "old-pending@example.com",
-      emailChangeOtp: "old-hash",
-      emailChangeOtpExpireAt: new Date("2026-01-01T00:00:00.000Z"),
-      emailChangeOtpResendAvailableAt: new Date("2026-01-01T00:00:00.000Z"),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "old-pending@example.com",
+          otp: "old-hash",
+          otpExpireAt: new Date("2026-01-01T00:00:00.000Z"),
+          otpResendAvailableAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      }),
+    );
     userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
-    userUnitTestEnvironment.prismaUserUpdate
-      .mockResolvedValueOnce({
-        id: "user_1",
-        username: "alice",
-        emailChangePendingEmail: "new@example.com",
-        emailChangeOtpExpireAt: new Date(),
-        emailChangeOtpResendAvailableAt: new Date(),
-      })
+    userUnitTestEnvironment.prismaUserEmailChangeUpdate
+      .mockResolvedValueOnce(makeEmailChange())
       .mockResolvedValueOnce({});
     userUnitTestEnvironment.emailQueueAdd.mockRejectedValue(
       new Error("queue failed"),
@@ -237,14 +256,7 @@ describe("user email change services", () => {
   });
 
   it("rejects resend requests when otp state is incomplete", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpExpireAt: null,
-      emailChangeOtpResendAvailableAt: null,
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(makeUser());
 
     await expect(
       resendEmailChange({
@@ -258,21 +270,19 @@ describe("user email change services", () => {
   });
 
   it("rehashes and re-enqueues resend email change jobs", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "old-hash",
-      emailChangeOtpExpireAt: new Date(),
-      emailChangeOtpResendAvailableAt: new Date(Date.now() - 1000),
-    });
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtpExpireAt: new Date("2026-01-01T00:02:00.000Z"),
-      emailChangeOtpResendAvailableAt: new Date("2026-01-01T00:00:30.000Z"),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "old-hash",
+          otpExpireAt: new Date(),
+          otpResendAvailableAt: new Date(Date.now() - 1000),
+        },
+      }),
+    );
+    userUnitTestEnvironment.prismaUserEmailChangeUpdate.mockResolvedValue(
+      makeEmailChange(),
+    );
 
     const result = await resendEmailChange({
       userId: "user_1",
@@ -295,22 +305,18 @@ describe("user email change services", () => {
   });
 
   it("rolls resend state back and clears cache if queueing fails", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "old-hash",
-      emailChangeOtpExpireAt: new Date(),
-      emailChangeOtpResendAvailableAt: new Date(Date.now() - 1000),
-    });
-    userUnitTestEnvironment.prismaUserUpdate
-      .mockResolvedValueOnce({
-        id: "user_1",
-        username: "alice",
-        emailChangePendingEmail: "new@example.com",
-        emailChangeOtpExpireAt: new Date(),
-        emailChangeOtpResendAvailableAt: new Date(),
-      })
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "old-hash",
+          otpExpireAt: new Date(),
+          otpResendAvailableAt: new Date(Date.now() - 1000),
+        },
+      }),
+    );
+    userUnitTestEnvironment.prismaUserEmailChangeUpdate
+      .mockResolvedValueOnce(makeEmailChange())
       .mockResolvedValueOnce({});
     userUnitTestEnvironment.emailQueueAdd.mockRejectedValue(
       new Error("queue failed"),
@@ -336,19 +342,16 @@ describe("user email change services", () => {
   });
 
   it("rejects locked verify attempts", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      email: "alice@example.com",
-      username: "alice",
-      isVerified: true,
-      tokenVersion: 1,
-      authProvider: "LOCAL",
-      createdAt: new Date(),
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "hashed-otp",
-      emailChangeOtpExpireAt: new Date(Date.now() + 60_000),
-      emailChangeOtpResendAvailableAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "hashed-otp",
+          otpExpireAt: new Date(Date.now() + 60_000),
+          otpResendAvailableAt: new Date(),
+        },
+      }),
+    );
     seedRedisValue("user:email-change:attempts:user_1", "5");
 
     await expect(
@@ -364,19 +367,16 @@ describe("user email change services", () => {
   });
 
   it("increments redis attempts for invalid otps", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      email: "alice@example.com",
-      username: "alice",
-      isVerified: true,
-      tokenVersion: 1,
-      authProvider: "LOCAL",
-      createdAt: new Date(),
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "hashed-otp",
-      emailChangeOtpExpireAt: new Date(Date.now() + 60_000),
-      emailChangeOtpResendAvailableAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "hashed-otp",
+          otpExpireAt: new Date(Date.now() + 60_000),
+          otpResendAvailableAt: new Date(),
+        },
+      }),
+    );
     seedBcryptCompareResult("123456", "hashed-otp", false);
 
     await expect(
@@ -400,19 +400,16 @@ describe("user email change services", () => {
   });
 
   it("converts prisma unique conflicts into an email-in-use error", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      email: "alice@example.com",
-      username: "alice",
-      isVerified: true,
-      tokenVersion: 1,
-      authProvider: "LOCAL",
-      createdAt: new Date(),
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "hashed-otp",
-      emailChangeOtpExpireAt: new Date(Date.now() + 60_000),
-      emailChangeOtpResendAvailableAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "hashed-otp",
+          otpExpireAt: new Date(Date.now() + 60_000),
+          otpResendAvailableAt: new Date(),
+        },
+      }),
+    );
     seedBcryptCompareResult("123456", "hashed-otp", true);
     userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
     userUnitTestEnvironment.prismaUserUpdate.mockRejectedValue(
@@ -435,52 +432,27 @@ describe("user email change services", () => {
   });
 
   it("updates the email, refreshes cache, clears attempts, disconnects sockets, and queues the security notice", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      email: "alice@example.com",
-      username: "alice",
-      isVerified: true,
-      tokenVersion: 1,
-      authProvider: "LOCAL",
-      createdAt: new Date(),
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "hashed-otp",
-      emailChangeOtpExpireAt: new Date(Date.now() + 60_000),
-      emailChangeOtpResendAvailableAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "hashed-otp",
+          otpExpireAt: new Date(Date.now() + 60_000),
+          otpResendAvailableAt: new Date(),
+        },
+      }),
+    );
     seedBcryptCompareResult("123456", "hashed-otp", true);
     userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "new@example.com",
-      password: "secret",
-      tokenVersion: 2,
-      registeredStage: "beta",
-      otp: null,
-      otpResendAvailableAt: null,
-      otpExpireAt: null,
-      resetPasswordOtp: null,
-      resetPasswordOtpVerified: null,
-      resetPasswordOtpResendAvailableAt: null,
-      resetPasswordOtpExpireAt: null,
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpResendAvailableAt: null,
-      emailChangeOtpExpireAt: null,
-      creditsLastRedeemedAt: null,
-      deletedAt: null,
-      accountDeletionRequestedAt: null,
-      accountDeletionCompletedAt: null,
-      displayName: "Alice",
-      bio: "bio",
-      role: "USER",
-      status: "ACTIVE",
-      isDeleted: false,
-      credits: 10,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUniqueOrThrow.mockResolvedValue(
+      makeUser({
+        email: "new@example.com",
+        auth: {
+          ...makeUser().auth,
+          tokenVersion: 2,
+        },
+      }),
+    );
 
     const result = await verifyEmailChange({
       userId: "user_1",
@@ -511,52 +483,27 @@ describe("user email change services", () => {
   });
 
   it("does not fail successful verification when follow-up tasks fail", async () => {
-    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue({
-      id: "user_1",
-      email: "alice@example.com",
-      username: "alice",
-      isVerified: true,
-      tokenVersion: 1,
-      authProvider: "LOCAL",
-      createdAt: new Date(),
-      emailChangePendingEmail: "new@example.com",
-      emailChangeOtp: "hashed-otp",
-      emailChangeOtpExpireAt: new Date(Date.now() + 60_000),
-      emailChangeOtpResendAvailableAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUnique.mockResolvedValue(
+      makeUser({
+        emailChange: {
+          pendingEmail: "new@example.com",
+          otp: "hashed-otp",
+          otpExpireAt: new Date(Date.now() + 60_000),
+          otpResendAvailableAt: new Date(),
+        },
+      }),
+    );
     seedBcryptCompareResult("123456", "hashed-otp", true);
     userUnitTestEnvironment.prismaUserFindFirst.mockResolvedValue(null);
-    userUnitTestEnvironment.prismaUserUpdate.mockResolvedValue({
-      id: "user_1",
-      username: "alice",
-      email: "new@example.com",
-      password: "secret",
-      tokenVersion: 2,
-      registeredStage: "beta",
-      otp: null,
-      otpResendAvailableAt: null,
-      otpExpireAt: null,
-      resetPasswordOtp: null,
-      resetPasswordOtpVerified: null,
-      resetPasswordOtpResendAvailableAt: null,
-      resetPasswordOtpExpireAt: null,
-      emailChangePendingEmail: null,
-      emailChangeOtp: null,
-      emailChangeOtpResendAvailableAt: null,
-      emailChangeOtpExpireAt: null,
-      creditsLastRedeemedAt: null,
-      deletedAt: null,
-      accountDeletionRequestedAt: null,
-      accountDeletionCompletedAt: null,
-      displayName: "Alice",
-      bio: "bio",
-      role: "USER",
-      status: "ACTIVE",
-      isDeleted: false,
-      credits: 10,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    userUnitTestEnvironment.prismaUserFindUniqueOrThrow.mockResolvedValue(
+      makeUser({
+        email: "new@example.com",
+        auth: {
+          ...makeUser().auth,
+          tokenVersion: 2,
+        },
+      }),
+    );
     userUnitTestEnvironment.cacheUser.mockRejectedValue(
       new Error("cache failed"),
     );

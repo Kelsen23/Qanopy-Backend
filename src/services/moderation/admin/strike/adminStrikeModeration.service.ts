@@ -1,18 +1,6 @@
 import crypto from "crypto";
 
-import HttpError from "../../../../utils/http/httpError.util.js";
-import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
-
-import prisma from "../../../../config/prisma.config.js";
-
-import assertAdminModerationTargetReady from "../assertAdminModerationTargetReady.service.js";
-import getTargetContentState from "./getTargetContentState.service.js";
-import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
-import finalizeStrikeReview from "./finalizeStrikeReview.service.js";
-import moderateStrikeBanTemp from "./moderateStrikeBanTemp.service.js";
-import moderateStrikeBanPerm from "./moderateStrikeBanPerm.service.js";
-import moderateStrikeWarn from "./moderateStrikeWarn.service.js";
-import moderateStrikeIgnore from "./moderateStrikeIgnore.service.js";
+import type { Prisma } from "../../../../generated/prisma/client.js";
 
 import type {
   AdminStrikeActionTaken,
@@ -20,6 +8,20 @@ import type {
   StrikeTargetType,
   TargetContentState,
 } from "./shared.js";
+
+import assertAdminModerationTargetReady from "../assertAdminModerationTargetReady.service.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import getTargetContentState from "./getTargetContentState.service.js";
+import finalizeStrikeReview from "./finalizeStrikeReview.service.js";
+import moderateStrikeIgnore from "./moderateStrikeIgnore.service.js";
+import moderateStrikeBanPerm from "./moderateStrikeBanPerm.service.js";
+import moderateStrikeBanTemp from "./moderateStrikeBanTemp.service.js";
+import moderateStrikeWarn from "./moderateStrikeWarn.service.js";
+
+import prisma from "../../../../config/prisma.config.js";
+
+import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
+import HttpError from "../../../../utils/http/httpError.util.js";
 
 const adminModerateStrike = async ({
   targetId,
@@ -83,55 +85,57 @@ const adminModerateStrike = async ({
   const reviewedAt = new Date();
   const claimToken = crypto.randomUUID();
 
-  const transactionResult = await prisma.$transaction(async (tx) => {
-    const foundStrike = await tx.moderationStrike.findUnique({
-      where: { id: targetId },
-    });
+  const transactionResult = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const foundStrike = await tx.moderationStrike.findUnique({
+        where: { id: targetId },
+      });
 
-    if (!foundStrike) {
-      throw new HttpError("Strike not found", 404);
-    }
+      if (!foundStrike) {
+        throw new HttpError("Strike not found", 404);
+      }
 
-    if (foundStrike.actionTaken !== "PENDING") {
-      throw new HttpError("Strike already reviewed", 409);
-    }
+      if (foundStrike.actionTaken !== "PENDING") {
+        throw new HttpError("Strike already reviewed", 409);
+      }
 
-    const claimedStrike = await tx.moderationStrike.updateMany({
-      where: {
-        id: foundStrike.id,
-        actionTaken: "PENDING",
-        OR: [{ reviewedBy: null }, { claimExpiresAt: { lte: reviewedAt } }],
-      },
-      data: {
-        reviewedBy,
-        reviewedAt,
-        reviewComment: reviewComment ?? null,
-        claimedAt: reviewedAt,
-        claimExpiresAt: new Date(reviewedAt.getTime() + 24 * 60 * 60 * 1000),
-        claimToken,
-      },
-    });
+      const claimedStrike = await tx.moderationStrike.updateMany({
+        where: {
+          id: foundStrike.id,
+          actionTaken: "PENDING",
+          OR: [{ reviewedBy: null }, { claimExpiresAt: { lte: reviewedAt } }],
+        },
+        data: {
+          reviewedBy,
+          reviewedAt,
+          reviewComment: reviewComment ?? null,
+          claimedAt: reviewedAt,
+          claimExpiresAt: new Date(reviewedAt.getTime() + 24 * 60 * 60 * 1000),
+          claimToken,
+        },
+      });
 
-    if (claimedStrike.count === 0) {
-      throw new HttpError("Strike already reviewed", 409);
-    }
+      if (claimedStrike.count === 0) {
+        throw new HttpError("Strike already reviewed", 409);
+      }
 
-    const targetUser = await tx.user.findUnique({
-      where: { id: foundStrike.userId },
-      select: { id: true },
-    });
+      const targetUser = await tx.user.findUnique({
+        where: { id: foundStrike.userId },
+        select: { id: true },
+      });
 
-    const targetUserExists = Boolean(targetUser);
+      const targetUserExists = Boolean(targetUser);
 
-    if (targetUser?.id === reviewedBy) {
-      throw new HttpError("Self-moderation not allowed", 403);
-    }
+      if (targetUser?.id === reviewedBy) {
+        throw new HttpError("Self-moderation not allowed", 403);
+      }
 
-    return {
-      foundStrike,
-      targetUserExists,
-    };
-  });
+      return {
+        foundStrike,
+        targetUserExists,
+      };
+    },
+  );
 
   const { foundStrike, targetUserExists } = transactionResult;
   const targetType = foundStrike.targetType as StrikeTargetType;

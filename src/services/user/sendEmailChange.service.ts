@@ -1,21 +1,25 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
-
-import prisma from "../../config/prisma.config.js";
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import emailQueue from "../../queues/email.queue.js";
-
 import {
   getDeviceIp,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "../auth/auth.shared.js";
+import {
+  getFlattenedUserByEmail,
+  getFlattenedUserById,
+} from "./userData.service.js";
 
 import { removeEmailChangeAttempts } from "./emailChange.shared.js";
+
+import prisma from "../../config/prisma.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+
+import emailQueue from "../../queues/email.queue.js";
 
 type SendEmailChangeInput = {
   userId: string;
@@ -28,21 +32,7 @@ const sendEmailChange = async ({
   newEmail,
   deviceInfo,
 }: SendEmailChangeInput) => {
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      authProvider: true,
-      isVerified: true,
-      createdAt: true,
-      emailChangePendingEmail: true,
-      emailChangeOtp: true,
-      emailChangeOtpExpireAt: true,
-      emailChangeOtpResendAvailableAt: true,
-    },
-  });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
@@ -69,10 +59,7 @@ const sendEmailChange = async ({
     throw new HttpError("Email change OTP already sent", 400);
   }
 
-  const conflictingUser = await prisma.user.findFirst({
-    where: { email: newEmail, isDeleted: false },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
+  const conflictingUser = await getFlattenedUserByEmail(newEmail);
 
   if (conflictingUser) {
     if (!(await handleExpiredUnverifiedUser(conflictingUser))) {
@@ -91,18 +78,18 @@ const sendEmailChange = async ({
 
   const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  const updatedUser = await prisma.userEmailChange.update({
+    where: { userId },
     data: {
-      emailChangePendingEmail: newEmail,
-      emailChangeOtp: hashedOtp,
-      emailChangeOtpExpireAt,
-      emailChangeOtpResendAvailableAt,
+      pendingEmail: newEmail,
+      otp: hashedOtp,
+      otpExpireAt: emailChangeOtpExpireAt,
+      otpResendAvailableAt: emailChangeOtpResendAvailableAt,
     },
   });
 
   try {
-    await removeEmailChangeAttempts(updatedUser.id);
+    await removeEmailChangeAttempts(userId);
   } catch (error) {
     console.error("[sendEmailChange] Failed to clear OTP attempts", {
       userId,
@@ -113,7 +100,7 @@ const sendEmailChange = async ({
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = emailChangeHtml(
-    updatedUser.username,
+    foundUser.username,
     otp,
     deviceName,
     getDeviceIp(deviceInfo),
@@ -123,8 +110,8 @@ const sendEmailChange = async ({
     await emailQueue.add(
       "SEND_EMAIL_CHANGE",
       {
-        email: updatedUser.emailChangePendingEmail,
-        userId: updatedUser.id,
+        email: updatedUser.pendingEmail,
+        userId,
         purpose: "CHANGE_EMAIL",
         subject: "Change Email Request",
         htmlContent,
@@ -136,19 +123,19 @@ const sendEmailChange = async ({
         jobId: makeUniqueJobId(
           "email",
           "SEND_EMAIL_CHANGE",
-          updatedUser.id,
-          updatedUser.emailChangePendingEmail,
+          userId,
+          updatedUser.pendingEmail,
         ),
       },
     );
   } catch (error) {
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.userEmailChange.update({
+      where: { userId },
       data: {
-        emailChangePendingEmail: previousPendingEmail,
-        emailChangeOtp: previousOtp,
-        emailChangeOtpExpireAt: previousOtpExpireAt,
-        emailChangeOtpResendAvailableAt: previousOtpResendAvailableAt,
+        pendingEmail: previousPendingEmail,
+        otp: previousOtp,
+        otpExpireAt: previousOtpExpireAt,
+        otpResendAvailableAt: previousOtpResendAvailableAt,
       },
     });
 
@@ -164,7 +151,7 @@ const sendEmailChange = async ({
   }
 
   try {
-    await removeEmailChangeAttempts(updatedUser.id);
+    await removeEmailChangeAttempts(userId);
   } catch (error) {
     console.error("[sendEmailChange] Failed to clear OTP attempts", {
       userId,
@@ -174,10 +161,9 @@ const sendEmailChange = async ({
   }
 
   return {
-    emailChangeOtpExpireAt: updatedUser.emailChangeOtpExpireAt,
-    emailChangeOtpResendAvailableAt:
-      updatedUser.emailChangeOtpResendAvailableAt,
-    pendingEmail: updatedUser.emailChangePendingEmail,
+    emailChangeOtpExpireAt: updatedUser.otpExpireAt,
+    emailChangeOtpResendAvailableAt: updatedUser.otpResendAvailableAt,
+    pendingEmail: updatedUser.pendingEmail,
   };
 };
 

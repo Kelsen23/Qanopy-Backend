@@ -20,6 +20,8 @@ const prismaWarningCreate = vi.fn();
 const prismaModerationStatsFindUnique = vi.fn();
 const prismaUserFindUnique = vi.fn();
 const prismaUserUpdate = vi.fn();
+const prismaUserStatusFindUnique = vi.fn();
+const prismaUserStatusUpdate = vi.fn();
 const prismaBanFindMany = vi.fn();
 const prismaBanCreate = vi.fn();
 const prismaBanUpdateMany = vi.fn();
@@ -182,6 +184,10 @@ const prismaMocks = {
       findUnique: prismaUserFindUnique,
       update: prismaUserUpdate,
     },
+    userStatus: {
+      findUnique: prismaUserStatusFindUnique,
+      update: prismaUserStatusUpdate,
+    },
   },
   ban: {
     findMany: prismaBanFindMany,
@@ -206,6 +212,10 @@ const prismaMocks = {
   user: {
     findUnique: prismaUserFindUnique,
     update: prismaUserUpdate,
+  },
+  userStatus: {
+    findUnique: prismaUserStatusFindUnique,
+    update: prismaUserStatusUpdate,
   },
   $transaction: prismaTransaction,
 };
@@ -456,6 +466,8 @@ export const mockModerationUnitTestEnvironment = {
   prismaModerationStatsFindUnique,
   prismaUserFindUnique,
   prismaUserUpdate,
+  prismaUserStatusFindUnique,
+  prismaUserStatusUpdate,
   prismaBanFindMany,
   prismaBanCreate,
   prismaBanUpdateMany,
@@ -560,6 +572,8 @@ export const resetModerationUnitTestEnvironment = () => {
   prismaModerationStatsFindUnique.mockReset();
   prismaUserFindUnique.mockReset();
   prismaUserUpdate.mockReset();
+  prismaUserStatusFindUnique.mockReset();
+  prismaUserStatusUpdate.mockReset();
   prismaBanFindMany.mockReset();
   prismaBanCreate.mockReset();
   prismaBanUpdateMany.mockReset();

@@ -1,14 +1,13 @@
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import asyncHandler from "./asyncHandler.middleware.js";
-
-import { NextFunction, Request, Response } from "express";
+import prisma from "../config/prisma.config.js";
+import { getRedisCacheClient } from "../config/redis.config.js";
 
 import HttpError from "../utils/http/httpError.util.js";
 import sanitizeUserForAuth from "../utils/auth/sanitizeUserForAuth.util.js";
 
-import prisma from "../config/prisma.config.js";
-import { getRedisCacheClient } from "../config/redis.config.js";
+import asyncHandler from "./asyncHandler.middleware.js";
 
 type AuthenticatedUser = {
   id: string;
@@ -54,17 +53,38 @@ const resolveAuthenticatedUser = async (
 
   const user: AuthenticatedUser | null = cachedUser
     ? JSON.parse(cachedUser)
-    : await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          tokenVersion: true,
-          status: true,
-          isVerified: true,
-          role: true,
-          isDeleted: true,
-        },
-      });
+    : await prisma.user
+        .findUnique({
+          where: { id: decoded.userId },
+          select: {
+            id: true,
+            role: true,
+            auth: {
+              select: {
+                tokenVersion: true,
+                isVerified: true,
+              },
+            },
+            statusState: {
+              select: {
+                status: true,
+                isDeleted: true,
+              },
+            },
+          },
+        })
+        .then((user) =>
+          user
+            ? {
+                id: user.id,
+                role: user.role,
+                tokenVersion: user.auth?.tokenVersion ?? 0,
+                isVerified: user.auth?.isVerified ?? false,
+                status: user.statusState?.status ?? "ACTIVE",
+                isDeleted: user.statusState?.isDeleted ?? false,
+              }
+            : null,
+        );
 
   if (!user) {
     if (strict) throw new HttpError("User not found", 404);

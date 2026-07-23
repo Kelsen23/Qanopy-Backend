@@ -22,27 +22,45 @@ describe("user badge rule utils", () => {
 
   it("normalizes eligible founding-member stages", () => {
     expect(normalizeBadgeStage(" Beta ")).toBe("beta");
+    expect(FOUNDING_MEMBER_ELIGIBLE_STAGES.has("demo")).toBe(true);
     expect(FOUNDING_MEMBER_ELIGIBLE_STAGES.has("beta")).toBe(true);
+    expect(FOUNDING_MEMBER_ELIGIBLE_STAGES.has("alpha")).toBe(true);
+    expect(FOUNDING_MEMBER_ELIGIBLE_STAGES.has("release")).toBe(false);
   });
 
-  it("awards the founding member badge for eligible registered stages", () => {
+  it.each(["DEMO", " Beta ", "alpha"])(
+    "awards the founding member badge for %s registered stage",
+    (registeredStage) => {
+      expect(foundingMemberRule.badgeName).toBe(FOUNDING_MEMBER_BADGE_NAME);
+      expect(foundingMemberRule.triggers).toEqual([
+        badgeTriggers.ACCOUNT_CREATED,
+      ]);
+
+      expect(
+        foundingMemberRule.shouldAward({
+          trigger: badgeTriggers.ACCOUNT_CREATED,
+          user: {
+            id: "user_1",
+            registeredStage,
+          } as any,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("does not award the founding member badge for RELEASE or unknown stages", () => {
     expect(foundingMemberRule.badgeName).toBe(FOUNDING_MEMBER_BADGE_NAME);
-    expect(foundingMemberRule.triggers).toEqual([
-      badgeTriggers.ACCOUNT_CREATED,
-    ]);
 
     expect(
       foundingMemberRule.shouldAward({
         trigger: badgeTriggers.ACCOUNT_CREATED,
         user: {
           id: "user_1",
-          registeredStage: " Beta ",
+          registeredStage: "RELEASE",
         } as any,
       }),
-    ).toBe(true);
-  });
+    ).toBe(false);
 
-  it("does not award the founding member badge for ineligible stages", () => {
     expect(
       foundingMemberRule.shouldAward({
         trigger: badgeTriggers.ACCOUNT_CREATED,

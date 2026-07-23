@@ -1,10 +1,9 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-
-import prisma from "../../config/prisma.config.js";
-
 import { cacheUser, handleExpiredUnverifiedUser } from "./auth.shared.js";
+import { getFlattenedUserByEmail } from "../user/userData.service.js";
+
+import HttpError from "../../utils/http/httpError.util.js";
 
 type LoginInput = {
   email: string;
@@ -12,9 +11,7 @@ type LoginInput = {
 };
 
 const login = async ({ email, password }: LoginInput) => {
-  const foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-  });
+  const foundUser = await getFlattenedUserByEmail(email);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 400);
   if (!foundUser.password) throw new HttpError("Invalid credentials", 400);

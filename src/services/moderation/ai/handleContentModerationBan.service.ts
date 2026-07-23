@@ -1,25 +1,27 @@
-import prisma from "../../../config/prisma.config.js";
+import type { Prisma } from "../../../generated/prisma/client.js";
 
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
-import { clearStrikesCache } from "../../../utils/cache/clearCache.util.js";
-import clearUserCache from "../../../utils/cache/clearUserCache.util.js";
-import clearModeratedContentCache from "../../../utils/moderation/clearModeratedContentCache.util.js";
-import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
+import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
 import applyUserBan from "../applyUserBan.service.js";
+import routeNotification from "../../notification/routeNotification.service.js";
+import sendBanNoticeEmail from "../sendBanNoticeEmail.service.js";
 import {
   moderationContentTypeMap,
   type ModeratableContentType,
   type ModerationDecision,
 } from "./contentModeration.shared.js";
-import routeNotification from "../../notification/routeNotification.service.js";
-import sendBanNoticeEmail from "../sendBanNoticeEmail.service.js";
+
+import prisma from "../../../config/prisma.config.js";
+
+import { clearStrikesCache } from "../../../utils/cache/clearCache.util.js";
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
+import clearModeratedContentCache from "../../../utils/moderation/clearModeratedContentCache.util.js";
+import clearUserCache from "../../../utils/cache/clearUserCache.util.js";
 
 import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
 import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
-
-import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 
 type HandleContentModerationBanInput = {
   contentId: string;
@@ -140,7 +142,7 @@ const handleContentModerationBan = async ({
   let createdBan = false;
 
   if (content.userId && finalDecision === "BAN_TEMP") {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const result = await applyUserBan(tx, {
         userId: content.userId as string,
         banType: "TEMP",

@@ -16,12 +16,13 @@ async function startWorker() {
   const worker = new Worker(
     "questionAiAnswerQueue",
     async (job) => {
-      const { userId, questionId, version } = job.data;
+      const { userId, questionId, version, creditCharge } = job.data;
       await processQuestionAiAnswerJob({
         userId,
         questionId,
         version,
         jobId: String(job.id),
+        creditCharge,
       });
     },
     {

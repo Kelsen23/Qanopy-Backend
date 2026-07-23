@@ -62,6 +62,7 @@ import {
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
 
 import validate from "../middlewares/validate.middleware.js";
+import chargeCredits from "../middlewares/credits.middleware.js";
 
 const router = express.Router();
 
@@ -192,6 +193,7 @@ router
     requireActiveUser,
     generateSuggestionLimiterMiddleware,
     validate(generateSuggestionSchema),
+    chargeCredits("AI_SUGGESTION"),
     generateSuggestion,
   );
 
@@ -203,6 +205,7 @@ router
     requireActiveUser,
     generateAiAnswerLimiterMiddleware,
     validate(generateAiAnswerSchema),
+    chargeCredits("AI_ANSWER"),
     generateAiAnswer,
   );
 

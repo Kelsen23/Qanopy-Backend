@@ -1,11 +1,17 @@
+import { Prisma } from "../../generated/prisma/client.js";
+
 import {
   cacheUser,
   getRegisteredStage,
   handleExpiredUnverifiedUser,
   queueBadgeAwardSafely,
 } from "./auth.shared.js";
-
-import { Prisma } from "../../generated/prisma/index.js";
+import {
+  createUserDefaults,
+  flattenUser,
+  getFlattenedUserByEmail,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 
@@ -54,13 +60,14 @@ const createOAuthUserWithUniqueUsername = async ({
         data: {
           username: uniqueUsername,
           email,
-          profilePictureUrl,
-          isVerified: true,
-          authProvider,
-          registeredStage,
-          moderationStats: { create: {} },
-          notificationSettings: { create: {} },
+          ...createUserDefaults({
+            registeredStage,
+            authProvider,
+            isVerified: true,
+            profilePictureUrl,
+          }),
         },
+        include: normalizedUserInclude,
       });
     } catch (error) {
       if (!isUsernameUniqueConstraintError(error)) throw error;
@@ -79,9 +86,7 @@ const registerOrLogin = async (input: OAuthInput) => {
     if (!email_verified)
       throw new HttpError("Email not verified, couldn't register", 400);
 
-    let foundUser = await prisma.user.findFirst({
-      where: { email, isDeleted: false },
-    });
+    let foundUser = await getFlattenedUserByEmail(email);
 
     if (foundUser && (await handleExpiredUnverifiedUser(foundUser))) {
       foundUser = null;
@@ -95,11 +100,13 @@ const registerOrLogin = async (input: OAuthInput) => {
         authProvider: "GOOGLE",
       });
 
-      await cacheUser(newUser);
+      const flattenedUser = flattenUser(newUser);
 
-      await queueBadgeAwardSafely(newUser.id);
+      await cacheUser(flattenedUser);
 
-      return { user: newUser, action: "registered" as const };
+      await queueBadgeAwardSafely(flattenedUser.id);
+
+      return { user: flattenedUser, action: "registered" as const };
     }
 
     if (foundUser.authProvider !== "GOOGLE")
@@ -118,9 +125,7 @@ const registerOrLogin = async (input: OAuthInput) => {
 
   if (!email || !name) throw new HttpError("Invalid Github access token", 400);
 
-  let foundUser = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
-  });
+  let foundUser = await getFlattenedUserByEmail(email);
 
   if (foundUser && (await handleExpiredUnverifiedUser(foundUser))) {
     foundUser = null;
@@ -134,11 +139,13 @@ const registerOrLogin = async (input: OAuthInput) => {
       authProvider: "GITHUB",
     });
 
-    await cacheUser(newUser);
+    const flattenedUser = flattenUser(newUser);
 
-    await queueBadgeAwardSafely(newUser.id);
+    await cacheUser(flattenedUser);
 
-    return { user: newUser, action: "registered" as const };
+    await queueBadgeAwardSafely(flattenedUser.id);
+
+    return { user: flattenedUser, action: "registered" as const };
   }
 
   if (foundUser.authProvider !== "GITHUB")

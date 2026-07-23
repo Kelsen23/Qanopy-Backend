@@ -1,8 +1,8 @@
-import prisma from "../../config/prisma.config.js";
-
 import getActiveBanState from "./getActiveBanState.service.js";
 
-type BanWriter = Pick<typeof prisma, "ban" | "user">;
+import prisma from "../../config/prisma.config.js";
+
+type BanWriter = Pick<typeof prisma, "ban" | "userStatus">;
 
 type ApplyUserBanInput = {
   userId: string;
@@ -63,8 +63,8 @@ const applyUserBan = async (
 
   const { derivedStatus } = await getActiveBanState(db, userId, now);
 
-  await db.user.update({
-    where: { id: userId },
+  await db.userStatus.update({
+    where: { userId },
     data: { status: derivedStatus },
   });
 

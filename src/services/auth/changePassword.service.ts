@@ -1,10 +1,5 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
-import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
-
 import {
   cacheAuthUser,
   cacheUser,
@@ -12,8 +7,18 @@ import {
   removeResetPasswordAttempts,
   type DeviceInfo,
 } from "./auth.shared.js";
+import {
+  flattenUser,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
+
+import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
+
 import emailQueue from "../../queues/email.queue.js";
 
 type ChangePasswordInput = {
@@ -34,28 +39,35 @@ const changePassword = async ({
     select: {
       email: true,
       username: true,
-      password: true,
-      authProvider: true,
+      auth: {
+        select: {
+          password: true,
+          authProvider: true,
+        },
+      },
     },
   });
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
-  if (foundUser.authProvider !== "LOCAL")
+  if (foundUser.auth?.authProvider !== "LOCAL")
     throw new HttpError("Password change not applicable", 400);
 
-  if (!foundUser.password)
+  if (!foundUser.auth.password)
     throw new HttpError("Password change not applicable", 400);
 
   const isCurrentPasswordValid = await bcrypt.compare(
     currentPassword,
-    foundUser.password,
+    foundUser.auth.password,
   );
 
   if (!isCurrentPasswordValid)
     throw new HttpError("Invalid current password", 401);
 
-  const isSamePassword = await bcrypt.compare(newPassword, foundUser.password);
+  const isSamePassword = await bcrypt.compare(
+    newPassword,
+    foundUser.auth.password,
+  );
   if (isSamePassword)
     throw new HttpError(
       "New password must be different from the old password",
@@ -64,8 +76,8 @@ const changePassword = async ({
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  await prisma.userAuth.update({
+    where: { userId },
     data: {
       password: hashedPassword,
       tokenVersion: { increment: 1 },
@@ -76,10 +88,16 @@ const changePassword = async ({
     },
   });
 
-  await removeResetPasswordAttempts(updatedUser.id);
-  await cacheAuthUser(updatedUser);
-  await cacheUser(updatedUser);
-  await publishSocketDisconnect(updatedUser.id);
+  const updatedUser = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    include: normalizedUserInclude,
+  });
+  const flattenedUser = flattenUser(updatedUser);
+
+  await removeResetPasswordAttempts(flattenedUser.id);
+  await cacheAuthUser(flattenedUser);
+  await cacheUser(flattenedUser);
+  await publishSocketDisconnect(flattenedUser.id);
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
   const htmlContent = securityNoticeHtml(
@@ -94,8 +112,8 @@ const changePassword = async ({
     await emailQueue.add(
       "SEND_PASSWORD_CHANGED_EMAIL",
       {
-        email: updatedUser.email,
-        userId: updatedUser.id,
+        email: flattenedUser.email,
+        userId: flattenedUser.id,
         purpose: "PASSWORD_CHANGED",
         subject: "Password Changed",
         htmlContent,
@@ -106,20 +124,20 @@ const changePassword = async ({
         jobId: makeUniqueJobId(
           "email",
           "SEND_PASSWORD_CHANGED_EMAIL",
-          updatedUser.id,
-          updatedUser.email,
+          flattenedUser.id,
+          flattenedUser.email,
         ),
       },
     );
   } catch (error) {
     console.error("[changePassword] Failed to enqueue security notice", {
-      userId: updatedUser.id,
-      email: updatedUser.email,
+      userId: flattenedUser.id,
+      email: flattenedUser.email,
       error,
     });
   }
 
-  return { user: updatedUser };
+  return { user: flattenedUser };
 };
 
 export default changePassword;

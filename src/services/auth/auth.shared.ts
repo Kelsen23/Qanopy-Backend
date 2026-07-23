@@ -1,20 +1,17 @@
-import { User } from "../../generated/prisma/index.js";
-
-import prisma from "../../config/prisma.config.js";
-import { getRedisCacheClient } from "../../config/redis.config.js";
-
-import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
-import sanitizeUserForAuth from "../../utils/auth/sanitizeUserForAuth.util.js";
+import type { FlattenedUser } from "../user/userData.service.js";
 
 import {
   cleanupExpiredUnverifiedUserById,
   isExpiredUnverifiedLocalUser,
 } from "./unverifiedAccountCleanup.service.js";
 
+import appStageConfig from "../../config/appStage.config.js";
+import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
+import sanitizeUserForAuth from "../../utils/auth/sanitizeUserForAuth.util.js";
+
 const AUTH_CACHE_TTL_SECONDS = 60 * 5;
-const APP_STAGE_CACHE_KEY = "app:stage";
-const APP_STAGE_CACHE_TTL_SECONDS = 60;
-const DEFAULT_REGISTERED_STAGE = "DEMO";
 
 type DeviceInfo = {
   browser: string;
@@ -28,7 +25,7 @@ const getDeviceIp = (deviceInfo: DeviceInfo) =>
     ? deviceInfo.ip[0] || "Unknown IP"
     : deviceInfo.ip || "Unknown IP";
 
-const cacheUser = async (user: User) => {
+const cacheUser = async (user: FlattenedUser) => {
   await getRedisCacheClient().set(
     `user:${user.id}`,
     JSON.stringify(sanitizeUser(user)),
@@ -37,7 +34,7 @@ const cacheUser = async (user: User) => {
   );
 };
 
-const cacheAuthUser = async (user: User) => {
+const cacheAuthUser = async (user: FlattenedUser) => {
   await getRedisCacheClient().set(
     `auth:user:${user.id}`,
     JSON.stringify(sanitizeUserForAuth(user)),
@@ -50,32 +47,10 @@ const removeResetPasswordAttempts = async (userId: string) => {
   await getRedisCacheClient().del(`auth:reset-password:attempts:${userId}`);
 };
 
-const getRegisteredStage = async () => {
-  const cachedAppStage = await getRedisCacheClient().get(APP_STAGE_CACHE_KEY);
-
-  if (cachedAppStage) {
-    return cachedAppStage;
-  }
-
-  const appStage = await prisma.appConfig.findUnique({
-    where: { key: "appStage" },
-    select: { value: true },
-  });
-
-  const registeredStage = appStage?.value ?? DEFAULT_REGISTERED_STAGE;
-
-  await getRedisCacheClient().set(
-    APP_STAGE_CACHE_KEY,
-    registeredStage,
-    "EX",
-    APP_STAGE_CACHE_TTL_SECONDS,
-  );
-
-  return registeredStage;
-};
+const getRegisteredStage = () => appStageConfig.registrationStage;
 
 const handleExpiredUnverifiedUser = async (
-  user: Pick<User, "id" | "createdAt" | "authProvider" | "isVerified">,
+  user: Pick<FlattenedUser, "id" | "createdAt" | "authProvider" | "isVerified">,
 ) => {
   if (user.isVerified || !isExpiredUnverifiedLocalUser(user)) return false;
 

@@ -1,8 +1,14 @@
+import {
+  flattenUser,
+  getFlattenedUserById,
+  normalizedUserInclude,
+} from "./userData.service.js";
+
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import prisma from "../../config/prisma.config.js";
 
-import HttpError from "../../utils/http/httpError.util.js";
 import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
 
 interface UpdateProfileInput {
   userId: string;
@@ -18,7 +24,7 @@ const updateProfile = async ({
   const cachedUser = await getRedisCacheClient().get(`user:${userId}`);
   const foundUser = cachedUser
     ? JSON.parse(cachedUser)
-    : await prisma.user.findUnique({ where: { id: userId } });
+    : await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("User not found", 404);
 
@@ -34,10 +40,17 @@ const updateProfile = async ({
     throw new HttpError("Profile already up to date", 400);
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  await prisma.userProfile.update({
+    where: { userId },
     data,
   });
+
+  const updatedUser = flattenUser(
+    await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: normalizedUserInclude,
+    }),
+  );
 
   await getRedisCacheClient().set(
     `user:${updatedUser.id}`,

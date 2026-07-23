@@ -8,7 +8,7 @@ import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
 
 import type AuthenticatedRequest from "./types/authenticatedRequest.type.js";
-import type { User } from "./generated/prisma/index.js";
+import type { User } from "./generated/prisma/client.js";
 
 import prisma from "./config/prisma.config.js";
 import connectMongoDB from "./config/mongodb.config.js";

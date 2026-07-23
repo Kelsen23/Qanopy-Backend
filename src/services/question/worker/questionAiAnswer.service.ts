@@ -1,6 +1,9 @@
+import type { CreditCharge } from "../../user/credits/credits.types.js";
+
 import contextualAnswerService from "../ai/aiAnswer/contextualAnswer.service.js";
 import fullAnswerService from "../ai/aiAnswer/fullAnswer.service.js";
 import { canGetAIAnswer } from "../ai/questionAiHelp.shared.js";
+import refundCreditCharge from "../../user/credits/refundCreditCharge.service.js";
 import {
   aiAnswerSimilarQuestionResultLimit,
   aiAnswerSimilarQuestionScoreThreshold,
@@ -8,7 +11,6 @@ import {
 import findSimilarQuestionIds from "../similarQuestions/similarQuestionsSearch.service.js";
 import { getAiAnswerCancelKey } from "../../../services/redis/aiAnswerSession.service.js";
 
-import prisma from "../../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
 import publishSocketEvent from "../../../utils/socket/publishSocketEvent.util.js";
@@ -20,6 +22,7 @@ type ProcessAiAnswerJobData = {
   questionId: string;
   version: number;
   jobId: string;
+  creditCharge?: CreditCharge;
 };
 
 const processQuestionAiAnswerJob = async ({
@@ -27,6 +30,7 @@ const processQuestionAiAnswerJob = async ({
   questionId,
   version,
   jobId,
+  creditCharge,
 }: ProcessAiAnswerJobData) => {
   const refundKey = `aiAnswer:refund:${jobId}`;
   const cancelKey = getAiAnswerCancelKey(questionId, version);
@@ -115,12 +119,12 @@ const processQuestionAiAnswerJob = async ({
     );
 
     if (shouldRefund) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { credits: { increment: 5 } },
-      });
-
-      await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
+      if (creditCharge?.chargedNow) {
+        await refundCreditCharge({
+          operationKey: creditCharge.operationKey,
+          reason: "AI answer generation failed",
+        });
+      }
     }
 
     await publishSocketEvent(userId, "aiAnswerFailed", {

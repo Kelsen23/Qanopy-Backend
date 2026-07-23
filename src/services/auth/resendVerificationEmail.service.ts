@@ -1,18 +1,23 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { verificationHtml } from "../../utils/email/renderTemplate.util.js";
-
-import prisma from "../../config/prisma.config.js";
-
-import emailQueue from "../../queues/email.queue.js";
-
 import {
   getDeviceIp,
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "./auth.shared.js";
+import {
+  flattenUser,
+  getFlattenedUserById,
+  normalizedUserInclude,
+} from "../user/userData.service.js";
+
+import prisma from "../../config/prisma.config.js";
+
+import { verificationHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+
+import emailQueue from "../../queues/email.queue.js";
 
 type ResendVerificationEmailInput = {
   userId: string;
@@ -23,7 +28,7 @@ const resendVerificationEmail = async ({
   userId,
   deviceInfo,
 }: ResendVerificationEmailInput) => {
-  const foundUser = await prisma.user.findUnique({ where: { id: userId } });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -55,10 +60,17 @@ const resendVerificationEmail = async ({
 
   const hashedOtp = await bcrypt.hash(otp, 6);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
+  await prisma.userAuth.update({
+    where: { userId },
     data: { otp: hashedOtp, otpExpireAt, otpResendAvailableAt },
   });
+
+  const updatedUser = flattenUser(
+    await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: normalizedUserInclude,
+    }),
+  );
 
   if (!updatedUser.otp) throw new HttpError("OTP not set", 400);
 

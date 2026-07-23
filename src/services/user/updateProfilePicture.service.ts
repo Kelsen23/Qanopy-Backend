@@ -1,15 +1,16 @@
 import crypto from "crypto";
 import { DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
+import { cacheUser } from "../auth/auth.shared.js";
 import moderateFileService from "../../services/moderation/fileModeration.service.js";
 import routeNotification from "../notification/routeNotification.service.js";
+import { flattenUser, normalizedUserInclude } from "./userData.service.js";
 
 import { getRedisCacheClient } from "../../config/redis.config.js";
 import getS3, { bucketName, cloudfrontDomain } from "../../config/s3.config.js";
 import prisma from "../../config/prisma.config.js";
 
 import moveS3Object from "../../utils/media/moveS3Object.util.js";
-import { cacheUser } from "../auth/auth.shared.js";
 
 type UploadFingerprint = {
   eTag: string | null;
@@ -23,7 +24,7 @@ const updateProfilePicture = async (
 ) => {
   const foundUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, profilePictureKey: true },
+    select: { id: true },
   });
 
   if (!foundUser) throw new Error("User not found");
@@ -61,8 +62,8 @@ const updateProfilePicture = async (
     };
   }
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
+  const currentUser = await prisma.userProfile.findUnique({
+    where: { userId },
     select: { profilePictureKey: true },
   });
 
@@ -138,9 +139,9 @@ const updateProfilePicture = async (
     };
   }
 
-  const updatedUser = await prisma.user.updateMany({
+  const updatedUser = await prisma.userProfile.updateMany({
     where: {
-      id: userId,
+      userId,
       profilePictureKey: objectKey,
     },
     data: { profilePictureKey: newObjectKey },
@@ -166,10 +167,11 @@ const updateProfilePicture = async (
 
   const refreshedUser = await prisma.user.findUnique({
     where: { id: userId },
+    include: normalizedUserInclude,
   });
 
   if (refreshedUser) {
-    await cacheUser(refreshedUser);
+    await cacheUser(flattenUser(refreshedUser));
     await getRedisCacheClient().del(`auth:user:${userId}`);
   }
 

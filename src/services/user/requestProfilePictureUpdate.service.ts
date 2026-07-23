@@ -50,8 +50,8 @@ const requestProfilePictureUpdate = async ({
     throw new HttpError("Uploaded image could not be verified", 400);
   }
 
-  await prisma.user.update({
-    where: { id: userId },
+  await prisma.userProfile.update({
+    where: { userId },
     data: { profilePictureKey: objectKey },
   });
 

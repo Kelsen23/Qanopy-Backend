@@ -1,10 +1,6 @@
 import bcrypt from "bcrypt";
 
-import HttpError from "../../utils/http/httpError.util.js";
-import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
-import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
-import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
+import { Prisma } from "../../generated/prisma/client.js";
 
 import {
   cacheAuthUser,
@@ -19,11 +15,21 @@ import {
   getEmailChangeAttemptsKey,
   removeEmailChangeAttempts,
 } from "./emailChange.shared.js";
-
-import { Prisma } from "../../generated/prisma/index.js";
+import {
+  flattenUser,
+  getFlattenedUserByEmail,
+  getFlattenedUserById,
+  normalizedUserInclude,
+} from "./userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
+
+import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
+import { securityNoticeHtml } from "../../utils/email/renderTemplate.util.js";
+import HttpError from "../../utils/http/httpError.util.js";
+import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
+import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 
 import emailQueue from "../../queues/email.queue.js";
 
@@ -38,22 +44,7 @@ const verifyEmailChange = async ({
   otp,
   deviceInfo,
 }: VerifyEmailChangeInput) => {
-  const foundUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      isVerified: true,
-      tokenVersion: true,
-      authProvider: true,
-      createdAt: true,
-      emailChangePendingEmail: true,
-      emailChangeOtp: true,
-      emailChangeOtpExpireAt: true,
-      emailChangeOtpResendAvailableAt: true,
-    },
-  });
+  const foundUser = await getFlattenedUserById(userId);
 
   if (!foundUser) throw new HttpError("Invalid credentials", 404);
 
@@ -74,6 +65,8 @@ const verifyEmailChange = async ({
   ) {
     throw new HttpError("Email change OTP not set", 400);
   }
+
+  const pendingEmail = foundUser.emailChangePendingEmail;
 
   const attemptsKey = getEmailChangeAttemptsKey(foundUser.id);
   const attempts = await getRedisCacheClient().get(attemptsKey);
@@ -97,10 +90,7 @@ const verifyEmailChange = async ({
     throw new HttpError("Invalid email change OTP", 400);
   }
 
-  const conflictingUser = await prisma.user.findFirst({
-    where: { email: foundUser.emailChangePendingEmail, isDeleted: false },
-    select: { id: true, createdAt: true, authProvider: true, isVerified: true },
-  });
+  const conflictingUser = await getFlattenedUserByEmail(pendingEmail);
 
   if (conflictingUser && conflictingUser.id !== foundUser.id) {
     if (!(await handleExpiredUnverifiedUser(conflictingUser))) {
@@ -111,25 +101,44 @@ const verifyEmailChange = async ({
   let updatedUser;
 
   try {
-    updatedUser = await prisma.user.update({
-      where: { id: foundUser.id },
-      data: {
-        email: foundUser.emailChangePendingEmail,
-        isVerified: true,
-        otp: null,
-        otpExpireAt: null,
-        otpResendAvailableAt: null,
-        emailChangePendingEmail: null,
-        emailChangeOtp: null,
-        emailChangeOtpExpireAt: null,
-        emailChangeOtpResendAvailableAt: null,
-        resetPasswordOtp: null,
-        resetPasswordOtpVerified: null,
-        resetPasswordOtpExpireAt: null,
-        resetPasswordOtpResendAvailableAt: null,
-        tokenVersion: { increment: 1 },
-      },
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.user.update({
+        where: { id: foundUser.id },
+        data: { email: pendingEmail },
+      });
+
+      await tx.userAuth.update({
+        where: { userId: foundUser.id },
+        data: {
+          isVerified: true,
+          otp: null,
+          otpExpireAt: null,
+          otpResendAvailableAt: null,
+          resetPasswordOtp: null,
+          resetPasswordOtpVerified: null,
+          resetPasswordOtpExpireAt: null,
+          resetPasswordOtpResendAvailableAt: null,
+          tokenVersion: { increment: 1 },
+        },
+      });
+
+      await tx.userEmailChange.update({
+        where: { userId: foundUser.id },
+        data: {
+          pendingEmail: null,
+          otp: null,
+          otpExpireAt: null,
+          otpResendAvailableAt: null,
+        },
+      });
     });
+
+    updatedUser = flattenUser(
+      await prisma.user.findUniqueOrThrow({
+        where: { id: foundUser.id },
+        include: normalizedUserInclude,
+      }),
+    );
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

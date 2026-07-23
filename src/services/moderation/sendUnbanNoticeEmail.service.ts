@@ -23,11 +23,15 @@ const sendUnbanNoticeEmail = async ({
         id: true,
         email: true,
         username: true,
-        isDeleted: true,
+        statusState: {
+          select: {
+            isDeleted: true,
+          },
+        },
       },
     });
 
-    if (!foundUser || foundUser.isDeleted || !foundUser.email) {
+    if (!foundUser || foundUser.statusState?.isDeleted || !foundUser.email) {
       return { sent: false };
     }
 

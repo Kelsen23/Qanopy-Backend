@@ -14,16 +14,36 @@ const validateSocketUser = async (userId: string, tokenVersion: number) => {
 
   const user: SocketConnectUser | null = cachedUser
     ? (JSON.parse(cachedUser) as SocketConnectUser)
-    : await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          tokenVersion: true,
-          status: true,
-          isVerified: true,
-          isDeleted: true,
-        },
-      });
+    : await prisma.user
+        .findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            auth: {
+              select: {
+                tokenVersion: true,
+                isVerified: true,
+              },
+            },
+            statusState: {
+              select: {
+                status: true,
+                isDeleted: true,
+              },
+            },
+          },
+        })
+        .then((user) =>
+          user
+            ? {
+                id: user.id,
+                tokenVersion: user.auth?.tokenVersion ?? 0,
+                isVerified: user.auth?.isVerified ?? false,
+                status: user.statusState?.status ?? "ACTIVE",
+                isDeleted: user.statusState?.isDeleted ?? false,
+              }
+            : null,
+        );
 
   if (!user) {
     throw new Error("User not found");

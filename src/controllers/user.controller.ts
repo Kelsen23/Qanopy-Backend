@@ -1,14 +1,11 @@
 import { Response } from "express";
 
-import asyncHandler from "../middlewares/asyncHandler.middleware.js";
-
 import AuthenticatedRequest from "../types/authenticatedRequest.type.js";
-
-import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
 
 import {
   deleteAccount as deleteAccountService,
   deleteProfilePicture as deleteProfilePictureService,
+  getCredits as getCreditsService,
   getNotificationSettings as getNotificationSettingsService,
   markNotificationsAsSeen as markNotificationsAsSeenService,
   resendEmailChange as resendEmailChangeService,
@@ -18,6 +15,10 @@ import {
   updateProfilePicture as updateProfilePictureService,
   verifyEmailChange as verifyEmailChangeService,
 } from "../services/user/user.service.js";
+
+import getDeviceInfo from "../utils/auth/getDeviceInfo.util.js";
+
+import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
 const updateProfilePicture = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -85,6 +86,19 @@ const getNotificationSettings = asyncHandler(
     return res.status(200).json({
       message: "Successfully received notification settings",
       settings,
+    });
+  },
+);
+
+const getCredits = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { id: userId } = req.user;
+
+    const { creditPeriods } = await getCreditsService({ userId });
+
+    return res.status(200).json({
+      message: "Successfully received credits",
+      creditPeriods,
     });
   },
 );
@@ -197,6 +211,7 @@ export {
   deleteProfilePicture,
   updateProfile,
   deleteAccount,
+  getCredits,
   getNotificationSettings,
   updateNotificationSettings,
   markNotificationsAsSeen,

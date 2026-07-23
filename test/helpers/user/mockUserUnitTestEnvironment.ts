@@ -8,14 +8,23 @@ const bcryptCompareResults = new Map<BcryptCompareKey, boolean>();
 const s3SendResponses: unknown[] = [];
 
 const prismaUserFindUnique = vi.fn();
+const prismaUserFindUniqueOrThrow = vi.fn();
 const prismaUserFindFirst = vi.fn();
 const prismaUserUpdate = vi.fn();
 const prismaUserUpdateMany = vi.fn();
+const prismaUserAuthUpdate = vi.fn();
+const prismaUserProfileFindUnique = vi.fn();
+const prismaUserProfileUpdate = vi.fn();
+const prismaUserProfileUpdateMany = vi.fn();
+const prismaUserStatsUpdate = vi.fn();
+const prismaUserStatusUpdate = vi.fn();
+const prismaUserEmailChangeUpdate = vi.fn();
 const prismaNotificationSettingsUpsert = vi.fn();
 const prismaBadgeFindFirst = vi.fn();
 const prismaBadgeFindMany = vi.fn();
 const prismaUserBadgeUpsert = vi.fn();
 const prismaUserBadgeFindMany = vi.fn();
+const prismaTransaction = vi.fn(async (callback) => callback(prismaMocks));
 
 const redisGet = vi.fn(async (key: string) => redisStore.get(key) ?? null);
 const redisSet = vi.fn(async (key: string, value: unknown) => {
@@ -92,9 +101,27 @@ const s3Send = vi.fn(async () => {
 const prismaMocks = {
   user: {
     findUnique: prismaUserFindUnique,
+    findUniqueOrThrow: prismaUserFindUniqueOrThrow,
     findFirst: prismaUserFindFirst,
     update: prismaUserUpdate,
     updateMany: prismaUserUpdateMany,
+  },
+  userAuth: {
+    update: prismaUserAuthUpdate,
+  },
+  userProfile: {
+    findUnique: prismaUserFindUnique,
+    update: prismaUserUpdate,
+    updateMany: prismaUserUpdateMany,
+  },
+  userStats: {
+    update: prismaUserStatsUpdate,
+  },
+  userStatus: {
+    update: prismaUserStatusUpdate,
+  },
+  userEmailChange: {
+    update: prismaUserEmailChangeUpdate,
   },
   notificationSettings: {
     upsert: prismaNotificationSettingsUpsert,
@@ -111,7 +138,10 @@ const prismaMocks = {
 
 export const mockUserUnitModules = {
   prismaConfig: {
-    default: prismaMocks,
+    default: {
+      ...prismaMocks,
+      $transaction: prismaTransaction,
+    },
   },
   redisConfig: {
     getRedisCacheClient: () => ({
@@ -213,9 +243,18 @@ export const mockUserUnitTestEnvironment = {
   bcryptCompareResults,
   s3SendResponses,
   prismaUserFindUnique,
+  prismaUserFindUniqueOrThrow,
   prismaUserFindFirst,
   prismaUserUpdate,
   prismaUserUpdateMany,
+  prismaUserAuthUpdate,
+  prismaUserProfileFindUnique,
+  prismaUserProfileUpdate,
+  prismaUserProfileUpdateMany,
+  prismaUserStatsUpdate,
+  prismaUserStatusUpdate,
+  prismaUserEmailChangeUpdate,
+  prismaTransaction,
   prismaNotificationSettingsUpsert,
   prismaBadgeFindFirst,
   prismaBadgeFindMany,
@@ -261,9 +300,20 @@ export const resetUserUnitTestEnvironment = () => {
   s3SendResponses.length = 0;
 
   prismaUserFindUnique.mockReset();
+  prismaUserFindUniqueOrThrow.mockReset();
   prismaUserFindFirst.mockReset();
   prismaUserUpdate.mockReset();
   prismaUserUpdateMany.mockReset();
+  prismaUserAuthUpdate.mockReset();
+  prismaUserProfileFindUnique.mockReset();
+  prismaUserProfileUpdate.mockReset();
+  prismaUserProfileUpdateMany.mockReset();
+  prismaUserStatsUpdate.mockReset();
+  prismaUserStatusUpdate.mockReset();
+  prismaUserEmailChangeUpdate.mockReset();
+  prismaTransaction
+    .mockReset()
+    .mockImplementation(async (callback) => callback(prismaMocks));
   prismaNotificationSettingsUpsert.mockReset();
   prismaBadgeFindFirst.mockReset();
   prismaBadgeFindMany.mockReset();
