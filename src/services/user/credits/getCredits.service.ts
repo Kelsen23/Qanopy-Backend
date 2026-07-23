@@ -2,6 +2,7 @@ import type { CreditPeriodType } from "../../../generated/prisma/client.js";
 
 import {
   ensureCreditPeriodRows,
+  getNextResetAt,
   resetExpiredCreditPeriods,
 } from "./creditPeriodUsage.shared.js";
 import getCreditLimits from "./getCreditLimits.service.js";
@@ -47,7 +48,7 @@ const getCredits = async ({ userId }: { userId: string }) => {
         periodType,
         spentPercentage,
         remainingPercentage: 100 - spentPercentage,
-        resetAt: periodUsage?.resetAt ?? new Date(),
+        resetAt: periodUsage?.resetAt ?? getNextResetAt(periodType),
       };
     },
   );

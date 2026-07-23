@@ -1,17 +1,18 @@
 import { NextFunction, Response } from "express";
 import mongoose from "mongoose";
 
-import asyncHandler from "./asyncHandler.middleware.js";
-
-import type AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 import type { CreditOperationType } from "../generated/prisma/client.js";
+import type AuthenticatedRequest from "../types/authenticatedRequest.type.js";
 
 import calculateCreditCharge from "../services/user/credits/calculateCreditCharge.service.js";
 import chargeCreditsService from "../services/user/credits/chargeCredits.service.js";
 
-import QuestionVersion from "../models/questionVersion.model.js";
+import HttpError from "../utils/http/httpError.util.js";
+
 import AiAnswer from "../models/aiAnswer.model.js";
 import AiSuggestion from "../models/aiSuggestion.model.js";
+import QuestionVersion from "../models/questionVersion.model.js";
+import asyncHandler from "./asyncHandler.middleware.js";
 
 const getQuestionVersionText = async (questionId: string, version: number) => {
   if (!mongoose.Types.ObjectId.isValid(questionId)) return "";
@@ -60,6 +61,10 @@ const chargeCredits = (type: "AI_SUGGESTION" | "AI_ANSWER") =>
       const userId = req.user?.id;
       const { questionId } = req.params;
       const version = Number(req.body.version);
+
+      if (!userId) {
+        throw new HttpError("Not authenticated", 401);
+      }
 
       if (!questionId) {
         return next();
