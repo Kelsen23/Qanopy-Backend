@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 
+import type { CreditCharge } from "../../../user/credits/credits.types.js";
+
 import { canGetAIAnswer } from "../questionAiHelp.shared.js";
+import refundCreditCharge from "../../../user/credits/refundCreditCharge.service.js";
+import { toPublicAiAnswer } from "../../question.response.js";
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
-import prisma from "../../../../config/prisma.config.js";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
@@ -13,12 +16,11 @@ import AiAnswer from "../../../../models/aiAnswer.model.js";
 
 import questionAiAnswerQueue from "../../../../queues/questionAiAnswer.queue.js";
 
-import { toPublicAiAnswer } from "../../question.response.js";
-
 const generateAiAnswerRequest = async (
   userId: string,
   questionId: string,
   version: number,
+  creditCharge?: CreditCharge,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(questionId))
     throw new HttpError("Invalid questionId", 400);
@@ -61,6 +63,13 @@ const generateAiAnswerRequest = async (
     .lean();
 
   if (foundAiAnswer) {
+    if (creditCharge?.chargedNow) {
+      await refundCreditCharge({
+        operationKey: creditCharge.operationKey,
+        reason: "AI answer already existed",
+      });
+    }
+
     return {
       message: "AI answer successfully received",
       answer: toPublicAiAnswer(foundAiAnswer),
@@ -77,25 +86,6 @@ const generateAiAnswerRequest = async (
   );
 
   if (!pendingSet) throw new HttpError("AI answer already queued", 409);
-
-  const cachedCredits = await getRedisCacheClient().get(`credits:${userId}`);
-
-  if (cachedCredits && JSON.parse(cachedCredits) < 5) {
-    await getRedisCacheClient().del(pendingKey);
-    throw new HttpError("Not enough credits", 400);
-  }
-
-  const updatedUser = await prisma.user.updateMany({
-    where: { id: userId, credits: { gte: 5 } },
-    data: { credits: { decrement: 5 } },
-  });
-
-  if (updatedUser.count === 0) {
-    await getRedisCacheClient().del(pendingKey);
-    throw new HttpError("Not enough credits", 400);
-  }
-
-  await getRedisCacheClient().del(`credits:${userId}`, `user:${userId}`);
 
   try {
     const jobId = makeJobId(
@@ -114,6 +104,7 @@ const generateAiAnswerRequest = async (
         userId,
         questionId,
         version,
+        creditCharge,
       },
       {
         removeOnComplete: true,
@@ -122,16 +113,14 @@ const generateAiAnswerRequest = async (
       },
     );
   } catch (error) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { credits: { increment: 5 } },
-    });
+    if (creditCharge?.chargedNow) {
+      await refundCreditCharge({
+        operationKey: creditCharge.operationKey,
+        reason: "AI answer queueing failed",
+      });
+    }
 
-    await getRedisCacheClient().del(
-      `credits:${userId}`,
-      `user:${userId}`,
-      pendingKey,
-    );
+    await getRedisCacheClient().del(`user:${userId}`, pendingKey);
 
     throw error;
   }
