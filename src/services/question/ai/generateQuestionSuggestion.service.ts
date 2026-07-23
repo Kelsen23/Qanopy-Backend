@@ -11,6 +11,22 @@ import Question from "../../../models/question.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
 import AiSuggestion from "../../../models/aiSuggestion.model.js";
 
+class AiSuggestionDeliveryError extends Error {
+  billableResultCreated = true;
+  originalError: unknown;
+
+  constructor(error: unknown) {
+    super(
+      error instanceof Error
+        ? error.message
+        : "AI suggestion delivery failed after creation",
+    );
+
+    this.name = "AiSuggestionDeliveryError";
+    this.originalError = error;
+  }
+}
+
 const generateQuestionSuggestion = async ({
   userId,
   questionId,
@@ -81,23 +97,28 @@ const generateQuestionSuggestion = async ({
 
   const sockets = await getEditSessionSockets(version);
 
-  if (sockets.length > 0)
-    await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
-  else
-    await routeNotification({
-      recipientId: userId,
-      event: "AI_SUGGESTION_READY",
-      target: {
-        entityType: "QUESTION",
-        entityId: questionId,
-      },
-      meta: {
-        questionId,
-        questionVersion: version,
-        generatedAt: new Date().toISOString(),
-        source: "DeepSeek-Chat",
-      },
-    });
+  try {
+    if (sockets.length > 0)
+      await publishSocketEvent(userId, "aiSuggestionReady", newSuggestion);
+    else
+      await routeNotification({
+        recipientId: userId,
+        event: "AI_SUGGESTION_READY",
+        target: {
+          entityType: "QUESTION",
+          entityId: questionId,
+        },
+        meta: {
+          questionId,
+          questionVersion: version,
+          generatedAt: new Date().toISOString(),
+          source: "DeepSeek-Chat",
+        },
+      });
+  } catch (error) {
+    throw new AiSuggestionDeliveryError(error);
+  }
 };
 
 export default generateQuestionSuggestion;
+export { AiSuggestionDeliveryError };

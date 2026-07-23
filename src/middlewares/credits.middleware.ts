@@ -14,6 +14,28 @@ import AiSuggestion from "../models/aiSuggestion.model.js";
 import QuestionVersion from "../models/questionVersion.model.js";
 import asyncHandler from "./asyncHandler.middleware.js";
 
+const AI_SUGGESTION_TTL_MS = 45 * 60 * 1000;
+
+const getCreditOperationKey = ({
+  type,
+  userId,
+  questionId,
+  version,
+}: {
+  type: "AI_SUGGESTION" | "AI_ANSWER";
+  userId: string;
+  questionId: string;
+  version: number;
+}) => {
+  const baseKey = `${type}:${userId}:${questionId}:${version}`;
+
+  if (type === "AI_SUGGESTION") {
+    return `${baseKey}:${Math.floor(Date.now() / AI_SUGGESTION_TTL_MS)}`;
+  }
+
+  return baseKey;
+};
+
 const getQuestionVersionText = async (questionId: string, version: number) => {
   if (!mongoose.Types.ObjectId.isValid(questionId)) return "";
 
@@ -74,7 +96,12 @@ const chargeCredits = (type: "AI_SUGGESTION" | "AI_ANSWER") =>
         return next();
       }
 
-      const operationKey = `${type}:${userId}:${questionId}:${version}`;
+      const operationKey = getCreditOperationKey({
+        type,
+        userId,
+        questionId,
+        version,
+      });
       const content = await getQuestionVersionText(questionId, version);
       const amount = await calculateCreditCharge({ userId, type, content });
 
@@ -90,3 +117,4 @@ const chargeCredits = (type: "AI_SUGGESTION" | "AI_ANSWER") =>
   );
 
 export default chargeCredits;
+export { getCreditOperationKey };

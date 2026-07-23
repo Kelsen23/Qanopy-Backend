@@ -1,9 +1,15 @@
 import type { CreditCharge } from "../../user/credits/credits.types.js";
 
-import generateQuestionSuggestionService from "../ai/generateQuestionSuggestion.service.js";
+import generateQuestionSuggestionService, {
+  AiSuggestionDeliveryError,
+} from "../ai/generateQuestionSuggestion.service.js";
 import refundCreditCharge from "../../user/credits/refundCreditCharge.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
+
+type BillableResultError = Error & {
+  billableResultCreated?: boolean;
+};
 
 type ProcessAiSuggestionJobData = {
   userId: string;
@@ -21,7 +27,15 @@ const processQuestionAiSuggestionJob = async ({
   try {
     await generateQuestionSuggestionService({ userId, questionId, version });
   } catch (error) {
-    if (creditCharge?.chargedNow) {
+    const billableResultCreated =
+      error instanceof Error &&
+      (error as BillableResultError).billableResultCreated === true;
+
+    if (
+      creditCharge?.chargedNow &&
+      !billableResultCreated &&
+      !(error instanceof AiSuggestionDeliveryError)
+    ) {
       await refundCreditCharge({
         operationKey: creditCharge.operationKey,
         reason: "AI suggestion generation failed",
