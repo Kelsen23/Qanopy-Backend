@@ -44,9 +44,7 @@ describe("resendVerificationEmail service", () => {
       false,
     );
     authUnitTestEnvironment.makeUniqueJobId.mockReturnValue("job-id");
-    authUnitTestEnvironment.verificationHtml.mockReturnValue(
-      "<verification-email>",
-    );
+    authUnitTestEnvironment.otpEmailHtml.mockReturnValue("<otp-email>");
   });
 
   it("rejects missing users", async () => {
@@ -116,6 +114,13 @@ describe("resendVerificationEmail service", () => {
     });
 
     expect(result.user.id).toBe("user_1");
+    expect(authUnitTestEnvironment.otpEmailHtml).toHaveBeenCalledWith({
+      purpose: "verification",
+      username: "alice",
+      otp: expect.any(String),
+      deviceName: "Chrome on Linux",
+      deviceIp: "127.0.0.1",
+    });
     expect(authUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
       "RESEND_VERIFICATION_EMAIL",
       expect.objectContaining({
@@ -123,7 +128,7 @@ describe("resendVerificationEmail service", () => {
         userId: "user_1",
         purpose: "VERIFY_EMAIL",
         subject: "Verify Email",
-        htmlContent: "<verification-email>",
+        htmlContent: "<otp-email>",
       }),
       expect.objectContaining({
         jobId: "job-id",

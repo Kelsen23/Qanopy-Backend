@@ -56,7 +56,7 @@ const makeJobId = vi.fn((...parts: unknown[]) => parts.join("__"));
 const makeUniqueJobId = vi.fn(
   (...parts: unknown[]) => `unique__${parts.join("__")}`,
 );
-const emailChangeHtml = vi.fn(() => "<email-change-email>");
+const otpEmailHtml = vi.fn(() => "<otp-email>");
 const securityNoticeHtml = vi.fn(() => "<security-notice-email>");
 const buildDeletedUserData = vi.fn(async () => ({
   username: "deleted-user",
@@ -188,7 +188,7 @@ export const mockUserUnitModules = {
     makeUniqueJobId,
   },
   renderTemplate: {
-    emailChangeHtml,
+    otpEmailHtml,
     securityNoticeHtml,
   },
   buildDeletedUserData: {
@@ -272,7 +272,7 @@ export const mockUserUnitTestEnvironment = {
   badgeQueueAdd,
   makeJobId,
   makeUniqueJobId,
-  emailChangeHtml,
+  otpEmailHtml,
   securityNoticeHtml,
   buildDeletedUserData,
   publishSocketDisconnect,
@@ -354,7 +354,7 @@ export const resetUserUnitTestEnvironment = () => {
   makeUniqueJobId
     .mockReset()
     .mockImplementation((...parts: unknown[]) => `unique__${parts.join("__")}`);
-  emailChangeHtml.mockReset().mockReturnValue("<email-change-email>");
+  otpEmailHtml.mockReset().mockReturnValue("<otp-email>");
   securityNoticeHtml.mockReset().mockReturnValue("<security-notice-email>");
   buildDeletedUserData.mockReset().mockResolvedValue({
     username: "deleted-user",

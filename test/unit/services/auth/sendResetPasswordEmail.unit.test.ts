@@ -43,9 +43,7 @@ describe("sendResetPasswordEmail service", () => {
     authUnitTestEnvironment.cleanupExpiredUnverifiedUserById.mockResolvedValue(
       false,
     );
-    authUnitTestEnvironment.resetPasswordHtml.mockReturnValue(
-      "<reset-password-email>",
-    );
+    authUnitTestEnvironment.otpEmailHtml.mockReturnValue("<otp-email>");
     authUnitTestEnvironment.makeUniqueJobId.mockReturnValue("job-id");
   });
 
@@ -114,6 +112,13 @@ describe("sendResetPasswordEmail service", () => {
     });
 
     expect(result).toEqual({ sent: true });
+    expect(authUnitTestEnvironment.otpEmailHtml).toHaveBeenCalledWith({
+      purpose: "resetPassword",
+      username: "alice",
+      otp: expect.any(String),
+      deviceName: "Chrome on Linux",
+      deviceIp: "127.0.0.1",
+    });
     expect(authUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
       "SEND_RESET_PASSWORD_EMAIL",
       expect.objectContaining({
@@ -121,7 +126,7 @@ describe("sendResetPasswordEmail service", () => {
         userId: "user_1",
         purpose: "RESET_PASSWORD",
         subject: "Reset Password Request",
-        htmlContent: "<reset-password-email>",
+        htmlContent: "<otp-email>",
       }),
       expect.objectContaining({
         jobId: "job-id",

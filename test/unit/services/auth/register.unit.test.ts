@@ -47,9 +47,7 @@ describe("register service", () => {
     authUnitTestEnvironment.cleanupExpiredUnverifiedUserById.mockResolvedValue(
       false,
     );
-    authUnitTestEnvironment.verificationHtml.mockReturnValue(
-      "<verification-email>",
-    );
+    authUnitTestEnvironment.otpEmailHtml.mockReturnValue("<otp-email>");
     authUnitTestEnvironment.makeUniqueJobId.mockReturnValue("job-id");
     vi.spyOn(Math, "random").mockReturnValue(0.123456);
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
@@ -146,12 +144,13 @@ describe("register service", () => {
       include: expect.any(Object),
     });
     expect(authUnitTestEnvironment.redisStore.get("user:user_1")).toBeTruthy();
-    expect(authUnitTestEnvironment.verificationHtml).toHaveBeenCalledWith(
-      "alice",
-      "211110",
-      "Chrome on Linux",
-      "127.0.0.1",
-    );
+    expect(authUnitTestEnvironment.otpEmailHtml).toHaveBeenCalledWith({
+      purpose: "verification",
+      username: "alice",
+      otp: "211110",
+      deviceName: "Chrome on Linux",
+      deviceIp: "127.0.0.1",
+    });
     expect(authUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
       "SEND_VERIFICATION_EMAIL",
       expect.objectContaining({
@@ -159,7 +158,7 @@ describe("register service", () => {
         userId: "user_1",
         purpose: "VERIFY_EMAIL",
         subject: "Verify Email",
-        htmlContent: "<verification-email>",
+        htmlContent: "<otp-email>",
       }),
       expect.objectContaining({
         removeOnComplete: true,

@@ -148,10 +148,8 @@ const verifyGoogleToken = vi.fn();
 const generateOAuthUsername = vi.fn();
 const makeJobId = vi.fn((...parts: unknown[]) => parts.join("__"));
 const makeUniqueJobId = vi.fn(() => "unique-job-id");
-const verificationHtml = vi.fn(() => "<verification-email>");
-const resetPasswordHtml = vi.fn(() => "<reset-password-email>");
+const otpEmailHtml = vi.fn(() => "<otp-email>");
 const securityNoticeHtml = vi.fn(() => "<security-notice-email>");
-const emailChangeHtml = vi.fn(() => "<email-change-email>");
 const publishSocketDisconnect = vi.fn(async () => undefined);
 const deleteSingleImageService = vi.fn(async () => undefined);
 const buildDeletedUserData = vi.fn(async () => ({
@@ -287,10 +285,8 @@ export const mockAuthUnitModules = {
     makeUniqueJobId,
   },
   renderTemplate: {
-    verificationHtml,
-    resetPasswordHtml,
+    otpEmailHtml,
     securityNoticeHtml,
-    emailChangeHtml,
   },
   publishSocketDisconnect: {
     default: publishSocketDisconnect,
@@ -368,10 +364,8 @@ export const mockAuthUnitTestEnvironment = {
   generateOAuthUsername,
   makeJobId,
   makeUniqueJobId,
-  verificationHtml,
-  resetPasswordHtml,
+  otpEmailHtml,
   securityNoticeHtml,
-  emailChangeHtml,
   publishSocketDisconnect,
   deleteSingleImageService,
   buildDeletedUserData,
@@ -448,10 +442,8 @@ export const resetAuthUnitTestEnvironment = () => {
     .mockReset()
     .mockImplementation((...parts: unknown[]) => parts.join("__"));
   makeUniqueJobId.mockReset();
-  verificationHtml.mockReset();
-  resetPasswordHtml.mockReset();
+  otpEmailHtml.mockReset().mockReturnValue("<otp-email>");
   securityNoticeHtml.mockReset();
-  emailChangeHtml.mockReset();
   publishSocketDisconnect.mockClear();
   deleteSingleImageService.mockClear();
   buildDeletedUserData.mockClear();
