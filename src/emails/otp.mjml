@@ -1,6 +1,6 @@
 <mjml>
   <mj-head>
-    <mj-preview>Password Reset Code</mj-preview>
+    <mj-preview>{{ previewText }}</mj-preview>
     <mj-attributes>
       <mj-all font-family="Helvetica, Arial, sans-serif" />
       <mj-text line-height="160%" />
@@ -17,30 +17,15 @@
         border-radius: 8px;
       }
 
-      .otp-wrap {
-        padding: 18px 22px 18px 26px;
-        background-color: #f5f5f5;
-        border-radius: 8px;
-        display: inline-block;
-        line-height: 1;
-        max-width: 100%;
-        overflow: hidden;
-        white-space: normal;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-      }
-
       .code {
         font-size: 48px;
         font-weight: 700;
-        font-family: Helvetica, Arial, sans-serif;
+        font-family: "Courier New", Courier, monospace;
         color: #000000;
-        letter-spacing: 8px;
+        letter-spacing: 6px;
         display: inline-block;
         max-width: 100%;
-        white-space: normal;
-        word-break: break-word;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
       }
 
       .highlight {
@@ -53,13 +38,9 @@
           padding: 64px 20px 48px !important;
         }
 
-        .otp-wrap {
-          padding: 14px 14px 14px 18px;
-        }
-
         .code {
           font-size: 34px !important;
-          letter-spacing: 4px !important;
+          letter-spacing: 3px !important;
         }
       }
     </mj-style>
@@ -82,7 +63,7 @@
           padding="0 0 20px 0"
           align="center"
         >
-          Reset your <strong>Qanopy</strong> password
+          {{ heading }}
         </mj-text>
 
         <mj-text
@@ -100,32 +81,15 @@
           padding="0 0 30px 0"
           align="left"
         >
-          We received a request to reset your password. Enter the 6-digit code
-          below to proceed:
+          {{ introText }}
         </mj-text>
 
         <mj-raw>
-          <table
-            width="100%"
-            cellpadding="0"
-            cellspacing="0"
-            role="presentation"
-            style="
-              table-layout: fixed;
-              padding: 30px 0 10px 0;
-              font-family: Helvetica, Arial, sans-serif;
-            "
-          >
-            <tr>
-              <td
-                align="center"
-                style="overflow: hidden; font-family: Helvetica, Arial, sans-serif"
-              >
-                <span class="otp-wrap"
-                  ><span class="code">{{ resetPasswordOtp }}</span></span
-                >
-              </td>
-            </tr>
+          <table width="100%" cellpadding="0" cellspacing="0"
+          role="presentation" style=" table-layout: fixed; padding: 30px 0 10px
+          0; font-family: Helvetica, Arial, sans-serif; " > <tr> <td
+          align="center" style="overflow: hidden; font-family: Helvetica, Arial,
+          sans-serif" > <span class="code">{{ otp }}</span > </td> </tr>
           </table>
         </mj-raw>
 
@@ -139,12 +103,11 @@
         </mj-text>
 
         <mj-text font-size="15px" color="#666666" padding="0 0 20px 0">
-          If you did not request this password reset, please secure your account
-          immediately.
+          {{ fallbackText }}
         </mj-text>
 
         <mj-text font-size="15px" color="#4a5568" padding="0 0 8px 0">
-          This reset request was made from:
+          {{ deviceIntroText }}
         </mj-text>
 
         <mj-text font-size="15px" color="#4a5568" padding="0 0 20px 0">
@@ -172,12 +135,7 @@
           line-height="170%"
           align="center"
         >
-          If you didn't request a password reset but received this email, or if
-          the location doesn't match, please ignore this email and secure your
-          account. Don't share or forward the 6-digit code with anyone. Our
-          customer service will never ask for it. Do not read this code out
-          loud. Be cautious of phishing attempts and always verify the sender
-          and domain before acting.
+          {{ footerText }}
         </mj-text>
         <mj-text
           font-size="13px"
