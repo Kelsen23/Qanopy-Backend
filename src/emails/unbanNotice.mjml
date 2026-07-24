@@ -29,7 +29,8 @@
             {{ title }}
           </mj-text>
           <mj-text padding="0 0 16px">
-            Hi <span style="color: #4169e1">{{ username }}</span>,
+            Hi <span style="color: #4169e1">{{ username }}</span
+            >,
           </mj-text>
           <mj-text padding="0 0 16px">{{ body }}</mj-text>
           <mj-text padding="0 0 16px">{{ details }}</mj-text>

@@ -203,11 +203,19 @@ describe("user email change services", () => {
     expect(
       userUnitTestEnvironment.removeEmailChangeAttempts,
     ).toHaveBeenCalledWith("user_1");
+    expect(userUnitTestEnvironment.otpEmailHtml).toHaveBeenCalledWith({
+      purpose: "emailChange",
+      username: "alice",
+      otp: expect.any(String),
+      deviceName: "Chrome on Linux",
+      deviceIp: "127.0.0.1",
+    });
     expect(userUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
       "SEND_EMAIL_CHANGE",
       expect.objectContaining({
         email: "new@example.com",
         userId: "user_1",
+        htmlContent: "<otp-email>",
       }),
       expect.objectContaining({
         jobId: "unique__email__SEND_EMAIL_CHANGE__user_1__new@example.com",
@@ -289,10 +297,18 @@ describe("user email change services", () => {
       deviceInfo,
     });
 
+    expect(userUnitTestEnvironment.otpEmailHtml).toHaveBeenCalledWith({
+      purpose: "emailChange",
+      username: "alice",
+      otp: expect.any(String),
+      deviceName: "Chrome on Linux",
+      deviceIp: "127.0.0.1",
+    });
     expect(userUnitTestEnvironment.emailQueueAdd).toHaveBeenCalledWith(
       "RESEND_EMAIL_CHANGE",
       expect.objectContaining({
         email: "new@example.com",
+        htmlContent: "<otp-email>",
       }),
       expect.objectContaining({
         jobId: "unique__email__RESEND_EMAIL_CHANGE__user_1__new@example.com",

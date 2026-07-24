@@ -8,6 +8,61 @@ import { cloudfrontDomain } from "../../config/s3.config.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+type OtpEmailPurpose = "verification" | "resetPassword" | "emailChange";
+
+type OtpEmailInput = {
+  purpose: OtpEmailPurpose;
+  username: string;
+  otp: string;
+  deviceName: string;
+  deviceIp: string;
+};
+
+type OtpEmailCopy = {
+  previewText: string;
+  heading: string;
+  introText: string;
+  fallbackText: string;
+  deviceIntroText: string;
+  footerText: string;
+};
+
+const otpEmailCopyByPurpose: Record<OtpEmailPurpose, OtpEmailCopy> = {
+  verification: {
+    previewText: "Email Verification Code",
+    heading: "Verify your email to sign in to <strong>Qanopy</strong>",
+    introText:
+      "To complete the sign-in process, enter the 6-digit code in the original window:",
+    fallbackText:
+      "If you did not request this, please secure your account immediately.",
+    deviceIntroText: "This login attempt was made from:",
+    footerText:
+      "If you didn't attempt to sign in but received this email, or if the location doesn't match, please ignore this email. Don't share or forward the 6-digit code with anyone. Do not read this code out loud. Be cautious of phishing attempts and always verify the sender and domain before acting.",
+  },
+  resetPassword: {
+    previewText: "Password Reset Code",
+    heading: "Reset your <strong>Qanopy</strong> password",
+    introText:
+      "We received a request to reset your password. Enter the 6-digit code below to proceed:",
+    fallbackText:
+      "If you did not request this password reset, please secure your account immediately.",
+    deviceIntroText: "This reset request was made from:",
+    footerText:
+      "If you didn't request a password reset but received this email, or if the location doesn't match, please ignore this email and secure your account. Don't share or forward the 6-digit code with anyone. Our customer service will never ask for it. Do not read this code out loud. Be cautious of phishing attempts and always verify the sender and domain before acting.",
+  },
+  emailChange: {
+    previewText: "Email Change Code",
+    heading: "Change your <strong>Qanopy</strong> email",
+    introText:
+      "We received a request to change the email address associated with your account. Enter the 6-digit code below to proceed:",
+    fallbackText:
+      "If you did not request this email change, please secure your account immediately.",
+    deviceIntroText: "This request was made from:",
+    footerText:
+      "If you didn't attempt to change your email but received this email, or if the location doesn't match, please ignore this email. Don't share or forward the 6-digit code with anyone. Do not read this code out loud. Be cautious of phishing attempts and always verify the sender and domain before acting.",
+  },
+};
+
 export function renderTemplate(
   templateName: string,
   variables: Record<string, string>,
@@ -31,29 +86,17 @@ export function renderTemplate(
   });
 }
 
-const verificationHtml = (
-  username: string,
-  otp: string,
-  deviceName: string,
-  deviceIp: string,
-) => {
-  return renderTemplate("verification", {
+const otpEmailHtml = ({
+  purpose,
+  username,
+  otp,
+  deviceName,
+  deviceIp,
+}: OtpEmailInput) => {
+  return renderTemplate("otp", {
+    ...otpEmailCopyByPurpose[purpose],
     username,
     otp,
-    deviceName,
-    ip: deviceIp,
-  });
-};
-
-const resetPasswordHtml = (
-  username: string,
-  resetPasswordOtp: string,
-  deviceName: string,
-  deviceIp: string,
-) => {
-  return renderTemplate("resetPassword", {
-    username,
-    resetPasswordOtp,
     deviceName,
     ip: deviceIp,
   });
@@ -115,25 +158,10 @@ const unbanNoticeHtml = (
   });
 };
 
-const emailChangeHtml = (
-  username: string,
-  otp: string,
-  deviceName: string,
-  deviceIp: string,
-) => {
-  return renderTemplate("emailChange", {
-    username,
-    otp,
-    deviceName,
-    ip: deviceIp,
-  });
-};
-
 export {
-  verificationHtml,
-  resetPasswordHtml,
+  type OtpEmailPurpose,
+  otpEmailHtml,
   securityNoticeHtml,
   banNoticeHtml,
   unbanNoticeHtml,
-  emailChangeHtml,
 };
