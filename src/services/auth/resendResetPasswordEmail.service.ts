@@ -9,7 +9,7 @@ import { getFlattenedUserByEmail } from "../user/userData.service.js";
 
 import prisma from "../../config/prisma.config.js";
 
-import { resetPasswordHtml } from "../../utils/email/renderTemplate.util.js";
+import { otpEmailHtml } from "../../utils/email/renderTemplate.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
@@ -70,12 +70,13 @@ const resendResetPasswordEmail = async ({
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
 
-  const htmlContent = resetPasswordHtml(
-    foundUser.username,
-    resetPasswordOtp,
+  const htmlContent = otpEmailHtml({
+    purpose: "resetPassword",
+    username: foundUser.username,
+    otp: resetPasswordOtp,
     deviceName,
-    getDeviceIp(deviceInfo),
-  );
+    deviceIp: getDeviceIp(deviceInfo),
+  });
 
   await emailQueue.add(
     "RESEND_RESET_PASSWORD_EMAIL",

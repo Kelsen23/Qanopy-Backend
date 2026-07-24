@@ -13,7 +13,7 @@ import {
 
 import prisma from "../../config/prisma.config.js";
 
-import { verificationHtml } from "../../utils/email/renderTemplate.util.js";
+import { otpEmailHtml } from "../../utils/email/renderTemplate.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
@@ -75,12 +75,13 @@ const resendVerificationEmail = async ({
   if (!updatedUser.otp) throw new HttpError("OTP not set", 400);
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
-  const htmlContent = verificationHtml(
-    updatedUser.username,
+  const htmlContent = otpEmailHtml({
+    purpose: "verification",
+    username: updatedUser.username,
     otp,
     deviceName,
-    getDeviceIp(deviceInfo),
-  );
+    deviceIp: getDeviceIp(deviceInfo),
+  });
 
   await emailQueue.add(
     "RESEND_VERIFICATION_EMAIL",

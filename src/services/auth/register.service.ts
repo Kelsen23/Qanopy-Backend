@@ -22,7 +22,7 @@ import prisma from "../../config/prisma.config.js";
 
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
-import { verificationHtml } from "../../utils/email/renderTemplate.util.js";
+import { otpEmailHtml } from "../../utils/email/renderTemplate.util.js";
 
 import emailQueue from "../../queues/email.queue.js";
 
@@ -93,12 +93,13 @@ const register = async ({
   await cacheUser(flattenedUser);
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
-  const htmlContent = verificationHtml(
+  const htmlContent = otpEmailHtml({
+    purpose: "verification",
     username,
     otp,
     deviceName,
-    getDeviceIp(deviceInfo),
-  );
+    deviceIp: getDeviceIp(deviceInfo),
+  });
 
   await emailQueue.add(
     "SEND_VERIFICATION_EMAIL",

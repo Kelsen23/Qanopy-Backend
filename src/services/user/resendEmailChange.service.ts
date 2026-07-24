@@ -8,7 +8,7 @@ import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 import prisma from "../../config/prisma.config.js";
 import { getRedisCacheClient } from "../../config/redis.config.js";
 
-import { emailChangeHtml } from "../../utils/email/renderTemplate.util.js";
+import { otpEmailHtml } from "../../utils/email/renderTemplate.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
@@ -60,12 +60,13 @@ const resendEmailChange = async ({
   });
 
   const deviceName = `${deviceInfo.browser} on ${deviceInfo.os}`;
-  const htmlContent = emailChangeHtml(
-    foundUser.username,
+  const htmlContent = otpEmailHtml({
+    purpose: "emailChange",
+    username: foundUser.username,
     otp,
     deviceName,
-    getDeviceIp(deviceInfo),
-  );
+    deviceIp: getDeviceIp(deviceInfo),
+  });
 
   try {
     await emailQueue.add(
