@@ -23,11 +23,11 @@ vi.mock(
   () => mockUserUnitModules.s3Config,
 );
 vi.mock(
-  "../../../../src/queues/imageModeration.queue.js",
+  "../../../../src/queues/moderation/imageModeration.queue.js",
   () => mockUserUnitModules.imageModerationQueue,
 );
 vi.mock(
-  "../../../../src/queues/imageDeletion.queue.js",
+  "../../../../src/queues/media/imageDeletion.queue.js",
   () => mockUserUnitModules.imageDeletionQueue,
 );
 vi.mock(

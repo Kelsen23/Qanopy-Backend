@@ -12,7 +12,7 @@ vi.mock(
   () => mockAuthWorkerModules.redisConfig,
 );
 vi.mock(
-  "../../../../src/queues/unverifiedAccountCleanup.queue.js",
+  "../../../../src/queues/auth/unverifiedAccountCleanup.queue.js",
   () => mockAuthWorkerModules.unverifiedAccountCleanupQueue,
 );
 vi.mock(

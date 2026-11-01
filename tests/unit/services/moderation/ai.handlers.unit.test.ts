@@ -62,15 +62,15 @@ vi.mock(
   () => mockModerationUnitModules.routeNotificationService,
 );
 vi.mock(
-  "../../../../src/queues/moderationAudit.queue.js",
+  "../../../../src/queues/moderation/moderationAudit.queue.js",
   () => mockModerationUnitModules.moderationAuditQueue,
 );
 vi.mock(
-  "../../../../src/queues/moderationMetrics.queue.js",
+  "../../../../src/queues/moderation/moderationMetrics.queue.js",
   () => mockModerationUnitModules.moderationMetricsQueue,
 );
 vi.mock(
-  "../../../../src/queues/contentPipelineRouter.queue.js",
+  "../../../../src/queues/question/contentPipelineRouter.queue.js",
   () => mockModerationUnitModules.contentPipelineRouterQueue,
 );
 vi.mock("../../../../src/generated/prisma/client.js", () => ({

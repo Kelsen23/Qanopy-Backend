@@ -53,7 +53,7 @@ vi.mock(
   () => mockModerationUnitModules.makeJobId,
 );
 vi.mock(
-  "../../../../../src/queues/moderationAudit.queue.js",
+  "../../../../../src/queues/moderation/moderationAudit.queue.js",
   () => mockModerationUnitModules.moderationAuditQueue,
 );
 vi.mock(

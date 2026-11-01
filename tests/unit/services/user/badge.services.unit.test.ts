@@ -19,7 +19,7 @@ vi.mock(
   () => mockUserUnitModules.badgeRulesIndex,
 );
 vi.mock(
-  "../../../../src/queues/badge.queue.js",
+  "../../../../src/queues/user/badge.queue.js",
   () => mockUserUnitModules.badgeQueue,
 );
 vi.mock(
