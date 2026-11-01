@@ -1,4 +1,4 @@
-import notificationQueue from "../../queues/notification.queue.js";
+import notificationQueue from "../../queues/notification/notification.queue.js";
 import NotificationParams from "../../types/notification.type.js";
 
 import { makeJobId } from "../job/makeJobId.util.js";

@@ -1,8 +1,8 @@
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
 
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
 

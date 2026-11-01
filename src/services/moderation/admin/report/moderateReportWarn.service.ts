@@ -2,7 +2,7 @@ import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import prisma from "../../../../config/prisma.config.js";
 
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
 import routeNotification from "../../../notification/routeNotification.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 

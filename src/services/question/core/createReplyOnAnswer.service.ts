@@ -6,7 +6,7 @@ import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
+import contentFinalizeQueue from "../../../queues/question/contentFinalize.queue.js";
 
 import {
   clearQuestionReplyCache,

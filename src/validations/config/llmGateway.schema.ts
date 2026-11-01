@@ -169,6 +169,10 @@ type LlmGatewayEnvRulesInput = Partial<
     | "LLM_ANSWER_GENERATION_PRIMARY_EFFORT"
     | "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER"
     | "LLM_ANSWER_GENERATION_FALLBACK_EFFORT"
+    | "LLM_ANSWER_PLANNER_PRIMARY_PROVIDER"
+    | "LLM_ANSWER_PLANNER_PRIMARY_EFFORT"
+    | "LLM_ANSWER_PLANNER_FALLBACK_PROVIDER"
+    | "LLM_ANSWER_PLANNER_FALLBACK_EFFORT"
     | "LLM_EVALS_SUGGESTION_JUDGE_PROVIDER"
     | "LLM_EVALS_SUGGESTION_JUDGE_MODEL"
     | "LLM_EVALS_SUGGESTION_JUDGE_EFFORT"
@@ -176,7 +180,8 @@ type LlmGatewayEnvRulesInput = Partial<
     | "LLM_QUESTION_GATE_FALLBACK_MODEL"
     | "LLM_SECURITY_VERIFIER_FALLBACK_MODEL"
     | "LLM_SUGGESTION_GENERATION_FALLBACK_MODEL"
-    | "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
+    | "LLM_ANSWER_GENERATION_FALLBACK_MODEL"
+    | "LLM_ANSWER_PLANNER_FALLBACK_MODEL",
     string | undefined
   >
 >;
@@ -196,6 +201,8 @@ const addRequiredProviderApiKeyIssues = (
     env.LLM_SUGGESTION_GENERATION_FALLBACK_PROVIDER,
     env.LLM_ANSWER_GENERATION_PRIMARY_PROVIDER,
     env.LLM_ANSWER_GENERATION_FALLBACK_PROVIDER,
+    env.LLM_ANSWER_PLANNER_PRIMARY_PROVIDER,
+    env.LLM_ANSWER_PLANNER_FALLBACK_PROVIDER,
     env.LLM_EVALS_SUGGESTION_JUDGE_PROVIDER,
     env.LLM_EMBEDDINGS_PROVIDER,
   ];
@@ -238,6 +245,10 @@ const validateLlmGatewayEnvRules = (
     [
       "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
       "LLM_ANSWER_GENERATION_FALLBACK_MODEL",
+    ],
+    [
+      "LLM_ANSWER_PLANNER_FALLBACK_PROVIDER",
+      "LLM_ANSWER_PLANNER_FALLBACK_MODEL",
     ],
     ["LLM_EVALS_SUGGESTION_JUDGE_PROVIDER", "LLM_EVALS_SUGGESTION_JUDGE_MODEL"],
   ] as const;
@@ -355,6 +366,22 @@ const validateLlmGatewayEnvRules = (
     env.LLM_ANSWER_GENERATION_FALLBACK_EFFORT as LLMReasoningEffort | undefined,
     "LLM_ANSWER_GENERATION_FALLBACK_EFFORT",
   );
+  validateReasoningProvider(
+    ctx,
+    env.LLM_ANSWER_PLANNER_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    env.LLM_ANSWER_PLANNER_PRIMARY_EFFORT as LLMReasoningEffort | undefined,
+    "LLM_ANSWER_PLANNER_PRIMARY_EFFORT",
+  );
+  validateReasoningProvider(
+    ctx,
+    env.LLM_ANSWER_PLANNER_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    env.LLM_ANSWER_PLANNER_FALLBACK_EFFORT as LLMReasoningEffort | undefined,
+    "LLM_ANSWER_PLANNER_FALLBACK_EFFORT",
+  );
   validateFeatureProvider(
     ctx,
     "securityVerifier",
@@ -394,6 +421,22 @@ const validateLlmGatewayEnvRules = (
       | (typeof supportedProviders)[number]
       | undefined,
     "LLM_ANSWER_GENERATION_FALLBACK_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiAnswerPlanner",
+    env.LLM_ANSWER_PLANNER_PRIMARY_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_ANSWER_PLANNER_PRIMARY_PROVIDER",
+  );
+  validateFeatureProvider(
+    ctx,
+    "aiAnswerPlanner",
+    env.LLM_ANSWER_PLANNER_FALLBACK_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_ANSWER_PLANNER_FALLBACK_PROVIDER",
   );
   validateFeatureProvider(
     ctx,
@@ -489,6 +532,19 @@ const llmGatewayEnvSchema = z
     LLM_ANSWER_GENERATION_FALLBACK_MODEL: z.string().trim().optional(),
     LLM_ANSWER_GENERATION_FALLBACK_EFFORT: optionalReasoningEffortSchema,
 
+    LLM_ANSWER_PLANNER_PRIMARY_PROVIDER: requiredString(
+      "LLM_ANSWER_PLANNER_PRIMARY_PROVIDER",
+    )
+      .transform((value) => value.toLowerCase())
+      .pipe(providerSchema),
+    LLM_ANSWER_PLANNER_PRIMARY_MODEL: requiredString(
+      "LLM_ANSWER_PLANNER_PRIMARY_MODEL",
+    ),
+    LLM_ANSWER_PLANNER_PRIMARY_EFFORT: optionalReasoningEffortSchema,
+    LLM_ANSWER_PLANNER_FALLBACK_PROVIDER: optionalProviderSchema,
+    LLM_ANSWER_PLANNER_FALLBACK_MODEL: z.string().trim().optional(),
+    LLM_ANSWER_PLANNER_FALLBACK_EFFORT: optionalReasoningEffortSchema,
+
     LLM_EVALS_SUGGESTION_JUDGE_PROVIDER: optionalProviderSchema,
     LLM_EVALS_SUGGESTION_JUDGE_MODEL: z.string().trim().optional(),
     LLM_EVALS_SUGGESTION_JUDGE_EFFORT: optionalReasoningEffortSchema,
@@ -540,6 +596,15 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
       model: env.LLM_ANSWER_GENERATION_FALLBACK_MODEL,
       effort: env.LLM_ANSWER_GENERATION_FALLBACK_EFFORT,
     });
+    const aiAnswerPlannerFallback = fallbackRouteSchema(
+      "LLM_ANSWER_PLANNER_FALLBACK_PROVIDER",
+      "LLM_ANSWER_PLANNER_FALLBACK_MODEL",
+      "LLM_ANSWER_PLANNER_FALLBACK_EFFORT",
+    ).parse({
+      provider: env.LLM_ANSWER_PLANNER_FALLBACK_PROVIDER,
+      model: env.LLM_ANSWER_PLANNER_FALLBACK_MODEL,
+      effort: env.LLM_ANSWER_PLANNER_FALLBACK_EFFORT,
+    });
 
     return {
       routes: {
@@ -588,6 +653,16 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
             env.LLM_ANSWER_GENERATION_PRIMARY_EFFORT,
           ),
           aiAnswerFallback,
+        ),
+        aiAnswerPlanner: withFallback(
+          withReasoningEffort(
+            {
+              provider: env.LLM_ANSWER_PLANNER_PRIMARY_PROVIDER,
+              model: env.LLM_ANSWER_PLANNER_PRIMARY_MODEL,
+            },
+            env.LLM_ANSWER_PLANNER_PRIMARY_EFFORT,
+          ),
+          aiAnswerPlannerFallback,
         ),
         suggestionEvalJudge: {
           primary: withReasoningEffort(

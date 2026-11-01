@@ -20,8 +20,8 @@ import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModer
 import clearModeratedContentCache from "../../../utils/moderation/clearModeratedContentCache.util.js";
 import clearUserCache from "../../../utils/cache/clearUserCache.util.js";
 
-import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
-import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../queues/moderation/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../queues/moderation/moderationMetrics.queue.js";
 
 type HandleContentModerationBanInput = {
   contentId: string;

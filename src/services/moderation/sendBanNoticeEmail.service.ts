@@ -7,7 +7,7 @@ import {
   formatBanNoticeExpiryUtc,
 } from "../../utils/moderation/formatBanNotice.util.js";
 
-import emailQueue from "../../queues/email.queue.js";
+import emailQueue from "../../queues/email/email.queue.js";
 
 type SendBanNoticeEmailInput = {
   userId: string;

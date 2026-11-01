@@ -9,6 +9,7 @@ type LLMFeature =
   | "questionEligibilityGate"
   | "securityVerifier"
   | "aiAnswer"
+  | "aiAnswerPlanner"
   | "aiSuggestion"
   | "suggestionEvalJudge"
   | "embeddings";

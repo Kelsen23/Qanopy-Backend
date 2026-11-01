@@ -6,7 +6,7 @@ import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import Question from "../../../models/question.model.js";
 import Answer from "../../../models/answer.model.js";
 
-import contentFinalizeQueue from "../../../queues/contentFinalize.queue.js";
+import contentFinalizeQueue from "../../../queues/question/contentFinalize.queue.js";
 
 import {
   clearQuestionThreadCache,

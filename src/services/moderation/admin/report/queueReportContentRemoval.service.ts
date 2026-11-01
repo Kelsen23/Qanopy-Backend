@@ -1,6 +1,6 @@
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import removeModeratedContent from "../../removeModeratedContent.service.js";

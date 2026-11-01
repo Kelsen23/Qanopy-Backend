@@ -5,7 +5,7 @@ import AiAnswer from "../../../../models/aiAnswer.model.js";
 import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
-import contentFinalizeQueue from "../../../../queues/contentFinalize.queue.js";
+import contentFinalizeQueue from "../../../../queues/question/contentFinalize.queue.js";
 
 import { toPublicAiAnswerFeedback } from "../../question.response.js";
 

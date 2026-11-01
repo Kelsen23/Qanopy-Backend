@@ -10,7 +10,7 @@ import QuestionVersion from "../../../../models/questionVersion.model.js";
 
 import { toPublicAiAnswerFeedback } from "../../question.response.js";
 
-import contentFinalizeQueue from "../../../../queues/contentFinalize.queue.js";
+import contentFinalizeQueue from "../../../../queues/question/contentFinalize.queue.js";
 
 const createFeedbackOnAiAnswerService = async (
   userId: string,

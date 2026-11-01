@@ -1,4 +1,4 @@
-import questionGatewayAuditQueue from "../../../queues/questionGatewayAudit.queue.js";
+import questionGatewayAuditQueue from "../../../queues/question/questionGatewayAudit.queue.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 

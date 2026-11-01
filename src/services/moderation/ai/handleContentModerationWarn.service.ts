@@ -10,8 +10,8 @@ import prisma from "../../../config/prisma.config.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 import buildAiModerationNotificationMeta from "../../../utils/moderation/aiModerationNotificationMeta.util.js";
 
-import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../queues/moderation/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../queues/moderation/moderationAudit.queue.js";
 
 type HandleContentModerationWarnInput = {
   contentId: string;

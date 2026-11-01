@@ -12,7 +12,7 @@ import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
 
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
 
 const moderateReportBanTemp = async (
   title: string,

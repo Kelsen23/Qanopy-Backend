@@ -7,7 +7,7 @@ import { redisMessagingClientConnection } from "../../config/redis.config.js";
 
 import { createWorkerEventHandlers } from "../../utils/workers/shared.js";
 
-import unverifiedAccountCleanupQueue from "../../queues/unverifiedAccountCleanup.queue.js";
+import unverifiedAccountCleanupQueue from "../../queues/auth/unverifiedAccountCleanup.queue.js";
 
 const CLEANUP_JOB_NAME = "CLEANUP_EXPIRED_UNVERIFIED_ACCOUNTS";
 const CLEANUP_REPEAT_EVERY_MS = 60 * 60 * 1000;

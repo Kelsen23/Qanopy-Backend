@@ -4,7 +4,7 @@ import Report from "../../../../models/report.model.js";
 
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 import routeNotification from "../../../notification/routeNotification.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";

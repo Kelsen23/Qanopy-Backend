@@ -2,7 +2,7 @@ import { badgeTriggers, type BadgeTrigger } from "./badge.shared.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import badgeQueue from "../../../queues/badge.queue.js";
+import badgeQueue from "../../../queues/user/badge.queue.js";
 
 type QueueBadgeAwardInput = {
   userId: string;

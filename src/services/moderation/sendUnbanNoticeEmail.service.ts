@@ -3,7 +3,7 @@ import prisma from "../../config/prisma.config.js";
 import { unbanNoticeHtml } from "../../utils/email/renderTemplate.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
-import emailQueue from "../../queues/email.queue.js";
+import emailQueue from "../../queues/email/email.queue.js";
 
 type SendUnbanNoticeEmailInput = {
   userId: string;
