@@ -86,12 +86,22 @@ const loadQuestionPipelineRouteState = async (
 
   if (!questionVersion) return null;
 
-  if (!question || question.currentVersion !== version) {
+  if (!question) {
     return {
       questionVersion: version,
       moderationStatus: questionVersion.moderationStatus,
       isActive: false,
       isDeleted: true,
+      isCurrentVersion: false,
+    };
+  }
+
+  if (question.currentVersion !== version) {
+    return {
+      questionVersion: version,
+      moderationStatus: questionVersion.moderationStatus,
+      isActive: question.isActive,
+      isDeleted: question.isDeleted,
       isCurrentVersion: false,
     };
   }
