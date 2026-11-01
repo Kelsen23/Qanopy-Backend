@@ -1,140 +1,41 @@
-import type { CreditCharge } from "../../../user/credits/credits.types.js";
-
-import refundCreditCharge from "../../../user/credits/refundCreditCharge.service.js";
 import { toPublicAiAnswer } from "../../question.response.js";
-import { loadQuestionWithProcessingState } from "../../processingState/questionProcessingState.query.js";
-
-import { getRedisCacheClient } from "../../../../config/redis.config.js";
-
-import HttpError from "../../../../utils/http/httpError.util.js";
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
-import QuestionEmbedding from "../../../../models/questionEmbedding.model.js";
-import questionAiAnswerQueue from "../../../../queues/questionAiAnswer.queue.js";
+
+import requestAiAnswer from "./requestAiAnswer.service.js";
 
 const generateAiAnswerRequest = async (
   userId: string,
   questionId: string,
   version: number,
-  creditCharge?: CreditCharge,
 ) => {
-  const [foundQuestion, embedding] = await Promise.all([
-    loadQuestionWithProcessingState({
-      questionId,
-      questionMatch: { userId },
-    }),
-    QuestionEmbedding.findOne({
-      questionId,
-      version,
-      representationVersion: "dense-v1",
-    })
-      .select("vector")
-      .lean(),
-  ]);
-
-  if (!foundQuestion) throw new HttpError("Question not found", 404);
-  if (!foundQuestion.processingState) {
-    throw new Error("Question processing state missing");
-  }
-  if (!foundQuestion.isActive) throw new HttpError("Question not active", 410);
-
-  if (Number(foundQuestion.currentVersion) !== version)
-    throw new HttpError(
-      `Stale version. Current version is ${foundQuestion.currentVersion}`,
-      409,
-    );
-  if (
-    Number(foundQuestion.processingState.questionVersion) !==
-    Number(foundQuestion.currentVersion)
-  ) {
-    throw new Error("Question processing state is stale");
-  }
-
-  if (
-    !["APPROVED", "FLAGGED"].includes(
-      String(foundQuestion.processingState.moderationStatus),
-    )
-  )
-    throw new HttpError("Question moderation status is not eligible", 400);
-
-  if (!embedding?.vector?.length)
-    throw new HttpError("Question does not have embedding", 400);
-
-  if (!foundQuestion.processingState.canGetAIAnswer)
-    throw new HttpError("Question is not eligible for AI answer", 400);
-
-  const foundAiAnswer = await AiAnswer.findOne({
+  const request = await requestAiAnswer({
+    requestedByUserId: userId,
     questionId,
     questionVersion: version,
-  })
-    .sort({ createdAt: -1 })
-    .lean();
+    generationReason: "INITIAL_MANUAL",
+  });
 
-  if (foundAiAnswer) {
-    if (creditCharge?.chargedNow) {
-      await refundCreditCharge({
-        operationKey: creditCharge.operationKey,
-        reason: "AI answer already existed",
-      });
-    }
-
-    return {
-      message: "AI answer successfully received",
-      answer: toPublicAiAnswer(foundAiAnswer),
-    };
-  }
-
-  const pendingKey = `aiAnswer:pending:${userId}:${questionId}:${version}`;
-  const pendingSet = await getRedisCacheClient().set(
-    pendingKey,
-    "1",
-    "EX",
-    60 * 15,
-    "NX",
-  );
-
-  if (!pendingSet) throw new HttpError("AI answer already queued", 409);
-
-  try {
-    const jobId = makeJobId(
-      "questionAiAnswer",
-      "QUESTION_AI_ANSWER",
-      userId,
+  if (request.status === "ALREADY_EXISTS") {
+    const answer = await AiAnswer.findOne({
       questionId,
-      version,
-    );
+      questionVersion: version,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    await questionAiAnswerQueue.remove(jobId);
-
-    await questionAiAnswerQueue.add(
-      "QUESTION_AI_ANSWER",
-      {
-        userId,
-        questionId,
-        version,
-        creditCharge,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        jobId,
-      },
-    );
-  } catch (error) {
-    if (creditCharge?.chargedNow) {
-      await refundCreditCharge({
-        operationKey: creditCharge.operationKey,
-        reason: "AI answer queueing failed",
-      });
+    if (answer) {
+      return {
+        message: "AI answer successfully received",
+        answer: toPublicAiAnswer(answer),
+      };
     }
-
-    await getRedisCacheClient().del(`user:${userId}`, pendingKey);
-
-    throw error;
   }
 
-  return { message: "AI answer queued" };
+  return {
+    message: "AI answer generation request accepted",
+    request,
+  };
 };
 
 export default generateAiAnswerRequest;

@@ -79,6 +79,13 @@ const editQuestionLimiter = new RateLimiterRedis({
   duration: 60 * 60,
 });
 
+const updateQuestionSettingsLimiter = new RateLimiterRedis({
+  storeClient: getRedisMessagingClient(),
+  keyPrefix: "question:settings:update",
+  points: 12,
+  duration: 60 * 60,
+});
+
 const rollbackVersionLimiter = new RateLimiterRedis({
   storeClient: getRedisMessagingClient(),
   keyPrefix: "question:rollback",
@@ -188,6 +195,12 @@ const editQuestionLimiterMiddleware = createRateLimiterMiddleware(
   userKeyResolver,
 );
 
+const updateQuestionSettingsLimiterMiddleware = createRateLimiterMiddleware(
+  updateQuestionSettingsLimiter,
+  "Too many question settings updates, please try again later",
+  userKeyResolver,
+);
+
 const rollbackVersionLimiterMiddleware = createRateLimiterMiddleware(
   rollbackVersionLimiter,
   "Too many rollbacks, please try again later",
@@ -241,6 +254,7 @@ export {
   markAnswerAsBestLimiterMiddleware,
   unmarkAnswerAsBestLimiterMiddleware,
   editQuestionLimiterMiddleware,
+  updateQuestionSettingsLimiterMiddleware,
   rollbackVersionLimiterMiddleware,
   deleteContentLimiterMiddleware,
   generateSuggestionLimiterMiddleware,
