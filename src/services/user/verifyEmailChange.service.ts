@@ -9,7 +9,6 @@ import {
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "../auth/auth.shared.js";
-
 import {
   EMAIL_CHANGE_OTP_ATTEMPTS_TTL_SECONDS,
   getEmailChangeAttemptsKey,

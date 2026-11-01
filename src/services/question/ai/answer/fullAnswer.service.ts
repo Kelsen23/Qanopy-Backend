@@ -1,6 +1,3 @@
-import { buildFullAnswerSystemPrompt } from "../../../../prompts/aiAnswer/fullAnswer.prompt.js";
-import { buildFullAnswerUserPrompt } from "../../../../prompts/aiAnswer/fullAnswer.prompt.js";
-
 import routeNotification from "../../../notification/routeNotification.service.js";
 import {
   getAiAnswerCancelKey,
@@ -11,11 +8,14 @@ import { buildSecurityConstraintInstructions } from "../questionAiHelp.shared.js
 
 import { getRedisCacheClient } from "../../../../config/redis.config.js";
 
-import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
 import { clearAiAnswersCache } from "../../../../utils/cache/clearCache.util.js";
 import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
+
+import { buildFullAnswerSystemPrompt } from "../../../../prompts/aiAnswer/fullAnswer.prompt.js";
+import { buildFullAnswerUserPrompt } from "../../../../prompts/aiAnswer/fullAnswer.prompt.js";
+import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
 
 const fullAnswer = async (
   userId: string,

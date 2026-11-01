@@ -1,13 +1,5 @@
 import routeNotification from "../../notification/routeNotification.service.js";
 import queueUserInterest from "../../user/userInterest/queueUserInterest.service.js";
-
-import { makeJobId } from "../../../utils/job/makeJobId.util.js";
-
-import Question from "../../../models/question.model.js";
-import Answer from "../../../models/answer.model.js";
-
-import contentFinalizeQueue from "../../../queues/question/contentFinalize.queue.js";
-
 import {
   clearQuestionThreadCache,
   ensureActiveQuestion,
@@ -15,6 +7,13 @@ import {
   queueQuestionStats,
 } from "../question.shared.js";
 import { toPublicAnswer } from "../question.response.js";
+
+import { makeJobId } from "../../../utils/job/makeJobId.util.js";
+
+import Question from "../../../models/question.model.js";
+import Answer from "../../../models/answer.model.js";
+
+import contentFinalizeQueue from "../../../queues/question/contentFinalize.queue.js";
 
 const createAnswerOnQuestion = async ({
   userId,

@@ -1,6 +1,6 @@
-import Reply from "../../../../models/reply.model.js";
-
 import { routePendingModerationContent } from "../moderationRouter.shared.js";
+
+import Reply from "../../../../models/reply.model.js";
 
 const replyRouter = async (replyId: string, moderationRevision?: number) => {
   await routePendingModerationContent({

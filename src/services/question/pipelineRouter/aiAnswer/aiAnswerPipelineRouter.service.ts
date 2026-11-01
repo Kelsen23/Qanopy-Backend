@@ -1,6 +1,7 @@
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import AiAnswerGenerationPlan from "../../../../models/aiAnswerGenerationPlan.model.js";
+
 import aiAnswerPlannerQueue from "../../../../queues/aiAnswer/aiAnswerPlanner.queue.js";
 
 type AiAnswerGenerationReason = "INITIAL_AUTO" | "INITIAL_MANUAL";

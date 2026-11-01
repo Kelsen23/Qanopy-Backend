@@ -1,14 +1,14 @@
 import llmGateway from "../../llmGateway/llmGateway.service.js";
+import withAiAnswerPlannerLock from "./aiAnswerPlanner.lock.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import AiAnswerGenerationPlan from "../../../models/aiAnswerGenerationPlan.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
+
 import aiAnswerPipelineRouterQueue from "../../../queues/aiAnswer/aiAnswerPipelineRouter.queue.js";
-import withAiAnswerPlannerLock from "./aiAnswerPlanner.lock.js";
 
 import { aiAnswerPlannerPrompt } from "../../../prompts/aiAnswer/aiAnswerPlanner.prompt.js";
-
 import {
   createGenerationPlanSchema,
   GenerationPlanSchema,

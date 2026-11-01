@@ -1,7 +1,6 @@
 import type { Prisma } from "../../../../generated/prisma/client.js";
 
 import type { ReportModerationContext } from "./shared.js";
-
 import applyUserBan from "../../applyUserBan.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";

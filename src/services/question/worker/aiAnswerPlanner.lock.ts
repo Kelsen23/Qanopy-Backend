@@ -111,7 +111,9 @@ const withAiAnswerPlannerLock = async <T>(
       })
       .catch((error) => {
         lockError =
-          error instanceof Error ? error : new AiAnswerPlannerLockLostError(lockKey);
+          error instanceof Error
+            ? error
+            : new AiAnswerPlannerLockLostError(lockKey);
       })
       .finally(() => {
         renewalInFlight = null;

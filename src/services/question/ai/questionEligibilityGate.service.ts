@@ -1,12 +1,10 @@
-import { questionEligibilityGatePrompt } from "../../../prompts/question/questionEligibilityGate.prompt.js";
-
 import type { LLMMetadata } from "../../llmGateway/llmGateway.types.js";
-
 import llmGateway from "../../llmGateway/llmGateway.service.js";
 
 import convertQuestionToLLMText from "../../../utils/question/convertQuestionToLLMText.util.js";
 import normalizeText from "../../../utils/question/normalizeText.util.js";
 
+import { questionEligibilityGatePrompt } from "../../../prompts/question/questionEligibilityGate.prompt.js";
 import {
   questionEligibilityGateSchema,
   type QuestionEligibilityGateResult,

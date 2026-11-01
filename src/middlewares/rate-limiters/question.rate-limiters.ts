@@ -1,5 +1,4 @@
 import { RateLimiterRedis } from "rate-limiter-flexible";
-
 import type { Request } from "express";
 
 import { getRedisMessagingClient } from "../../config/redis.config.js";

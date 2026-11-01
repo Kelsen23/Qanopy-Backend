@@ -1,8 +1,8 @@
-import questionGatewayAuditQueue from "../../../queues/question/questionGatewayAudit.queue.js";
+import type { QueueQuestionGatewayAuditInput } from "./questionGatewayAudit.shared.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import type { QueueQuestionGatewayAuditInput } from "./questionGatewayAudit.shared.js";
+import questionGatewayAuditQueue from "../../../queues/question/questionGatewayAudit.queue.js";
 
 const queueQuestionGatewayAudit = async (
   data: QueueQuestionGatewayAuditInput,

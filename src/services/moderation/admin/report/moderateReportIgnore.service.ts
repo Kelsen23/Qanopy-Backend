@@ -1,9 +1,9 @@
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import type { ReportModerationContext } from "./shared.js";
+
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
-import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
-
-import type { ReportModerationContext } from "./shared.js";
 
 const moderateReportIgnore = async (
   title: string,

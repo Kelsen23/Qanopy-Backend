@@ -1,3 +1,5 @@
+import { toPublicAiAnswerFeedback } from "../../question.response.js";
+
 import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
@@ -6,8 +8,6 @@ import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
 import contentFinalizeQueue from "../../../../queues/question/contentFinalize.queue.js";
-
-import { toPublicAiAnswerFeedback } from "../../question.response.js";
 
 const editFeedbackOnAiAnswer = async (
   userId: string,

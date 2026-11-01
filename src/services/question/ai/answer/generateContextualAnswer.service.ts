@@ -1,7 +1,3 @@
-import { buildContextualAnswerSystemPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
-import { formatContextualAnswers } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
-import { buildContextualAnswerUserPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
-
 import routeNotification from "../../../notification/routeNotification.service.js";
 import {
   getAiAnswerCancelKey,
@@ -17,6 +13,9 @@ import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
+import { buildContextualAnswerSystemPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
+import { formatContextualAnswers } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
+import { buildContextualAnswerUserPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
 import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
 
 const generateContextualAnswerService = async (

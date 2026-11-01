@@ -9,7 +9,6 @@ import {
   getFlattenedUserByEmail,
   getFlattenedUserById,
 } from "./userData.service.js";
-
 import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 
 import prisma from "../../config/prisma.config.js";

@@ -1,5 +1,7 @@
 import type { Queue } from "bullmq";
 
+import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
+
 import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
@@ -9,8 +11,6 @@ import questionEmbeddingQueue from "../../../queues/question/questionEmbedding.q
 import questionEligibilityGateQueue from "../../../queues/question/questionEligibilityGate.queue.js";
 import questionSecurityVerifierQueue from "../../../queues/question/questionSecurityVerifier.queue.js";
 import similarQuestionSearchQueue from "../../../queues/question/similarQuestionSearch.queue.js";
-
-import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
 
 export type QuestionPipelineStep =
   | "ELIGIBILITY_GATE"

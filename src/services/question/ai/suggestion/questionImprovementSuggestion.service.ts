@@ -1,23 +1,21 @@
-import { questionImprovementSuggestionPrompt } from "../../../../prompts/question/questionImprovementSuggestion.prompt.js";
-
 import { Interest } from "../../../../generated/prisma/client.js";
-
-import {
-  questionSuggestionSchema,
-  type QuestionSuggestionResult,
-} from "../../../../validations/question.schema.js";
 
 import llmGateway from "../../../llmGateway/llmGateway.service.js";
 import { buildSecurityConstraintInstructions } from "../questionAiHelp.shared.js";
-
-import convertQuestionToLLMText from "../../../../utils/question/convertQuestionToLLMText.util.js";
-import normalizeText from "../../../../utils/question/normalizeText.util.js";
-
 import type { QuestionEligibilityGateDiagnosis } from "./questionSuggestion.shared.js";
 import {
   protectTechnicalEvidence,
   restoreTechnicalEvidence,
 } from "./questionSuggestion.evidence.js";
+
+import convertQuestionToLLMText from "../../../../utils/question/convertQuestionToLLMText.util.js";
+import normalizeText from "../../../../utils/question/normalizeText.util.js";
+
+import { questionImprovementSuggestionPrompt } from "../../../../prompts/question/questionImprovementSuggestion.prompt.js";
+import {
+  questionSuggestionSchema,
+  type QuestionSuggestionResult,
+} from "../../../../validations/question.schema.js";
 
 const allowedInterestTags = Object.values(Interest).join(", ");
 

@@ -1,8 +1,7 @@
 import { toPublicAiAnswer } from "../../question.response.js";
+import requestAiAnswer from "./requestAiAnswer.service.js";
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
-
-import requestAiAnswer from "./requestAiAnswer.service.js";
 
 const generateAiAnswerRequest = async (
   userId: string,
