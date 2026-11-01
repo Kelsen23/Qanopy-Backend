@@ -28,18 +28,18 @@ const AiAnswerSchema = new Schema(
       default: {},
     },
     isPublished: { type: Boolean, default: false },
+    createdAt: Date,
+    updatedAt: Date,
   },
   {
     timestamps: true,
     toJSON: {
       virtuals: true,
       versionKey: false,
-      transform: (_, ret: any) => {
-        ret.id = ret._id;
+      transform: (_, ret) => {
+        const { _id, ...document } = ret;
 
-        delete ret._id;
-
-        return ret;
+        return { ...document, id: _id };
       },
     },
   },

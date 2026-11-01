@@ -1,14 +1,5 @@
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
-import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
-
-import prisma from "../../../../config/prisma.config.js";
-
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-
 import routeNotification from "../../../notification/routeNotification.service.js";
 import applyAdminContentModerationDecisionService from "../../applyAdminContentModerationDecision.service.js";
-
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
 import assertStrikeClaimIsCurrent from "./assertStrikeClaimIsCurrent.service.js";
 import {
@@ -18,6 +9,14 @@ import {
   type StrikeSideEffectContext,
   type TargetContentState,
 } from "./shared.js";
+
+import prisma from "../../../../config/prisma.config.js";
+
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+import { clearStrikesCache } from "../../../../utils/cache/clearCache.util.js";
+
+import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 const moderateStrikeWarn = async (
   title: string,

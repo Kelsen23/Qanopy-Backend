@@ -1,6 +1,6 @@
 import { makeUniqueJobId } from "../../../utils/job/makeJobId.util.js";
 
-import userInterestQueue from "../../../queues/userInterest.queue.js";
+import userInterestQueue from "../../../queues/user/userInterest.queue.js";
 
 type UserInterestAction = "VIEW" | "UPVOTE" | "ANSWER" | "AI_ANSWER_FEEDBACK";
 

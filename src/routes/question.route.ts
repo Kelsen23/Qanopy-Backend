@@ -16,14 +16,13 @@ import {
   unacceptAnswer,
   unmarkAnswerAsBest,
   unvote,
+  updateQuestionSettings,
   vote,
 } from "../controllers/question.controller.js";
-
 import isAuthenticated, {
   isVerified,
   requireActiveUser,
 } from "../middlewares/auth.middleware.js";
-
 import {
   answerIdSchema,
   contentTargetSchema,
@@ -38,8 +37,8 @@ import {
   questionVersionSchema,
   voteTargetSchema,
   voteSchema,
+  updateQuestionSettingsSchema,
 } from "../validations/question.schema.js";
-
 import {
   acceptAnswerLimiterMiddleware,
   createAnswerOnQuestionLimiterMiddleware,
@@ -56,11 +55,10 @@ import {
   unmarkAnswerAsBestLimiterMiddleware,
   unacceptAnswerLimiterMiddleware,
   unvoteLimiterMiddleware,
+  updateQuestionSettingsLimiterMiddleware,
   voteLimiterMiddleware,
 } from "../middlewares/rate-limiters/question.rate-limiters.js";
-
 import validate from "../middlewares/validate.middleware.js";
-import chargeCredits from "../middlewares/credits.middleware.js";
 
 const router = express.Router();
 
@@ -172,6 +170,18 @@ router
   );
 
 router
+  .route("/:questionId/settings")
+  .patch(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    updateQuestionSettingsLimiterMiddleware,
+    validate("params", questionIdSchema),
+    validate("body", updateQuestionSettingsSchema),
+    updateQuestionSettings,
+  );
+
+router
   .route("/:questionId/versions/:version/rollback")
   .post(
     isAuthenticated,
@@ -213,7 +223,6 @@ router
     generateAiAnswerLimiterMiddleware,
     validate("params", questionIdSchema),
     validate("body", generateAiAnswerSchema),
-    chargeCredits("AI_ANSWER"),
     generateAiAnswer,
   );
 

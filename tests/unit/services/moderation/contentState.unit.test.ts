@@ -58,7 +58,7 @@ vi.mock(
   () => mockModerationUnitModules.aiAnswerFeedbackModel,
 );
 vi.mock(
-  "../../../../src/queues/imageDeletion.queue.js",
+  "../../../../src/queues/media/imageDeletion.queue.js",
   () => mockModerationUnitModules.imageDeletionQueue,
 );
 

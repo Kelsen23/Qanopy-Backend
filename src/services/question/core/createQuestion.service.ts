@@ -6,6 +6,7 @@ import { createQuestionProcessingState } from "../processingState/questionProces
 import { toPublicQuestion } from "../question.response.js";
 
 import Question from "../../../models/question.model.js";
+import QuestionSettings from "../../../models/questionSettings.model.js";
 
 const createQuestion = async ({
   userId,
@@ -32,6 +33,9 @@ const createQuestion = async ({
         1,
         session,
       );
+      await QuestionSettings.create([{ questionId: newQuestion._id }], {
+        session,
+      });
     });
   } finally {
     await session.endSession();

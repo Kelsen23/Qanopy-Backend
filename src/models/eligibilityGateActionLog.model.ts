@@ -54,12 +54,10 @@ const EligibilityGateActionLogSchema: Schema = new Schema(
     toJSON: {
       virtuals: true,
       versionKey: false,
-      transform: (_, ret: any) => {
-        ret.id = ret._id;
+      transform: (_, ret) => {
+        const { _id, ...document } = ret;
 
-        delete ret._id;
-
-        return ret;
+        return { ...document, id: _id };
       },
     },
   },

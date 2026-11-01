@@ -1,4 +1,5 @@
 import routeNotification from "../../notification/routeNotification.service.js";
+import { queueContentPipelineRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
@@ -17,6 +18,12 @@ const runSimilarQuestionsReadySideEffects = async ({
   similarQuestionIds: string[];
   notify?: boolean;
 }) => {
+  await queueContentPipelineRoute({
+    contentType: "QUESTION",
+    contentId: questionId,
+    version,
+  });
+
   await getRedisCacheClient().del(
     `question:${questionId}`,
     `similarQuestions:${questionId}`,

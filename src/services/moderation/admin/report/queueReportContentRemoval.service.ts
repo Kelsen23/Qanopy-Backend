@@ -1,14 +1,12 @@
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
-
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-
 import routeNotification from "../../../notification/routeNotification.service.js";
 import removeModeratedContent from "../../removeModeratedContent.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
-
 import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
-
 import type { ReportContentModerationInput } from "./shared.js";
+
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
+
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 const queueReportContentRemoval = async (
   meta: Record<string, unknown>,

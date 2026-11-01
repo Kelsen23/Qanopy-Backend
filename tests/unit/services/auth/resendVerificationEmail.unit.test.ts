@@ -16,7 +16,7 @@ vi.mock(
 );
 vi.mock("bcrypt", () => mockAuthUnitModules.bcrypt);
 vi.mock(
-  "../../../../src/queues/email.queue.js",
+  "../../../../src/queues/email/email.queue.js",
   () => mockAuthUnitModules.emailQueue,
 );
 vi.mock(

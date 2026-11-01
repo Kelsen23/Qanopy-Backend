@@ -27,7 +27,7 @@ vi.mock(
   () => mockModerationUnitModules.publishSocketDisconnect,
 );
 vi.mock(
-  "../../../../../src/queues/moderationMetrics.queue.js",
+  "../../../../../src/queues/moderation/moderationMetrics.queue.js",
   () => mockModerationUnitModules.moderationMetricsQueue,
 );
 vi.mock(

@@ -9,7 +9,6 @@ import {
   getFlattenedUserByEmail,
   getFlattenedUserById,
 } from "./userData.service.js";
-
 import { removeEmailChangeAttempts } from "./emailChange.shared.js";
 
 import prisma from "../../config/prisma.config.js";
@@ -19,7 +18,7 @@ import { otpEmailHtml } from "../../utils/email/renderTemplate.util.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 
-import emailQueue from "../../queues/email.queue.js";
+import emailQueue from "../../queues/email/email.queue.js";
 
 type SendEmailChangeInput = {
   userId: string;

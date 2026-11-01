@@ -1,13 +1,12 @@
 import type { LoadedModerationContent } from "./loadModerationContent.service.js";
 import { type ModeratableContentType } from "./contentModeration.shared.js";
-
 import applyContentModerationDecisionService from "../applyContentModerationDecision.service.js";
 import { queueContentPipelineRoute } from "../../question/pipelineRouter/pipelineRouting.service.js";
 
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import moderationMetricsQueue from "../../../queues/moderationMetrics.queue.js";
-import moderationAuditQueue from "../../../queues/moderationAudit.queue.js";
+import moderationMetricsQueue from "../../../queues/moderation/moderationMetrics.queue.js";
+import moderationAuditQueue from "../../../queues/moderation/moderationAudit.queue.js";
 
 type HandleContentModerationIgnoreInput = {
   contentId: string;

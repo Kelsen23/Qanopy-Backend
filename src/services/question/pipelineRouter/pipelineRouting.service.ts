@@ -1,16 +1,16 @@
 import type { Queue } from "bullmq";
 
+import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
+
 import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
-import contentModerationQueue from "../../../queues/contentModeration.queue.js";
-import contentPipelineRouter from "../../../queues/contentPipelineRouter.queue.js";
-import questionEmbeddingQueue from "../../../queues/questionEmbedding.queue.js";
-import questionEligibilityGateQueue from "../../../queues/questionEligibilityGate.queue.js";
-import questionSecurityVerifierQueue from "../../../queues/questionSecurityVerifier.queue.js";
-import similarQuestionSearchQueue from "../../../queues/similarQuestionSearch.queue.js";
-
-import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
+import contentModerationQueue from "../../../queues/moderation/contentModeration.queue.js";
+import contentPipelineRouter from "../../../queues/question/contentPipelineRouter.queue.js";
+import questionEmbeddingQueue from "../../../queues/question/questionEmbedding.queue.js";
+import questionEligibilityGateQueue from "../../../queues/question/questionEligibilityGate.queue.js";
+import questionSecurityVerifierQueue from "../../../queues/question/questionSecurityVerifier.queue.js";
+import similarQuestionSearchQueue from "../../../queues/question/similarQuestionSearch.queue.js";
 
 export type QuestionPipelineStep =
   | "ELIGIBILITY_GATE"

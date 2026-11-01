@@ -1,18 +1,15 @@
+import routeNotification from "../../../notification/routeNotification.service.js";
+import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
+import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
+import type { AdminReportActionTaken } from "../shared.js";
+import type { ReportStatusUpdateInput } from "./shared.js";
+
 import HttpError from "../../../../utils/http/httpError.util.js";
+import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import Report from "../../../../models/report.model.js";
 
-import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
-
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
-
-import routeNotification from "../../../notification/routeNotification.service.js";
-import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
-
-import assertReportClaimIsCurrent from "./assertReportClaimIsCurrent.service.js";
-
-import type { AdminReportActionTaken } from "../shared.js";
-import type { ReportStatusUpdateInput } from "./shared.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 const resolveReportStatus = async (
   status: "RESOLVED" | "DISMISSED",

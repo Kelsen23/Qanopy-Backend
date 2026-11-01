@@ -11,6 +11,7 @@ import {
   editQuestion as editQuestionService,
   generateQuestionSuggestionRequest as generateQuestionSuggestionRequestService,
   generateAiAnswerRequest as generateAiAnswerRequestService,
+  updateQuestionSettings as updateQuestionSettingsService,
   createFeedbackOnAiAnswer as createFeedbackOnAiAnswerService,
   editFeedbackOnAiAnswer as editFeedbackOnAiAnswerService,
   markAnswerAsBest as markAnswerAsBestService,
@@ -20,7 +21,6 @@ import {
   unvote as unvoteService,
   vote as voteService,
 } from "../services/question/question.service.js";
-import refundCreditCharge from "../services/user/credits/refundCreditCharge.service.js";
 
 import asyncHandler from "../middlewares/asyncHandler.middleware.js";
 
@@ -173,24 +173,26 @@ const generateAiAnswer = asyncHandler(
     const { id: userId } = req.user;
     const { questionId } = req.params;
 
-    let result;
-    try {
-      result = await generateAiAnswerRequestService(
-        userId,
-        questionId,
-        req.body.version,
-        req.creditCharge,
-      );
-    } catch (error) {
-      if (req.creditCharge?.chargedNow) {
-        await refundCreditCharge({
-          operationKey: req.creditCharge.operationKey,
-          reason: "AI answer request failed",
-        });
-      }
+    const result = await generateAiAnswerRequestService(
+      userId,
+      questionId,
+      req.body.version,
+    );
 
-      throw error;
-    }
+    return res.status(200).json(result);
+  },
+);
+
+const updateQuestionSettings = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { id: userId } = req.user;
+    const { questionId } = req.params;
+
+    const result = await updateQuestionSettingsService({
+      userId,
+      questionId,
+      aiAnswerAutoGeneration: req.body.aiAnswerAutoGeneration,
+    });
 
     return res.status(200).json(result);
   },
@@ -245,6 +247,7 @@ export {
   rollbackVersion,
   generateQuestionSuggestion,
   generateAiAnswer,
+  updateQuestionSettings,
   createFeedbackOnAiAnswer,
   editFeedbackOnAiAnswer,
   deleteContent,

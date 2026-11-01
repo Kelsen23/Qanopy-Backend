@@ -13,6 +13,9 @@ import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util
 
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
+import { buildContextualAnswerSystemPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
+import { formatContextualAnswers } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
+import { buildContextualAnswerUserPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
 import aiAnswerSchema from "../../../../validations/aiFullAnswer.schema.js";
 
 const generateContextualAnswerService = async (
@@ -29,67 +32,6 @@ const generateContextualAnswerService = async (
   const securityConstraintInstructions =
     buildSecurityConstraintInstructions(securityConstraints);
 
-  const systemPrompt = `
-    You are an expert senior software engineer assistant. Your task is to write a contextual answer for a new question using multiple reference answers from similar questions.
-
-    Rules:
-
-    1. You will receive top-ranked reference answers sorted from most similar to least similar.
-    2. Use references as supporting context, but adapt to the new question and do not copy blindly.
-    3. Prefer points that are consistent across references; if references conflict, choose the safer and more generally correct guidance.
-    4. If a reference includes details that do not apply to the new question, adjust or omit them.
-    5. If needed, add missing details so the answer is complete and practical for the new question.
-    6. Prefer concise explanations and avoid unnecessary sections unless they help solve the problem.
-    7. Output format must follow this exact structure:
-
-    [Answer body text with optional Markdown]
-
-    <AI_CONFIDENCE_JSON>
-
-    [Confidence JSON]
-
-    5. The answer body must be between 20 and 20000 characters.
-    6. JSON must be valid and not wrapped in Markdown code blocks.
-    7. Confidence JSON format:
-
-    {
-      "confidence": {
-          "overall": number from 0 to 100,
-          "note": "short explanation of confidence",
-          "sections": [
-            {
-                "sectionName": "string describing the topic of this section",
-                "confidence": number from 0 to 100,
-                "note": "short explanation of confidence for this section"
-            }
-          ]
-      }
-    }
-
-    ${securityConstraintInstructions}
-
-    Do not include any additional commentary before or after this structure.
-  `;
-
-  const formattedContextualAnswers = contextualAnswerBodies
-    .slice(0, 3)
-    .map(
-      (body, index) =>
-        `Reference #${index + 1} (rank ${index + 1}, higher rank = more similar):\n${body.slice(0, 1200)}`,
-    )
-    .join("\n\n");
-
-  const userPrompt = `
-    New question:
-    ${questionTitle}
-
-    New question body:
-    ${questionBody}
-
-    Reference answers from similar questions:
-    ${formattedContextualAnswers}
-  `;
-
   const confidenceDelimiter = "<AI_CONFIDENCE_JSON>";
 
   let fullBody = "";
@@ -102,12 +44,18 @@ const generateContextualAnswerService = async (
       messages: [
         {
           role: "system",
-          content: systemPrompt,
+          content: buildContextualAnswerSystemPrompt(
+            securityConstraintInstructions,
+          ),
           cache: { enabled: true },
         },
         {
           role: "user",
-          content: userPrompt,
+          content: buildContextualAnswerUserPrompt(
+            questionTitle,
+            questionBody,
+            formatContextualAnswers(contextualAnswerBodies),
+          ),
         },
       ],
       temperature: 0.2,

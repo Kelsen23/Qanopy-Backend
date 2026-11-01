@@ -27,18 +27,18 @@ const AiAnswerFeedbackSchema = new Schema(
 
     isDeleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    createdAt: Date,
+    updatedAt: Date,
   },
   {
     timestamps: true,
     toJSON: {
       virtuals: true,
       versionKey: false,
-      transform: (_, ret: any) => {
-        ret.id = ret._id;
+      transform: (_, ret) => {
+        const { _id, ...document } = ret;
 
-        delete ret._id;
-
-        return ret;
+        return { ...document, id: _id };
       },
     },
   },

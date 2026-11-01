@@ -6,6 +6,8 @@ export { default as deleteContent } from "./core/deleteContent.service.js";
 export { default as editQuestion } from "./core/editQuestion.service.js";
 export { default as generateQuestionSuggestionRequest } from "./ai/suggestion/generateQuestionSuggestionRequest.service.js";
 export { default as generateAiAnswerRequest } from "./ai/answer/generateAiAnswerRequest.service.js";
+export { default as getQuestionSettings } from "./settings/getQuestionSettings.service.js";
+export { default as updateQuestionSettings } from "./settings/updateQuestionSettings.service.js";
 export { default as createFeedbackOnAiAnswer } from "./ai/answer/createFeedbackOnAiAnswer.service.js";
 export { default as editFeedbackOnAiAnswer } from "./ai/answer/editFeedbackOnAiAnswer.service.js";
 export { default as markAnswerAsBest } from "./core/markAnswerAsBest.service.js";

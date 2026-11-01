@@ -9,7 +9,6 @@ import {
   handleExpiredUnverifiedUser,
   type DeviceInfo,
 } from "../auth/auth.shared.js";
-
 import {
   EMAIL_CHANGE_OTP_ATTEMPTS_TTL_SECONDS,
   getEmailChangeAttemptsKey,
@@ -31,7 +30,7 @@ import HttpError from "../../utils/http/httpError.util.js";
 import { makeUniqueJobId } from "../../utils/job/makeJobId.util.js";
 import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 
-import emailQueue from "../../queues/email.queue.js";
+import emailQueue from "../../queues/email/email.queue.js";
 
 type VerifyEmailChangeInput = {
   userId: string;

@@ -18,7 +18,7 @@ import Answer from "../../../models/answer.model.js";
 import Reply from "../../../models/reply.model.js";
 import Vote from "../../../models/vote.model.js";
 
-import statsQueue from "../../../queues/stats.queue.js";
+import statsQueue from "../../../queues/user/stats.queue.js";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY";
 type VoteType = "UPVOTE" | "DOWNVOTE";

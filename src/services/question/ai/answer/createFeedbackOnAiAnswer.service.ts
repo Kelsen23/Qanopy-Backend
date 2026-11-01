@@ -1,4 +1,5 @@
 import queueUserInterest from "../../../user/userInterest/queueUserInterest.service.js";
+import { toPublicAiAnswerFeedback } from "../../question.response.js";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
@@ -8,9 +9,7 @@ import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
 import Question from "../../../../models/question.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 
-import { toPublicAiAnswerFeedback } from "../../question.response.js";
-
-import contentFinalizeQueue from "../../../../queues/contentFinalize.queue.js";
+import contentFinalizeQueue from "../../../../queues/question/contentFinalize.queue.js";
 
 const createFeedbackOnAiAnswerService = async (
   userId: string,

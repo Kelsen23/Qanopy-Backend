@@ -11,7 +11,7 @@ import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
-import moderationAuditQueue from "../../../../queues/moderationAudit.queue.js";
+import moderationAuditQueue from "../../../../queues/moderation/moderationAudit.queue.js";
 
 type UnbanUserInput = {
   userId: string;

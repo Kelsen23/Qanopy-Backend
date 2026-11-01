@@ -53,6 +53,7 @@ const featureCapability = {
   securityVerifier: "textGeneration",
   aiSuggestion: "textGeneration",
   aiAnswer: "textGeneration",
+  aiAnswerPlanner: "textGeneration",
   suggestionEvalJudge: "textGeneration",
   embeddings: "embeddings",
 } as const satisfies Record<LLMFeature, keyof LLMProviderCapabilities>;

@@ -18,7 +18,7 @@ import Answer from "../../../models/answer.model.js";
 import Question from "../../../models/question.model.js";
 import Reply from "../../../models/reply.model.js";
 
-import statsQueue from "../../../queues/stats.queue.js";
+import statsQueue from "../../../queues/user/stats.queue.js";
 
 type TargetType = "QUESTION" | "ANSWER" | "REPLY" | "AI_ANSWER_FEEDBACK";
 

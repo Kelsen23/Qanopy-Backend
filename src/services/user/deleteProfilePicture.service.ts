@@ -4,7 +4,7 @@ import prisma from "../../config/prisma.config.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
-import imageDeletionQueue from "../../queues/imageDeletion.queue.js";
+import imageDeletionQueue from "../../queues/media/imageDeletion.queue.js";
 
 const deleteProfilePicture = async (userId: string) => {
   const foundUser = await prisma.userProfile.findUnique({

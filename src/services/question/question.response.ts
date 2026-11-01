@@ -1,4 +1,8 @@
-const toPublicQuestion = (question: any, processingState: any) => ({
+const toPublicQuestion = (
+  question: any,
+  processingState: any,
+  settings?: { aiAnswerAutoGeneration?: boolean } | null,
+) => ({
   id: question.id ?? question._id,
   userId: question.userId,
   title: question.title,
@@ -12,6 +16,7 @@ const toPublicQuestion = (question: any, processingState: any) => ({
   basedOnVersion: question.basedOnVersion,
   canGetAISuggestion: processingState.canGetAISuggestion,
   canGetAIAnswer: processingState.canGetAIAnswer,
+  aiAnswerAutoGeneration: settings?.aiAnswerAutoGeneration ?? false,
   similarQuestionsReady: processingState.similarQuestionsStatus === "READY",
   isActive: question.isActive ?? true,
   isDeleted: question.isDeleted ?? false,

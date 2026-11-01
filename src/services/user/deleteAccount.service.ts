@@ -16,7 +16,7 @@ import buildDeletedUserData from "../../utils/auth/buildDeletedUserData.util.js"
 import publishSocketDisconnect from "../../utils/socket/publishSocketDisconnect.util.js";
 import sanitizeUser from "../../utils/auth/sanitizeUser.util.js";
 
-import accountDeletionQueue from "../../queues/accountDeletion.queue.js";
+import accountDeletionQueue from "../../queues/user/accountDeletion.queue.js";
 
 interface DeleteAccountInput {
   userId: string;

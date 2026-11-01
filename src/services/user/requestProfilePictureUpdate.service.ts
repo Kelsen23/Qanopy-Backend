@@ -7,7 +7,7 @@ import prisma from "../../config/prisma.config.js";
 import HttpError from "../../utils/http/httpError.util.js";
 import { makeJobId } from "../../utils/job/makeJobId.util.js";
 
-import imageModerationQueue from "../../queues/imageModeration.queue.js";
+import imageModerationQueue from "../../queues/moderation/imageModeration.queue.js";
 
 interface RequestProfilePictureUpdateInput {
   userId: string;

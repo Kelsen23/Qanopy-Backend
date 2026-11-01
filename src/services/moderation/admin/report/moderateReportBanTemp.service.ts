@@ -1,7 +1,6 @@
 import type { Prisma } from "../../../../generated/prisma/client.js";
 
 import type { ReportModerationContext } from "./shared.js";
-
 import applyUserBan from "../../applyUserBan.service.js";
 import sendBanNoticeEmail from "../../sendBanNoticeEmail.service.js";
 import runSideEffectWithRetry from "../runSideEffectWithRetry.service.js";
@@ -12,7 +11,7 @@ import clearUserCache from "../../../../utils/cache/clearUserCache.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 import publishSocketDisconnect from "../../../../utils/socket/publishSocketDisconnect.util.js";
 
-import moderationMetricsQueue from "../../../../queues/moderationMetrics.queue.js";
+import moderationMetricsQueue from "../../../../queues/moderation/moderationMetrics.queue.js";
 
 const moderateReportBanTemp = async (
   title: string,

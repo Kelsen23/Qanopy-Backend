@@ -32,7 +32,7 @@ vi.mock(
   () => mockUserUnitModules.publishSocketDisconnect,
 );
 vi.mock(
-  "../../../../src/queues/accountDeletion.queue.js",
+  "../../../../src/queues/user/accountDeletion.queue.js",
   () => mockUserUnitModules.accountDeletionQueue,
 );
 

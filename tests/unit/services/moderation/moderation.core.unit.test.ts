@@ -81,7 +81,7 @@ vi.mock(
   () => mockModerationUnitModules.getActiveBanStateService,
 );
 vi.mock(
-  "../../../../src/queues/email.queue.js",
+  "../../../../src/queues/email/email.queue.js",
   () => mockModerationUnitModules.emailQueue,
 );
 
