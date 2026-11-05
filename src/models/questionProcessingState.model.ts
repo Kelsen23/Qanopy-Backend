@@ -98,6 +98,7 @@ QuestionProcessingStateSchema.index({
 export default mongoose.model(
   "QuestionProcessingState",
   QuestionProcessingStateSchema,
+  "question_processing_states"
 );
 
 export { QuestionProcessingStateSchema };
