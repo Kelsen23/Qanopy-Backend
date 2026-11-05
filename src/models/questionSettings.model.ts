@@ -24,4 +24,8 @@ const QuestionSettingsSchema: Schema = new Schema(
   },
 );
 
-export default mongoose.model("QuestionSettings", QuestionSettingsSchema);
+export default mongoose.model(
+  "QuestionSettings",
+  QuestionSettingsSchema,
+  "question_settings",
+);
