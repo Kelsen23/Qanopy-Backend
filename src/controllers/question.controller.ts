@@ -11,6 +11,7 @@ import {
   editQuestion as editQuestionService,
   generateQuestionSuggestionRequest as generateQuestionSuggestionRequestService,
   generateAiAnswerRequest as generateAiAnswerRequestService,
+  getQuestionSettings as getQuestionSettingsService,
   updateQuestionSettings as updateQuestionSettingsService,
   createFeedbackOnAiAnswer as createFeedbackOnAiAnswerService,
   editFeedbackOnAiAnswer as editFeedbackOnAiAnswerService,
@@ -198,6 +199,17 @@ const updateQuestionSettings = asyncHandler(
   },
 );
 
+const getQuestionSettings = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { id: userId } = req.user;
+    const { questionId } = req.params;
+
+    const settings = await getQuestionSettingsService(userId, questionId);
+
+    return res.status(200).json({ settings });
+  },
+);
+
 const createFeedbackOnAiAnswer = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const { id: userId } = req.user;
@@ -247,6 +259,7 @@ export {
   rollbackVersion,
   generateQuestionSuggestion,
   generateAiAnswer,
+  getQuestionSettings,
   updateQuestionSettings,
   createFeedbackOnAiAnswer,
   editFeedbackOnAiAnswer,
