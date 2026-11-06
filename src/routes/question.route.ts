@@ -12,6 +12,7 @@ import {
   rollbackVersion,
   generateQuestionSuggestion,
   generateAiAnswer,
+  getQuestionSettings,
   markAnswerAsBest,
   unacceptAnswer,
   unmarkAnswerAsBest,
@@ -171,6 +172,13 @@ router
 
 router
   .route("/:questionId/settings")
+  .get(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    validate("params", questionIdSchema),
+    getQuestionSettings,
+  )
   .patch(
     isAuthenticated,
     isVerified,
