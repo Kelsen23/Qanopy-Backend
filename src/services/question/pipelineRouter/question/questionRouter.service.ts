@@ -244,6 +244,7 @@ const questionRouter = async (questionId: string, version: number) => {
       step: "SIMILAR",
     });
   }
+
   if (routeDecision.type === "AI_ANSWER") {
     return requestAiAnswer({
       questionId,
