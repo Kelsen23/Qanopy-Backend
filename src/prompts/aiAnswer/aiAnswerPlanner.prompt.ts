@@ -28,7 +28,7 @@ You will receive structured input containing:
 * \`question\`
   * the exact QuestionVersion that must be answered.
 * \`generationReason\`
-  * one of \`INITIAL_MANUAL\`, \`INITIAL_AUTO\`, or \`FEEDBACK_REFINEMENT\`.
+  * system-provided context describing the generation flow. Use it to select the appropriate strategy, but do not include it in the output.
 * \`previousAIAnswer\`
   * present only for feedback-driven refinement; represents the current canonical AI answer.
 * \`feedback\`
@@ -165,7 +165,7 @@ Completely ignore user billing and funds. Do not inspect user credits, adapt the
 
 # OUTPUT RULES
 
-Return exactly one structured GenerationPlan matching the supplied schema. Return structured data only, with no prose, markdown, commentary, or unsupported fields.
+Return exactly one structured GenerationPlan matching the supplied schema. \`generationReason\` is input context only and must not appear in the output. Return structured data only, with no prose, markdown, commentary, or unsupported fields.
 
 The plan must include generation strategy, downstream model tier, reasoning effort, selected retrieval sources and their objectives, generation objectives, and required context/output budget values.
 

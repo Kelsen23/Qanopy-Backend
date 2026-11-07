@@ -4,6 +4,7 @@ import withAiAnswerPlannerLock from "./aiAnswerPlanner.lock.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
 
 import AiAnswerGenerationPlan from "../../../models/aiAnswerGenerationPlan.model.js";
+import AiAnswerGeneration from "../../../models/aiAnswerGeneration.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
 
 import aiAnswerPipelineRouterQueue from "../../../queues/aiAnswer/aiAnswerPipelineRouter.queue.js";
@@ -37,6 +38,23 @@ const wakeRouterAfterPlanning = async (jobData: AiAnswerPlannerJobData) => {
   });
 };
 
+const markPlanningCompleted = async (
+  jobData: AiAnswerPlannerJobData,
+  generationPlanId: unknown,
+) => {
+  const generation = await AiAnswerGeneration.findOneAndUpdate(
+    {
+      questionId: jobData.questionId,
+      questionVersion: jobData.questionVersion,
+      aiAnswerVersion: jobData.aiAnswerVersion,
+    },
+    { $set: { planningStatus: "COMPLETED", generationPlanId } },
+  );
+
+  if (!generation)
+    throw new Error("AI Answer generation lifecycle record not found");
+};
+
 const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
   await withAiAnswerPlannerLock(jobData, async (assertLockHeld) => {
     const { questionId, questionVersion, aiAnswerVersion, generationReason } =
@@ -50,6 +68,7 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
       .select("_id")
       .lean();
     if (existingPlan) {
+      await markPlanningCompleted(jobData, existingPlan._id);
       await wakeRouterAfterPlanning(jobData);
       return;
     }
@@ -102,7 +121,7 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
     await assertLockHeld();
 
     try {
-      await AiAnswerGenerationPlan.create({
+      const [savedPlan] = await AiAnswerGenerationPlan.create([{
         ...planFilter,
         generationReason,
         generationPlan,
@@ -114,7 +133,8 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
           usage: plannerResponse.metadata.usage,
           cost: plannerResponse.metadata.cost,
         },
-      });
+      }]);
+      await markPlanningCompleted(jobData, savedPlan._id);
     } catch (error) {
       if ((error as { code?: number }).code !== 11000) throw error;
 
@@ -123,6 +143,11 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
         generationPlan: { $exists: true },
       });
       if (!planWonRace) throw error;
+      const savedPlan = await AiAnswerGenerationPlan.findOne(planFilter)
+        .select("_id")
+        .lean();
+      if (!savedPlan) throw error;
+      await markPlanningCompleted(jobData, savedPlan._id);
     }
 
     await wakeRouterAfterPlanning(jobData);

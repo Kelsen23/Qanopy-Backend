@@ -35,11 +35,7 @@ const GenerationPlanSchema = z
 
 const validateGenerationPlan = (
   input: unknown,
-  context: {
-    generationReason: "INITIAL_MANUAL" | "INITIAL_AUTO" | "FEEDBACK_REFINEMENT";
-    maxContextTokens: number;
-    maxOutputTokens: number;
-  },
+  context: { maxContextTokens: number; maxOutputTokens: number },
 ) => {
   const plan = GenerationPlanSchema.parse(input);
   if (
@@ -52,7 +48,9 @@ const validateGenerationPlan = (
 };
 
 const createGenerationPlanSchema = (
-  context: Parameters<typeof validateGenerationPlan>[1],
+  context: Parameters<typeof validateGenerationPlan>[1] & {
+    generationReason: "INITIAL_MANUAL" | "INITIAL_AUTO" | "FEEDBACK_REFINEMENT";
+  },
 ) =>
   GenerationPlanSchema.superRefine((plan, ctx) => {
     if (
