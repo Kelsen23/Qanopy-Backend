@@ -7,6 +7,7 @@ import HttpError from "../../../../utils/http/httpError.util.js";
 import { makeJobId } from "../../../../utils/job/makeJobId.util.js";
 
 import AiAnswerGenerationPlan from "../../../../models/aiAnswerGenerationPlan.model.js";
+import AiAnswerGeneration from "../../../../models/aiAnswerGeneration.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
 import aiAnswerPipelineRouterQueue from "../../../../queues/aiAnswer/aiAnswerPipelineRouter.queue.js";
@@ -180,6 +181,21 @@ const requestAiAnswer = async ({
     }
 
     await assertLockHeld();
+    await AiAnswerGeneration.findOneAndUpdate(
+      { questionId, questionVersion, aiAnswerVersion },
+      {
+        $setOnInsert: {
+          questionId,
+          questionVersion,
+          aiAnswerVersion,
+          generationReason,
+          planningStatus: "NOT_STARTED",
+          paymentStatus: "NOT_STARTED",
+          status: "IN_PROGRESS",
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
     await aiAnswerPipelineRouterQueue.add(
       "AI_ANSWER_PIPELINE_ROUTE",
       { questionId, questionVersion, aiAnswerVersion, generationReason },
