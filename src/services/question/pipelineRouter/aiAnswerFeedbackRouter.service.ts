@@ -1,6 +1,6 @@
-import { routePendingModerationContent } from "../moderationRouter.shared.js";
+import { routePendingModerationContent } from "./moderationRouter.shared.js";
 
-import AiAnswerFeedback from "../../../../models/aiAnswerFeedback.model.js";
+import AiAnswerFeedback from "../../../models/aiAnswerFeedback.model.js";
 
 const aiAnswerFeedbackRouter = async (
   aiAnswerFeedbackId: string,

@@ -4,10 +4,10 @@ import {
   type QuestionPipelineRouterJob,
 } from "../pipelineRouter/pipelineRouter.shared.js";
 
-import aiAnswerFeedbackRouter from "../pipelineRouter/question/aiAnswerFeedbackRouter.service.js";
-import answerRouter from "../pipelineRouter/question/answerRouter.service.js";
-import questionRouter from "../pipelineRouter/question/questionRouter.service.js";
-import replyRouter from "../pipelineRouter/question/replyRouter.service.js";
+import aiAnswerFeedbackRouter from "../pipelineRouter/aiAnswerFeedbackRouter.service.js";
+import answerRouter from "../pipelineRouter/answerRouter.service.js";
+import questionRouter from "../pipelineRouter/questionRouter.service.js";
+import replyRouter from "../pipelineRouter/replyRouter.service.js";
 
 const processQuestionPipelineRoute = async (job: QuestionPipelineRouterJob) =>
   questionRouter(job.contentId, job.version);

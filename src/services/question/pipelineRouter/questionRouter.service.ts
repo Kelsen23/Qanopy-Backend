@@ -1,14 +1,14 @@
 import {
   queueContentModerationRoute,
   queueQuestionPipelineStep,
-} from "../pipelineRouting.service.js";
-import { invalidateSimilarQuestions } from "../../similarQuestions/similarQuestionsState.service.js";
-import requestAiAnswer from "../../ai/answer/requestAiAnswer.service.js";
+} from "./pipelineRouting.service.js";
+import { invalidateSimilarQuestions } from "../similarQuestions/similarQuestionsState.service.js";
+import requestAiAnswer from "../ai/answer/requestAiAnswer.service.js";
 
-import Question from "../../../../models/question.model.js";
-import QuestionVersion from "../../../../models/questionVersion.model.js";
-import QuestionProcessingState from "../../../../models/questionProcessingState.model.js";
-import QuestionSettings from "../../../../models/questionSettings.model.js";
+import Question from "../../../models/question.model.js";
+import QuestionVersion from "../../../models/questionVersion.model.js";
+import QuestionProcessingState from "../../../models/questionProcessingState.model.js";
+import QuestionSettings from "../../../models/questionSettings.model.js";
 
 type QuestionPipelineRouteDecision =
   | { type: "NOOP" }

@@ -1,8 +1,8 @@
-import { routePendingModerationContent } from "../moderationRouter.shared.js";
+import { routePendingModerationContent } from "./moderationRouter.shared.js";
 
-import { clearAnswerCache } from "../../../../utils/cache/clearCache.util.js";
+import { clearAnswerCache } from "../../../utils/cache/clearCache.util.js";
 
-import Answer from "../../../../models/answer.model.js";
+import Answer from "../../../models/answer.model.js";
 
 const answerRouter = async (answerId: string, moderationRevision?: number) => {
   const foundAnswer = await routePendingModerationContent({
