@@ -12,6 +12,7 @@ import {
   rollbackVersion,
   generateQuestionSuggestion,
   generateAiAnswer,
+  retryBlockedAiAnswerGeneration,
   getQuestionSettings,
   markAnswerAsBest,
   unacceptAnswer,
@@ -232,6 +233,18 @@ router
     validate("params", questionIdSchema),
     validate("body", generateAiAnswerSchema),
     generateAiAnswer,
+  );
+
+router
+  .route("/:questionId/ai/answer/retry")
+  .post(
+    isAuthenticated,
+    isVerified,
+    requireActiveUser,
+    generateAiAnswerLimiterMiddleware,
+    validate("params", questionIdSchema),
+    validate("body", generateAiAnswerSchema),
+    retryBlockedAiAnswerGeneration,
   );
 
 router
