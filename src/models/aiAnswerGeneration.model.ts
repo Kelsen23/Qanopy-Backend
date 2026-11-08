@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const AiAnswerGenerationSchema = new Schema(
   {
+    userId: { type: String, required: true, immutable: true },
     questionId: {
       type: Schema.Types.ObjectId,
       ref: "Question",
@@ -32,16 +33,37 @@ const AiAnswerGenerationSchema = new Schema(
         "NOT_STARTED",
         "PROCESSING",
         "AUTHORIZED",
+        "RETRY_QUEUED",
         "BLOCKED_INSUFFICIENT_TOKENS",
+        "REFUND_PENDING",
         "FAILED",
       ],
       default: "NOT_STARTED",
       required: true,
     },
+    retrievalStatus: {
+      type: String,
+      enum: ["NOT_STARTED", "PROCESSING", "COMPLETED", "FAILED"],
+      default: "NOT_STARTED",
+      required: true,
+    },
+    generationStatus: {
+      type: String,
+      enum: ["NOT_STARTED", "PROCESSING", "COMPLETED", "FAILED"],
+      default: "NOT_STARTED",
+      required: true,
+    },
     paymentOperationId: { type: String },
+    paymentAttemptCount: { type: Number, default: 0, min: 0 },
+    manualRetryCount: { type: Number, default: 0, min: 0 },
     reservedAmount: { type: Number, min: 0 },
     pricingPolicyVersion: { type: String },
-    status: { type: String, required: true, default: "IN_PROGRESS" },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "BLOCKED", "COMPLETED", "FAILED"],
+      required: true,
+      default: "ACTIVE",
+    },
   },
   {
     timestamps: true,
@@ -61,6 +83,12 @@ AiAnswerGenerationSchema.index(
   { questionId: 1, questionVersion: 1, aiAnswerVersion: 1 },
   { unique: true },
 );
+AiAnswerGenerationSchema.index({
+  userId: 1,
+  paymentStatus: 1,
+  generationReason: 1,
+  status: 1,
+});
 
 export default mongoose.model(
   "AiAnswerGeneration",
