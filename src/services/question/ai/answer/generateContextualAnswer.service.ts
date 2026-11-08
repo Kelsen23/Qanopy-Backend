@@ -11,7 +11,7 @@ import { getRedisCacheClient } from "../../../../config/redis.config.js";
 import { clearAiAnswersCache } from "../../../../utils/cache/clearCache.util.js";
 import publishSocketEvent from "../../../../utils/socket/publishSocketEvent.util.js";
 
-import AiAnswer from "../../../../models/aiAnswer.model.js";
+import persistAiAnswer from "./persistAiAnswer.service.js";
 
 import { buildContextualAnswerSystemPrompt } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
 import { formatContextualAnswers } from "../../../../prompts/aiAnswer/contextualAnswer.prompt.js";
@@ -169,9 +169,11 @@ const generateContextualAnswerService = async (
       });
     }
 
-    const newAiAnswer = await AiAnswer.create({
+    const { answer: newAiAnswer, created } = await persistAiAnswer({
       questionId,
+      userId,
       questionVersion,
+      aiAnswerVersion: 1,
       body: validatedAnswer.body,
       confidence: validatedAnswer.confidence,
       meta: {
@@ -183,6 +185,8 @@ const generateContextualAnswerService = async (
         contextAnswerCount: contextualAnswerBodies.slice(0, 3).length,
       },
     });
+
+    if (!created) return;
 
     await clearAiAnswersCache(questionId);
 
