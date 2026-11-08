@@ -82,7 +82,10 @@ const createQuestionProcessingState = async (
         ...deriveQuestionReadiness({
           questionEligibilityStatus: "PENDING",
           securityVerifierStatus: "NOT_REQUIRED",
-          embeddingStatus: "NONE",
+          embeddingStatus: "NOT_STARTED",
+          questionVersion,
+          similarQuestionsStatus: "NOT_STARTED",
+          similarQuestionsComputedVersion: null,
         }),
       },
     ],

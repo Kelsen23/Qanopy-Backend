@@ -18,7 +18,7 @@ const discoverStaleSimilarQuestions = async (now = new Date()) => {
   return QuestionProcessingState.aggregate<{
     questionId: unknown;
     questionVersion: number;
-    similarQuestionsStatus: "NONE" | "PENDING" | "READY";
+    similarQuestionsStatus: "NOT_STARTED" | "PENDING" | "READY";
   }>([
     {
       $match: {
@@ -34,7 +34,11 @@ const discoverStaleSimilarQuestions = async (now = new Date()) => {
               },
               { similarQuestionsComputedAt: null },
               { similarQuestionsComputedAt: { $lt: staleBefore } },
-              { similarQuestionsStatus: { $in: ["NONE", "PENDING"] } },
+              {
+                similarQuestionsStatus: {
+                  $in: ["NOT_STARTED", "PENDING"],
+                },
+              },
             ],
           },
         ],
@@ -89,7 +93,7 @@ const scheduleStaleSimilarQuestions = async () => {
         questionVersion: question.questionVersion,
         match: {
           ...eligibleQuestionProcessingStateMatch,
-          similarQuestionsStatus: { $in: ["NONE", "READY"] },
+          similarQuestionsStatus: { $in: ["NOT_STARTED", "READY"] },
         },
         set: {
           similarQuestionsStatus: "PENDING",
@@ -128,7 +132,7 @@ const scheduleStaleSimilarQuestions = async () => {
             match: {
               similarQuestionsStatus: "PENDING",
             },
-            set: { similarQuestionsStatus: "NONE" },
+            set: { similarQuestionsStatus: "NOT_STARTED" },
           });
         }
 

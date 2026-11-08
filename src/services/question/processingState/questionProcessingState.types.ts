@@ -1,5 +1,9 @@
-type SimilarQuestionsStatus = "NONE" | "PENDING" | "PROCESSING" | "READY";
-type EmbeddingStatus = "NONE" | "PENDING" | "PROCESSING" | "READY";
+type SimilarQuestionsStatus =
+  | "NOT_STARTED"
+  | "PENDING"
+  | "PROCESSING"
+  | "READY";
+type EmbeddingStatus = "NOT_STARTED" | "PENDING" | "PROCESSING" | "READY";
 type QuestionEligibilityStatus =
   | "PENDING"
   | "PROCESSING"

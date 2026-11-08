@@ -35,8 +35,8 @@ type QuestionPipelineRouteState = {
     | "ALLOWED"
     | "ALLOWED_WITH_CONSTRAINTS"
     | "REJECTED";
-  embeddingStatus?: "NONE" | "PENDING" | "PROCESSING" | "READY";
-  similarQuestionsStatus?: "NONE" | "PENDING" | "PROCESSING" | "READY";
+  embeddingStatus?: "NOT_STARTED" | "PENDING" | "PROCESSING" | "READY";
+  similarQuestionsStatus?: "NOT_STARTED" | "PENDING" | "PROCESSING" | "READY";
   similarQuestionsComputedVersion?: number | null;
   canGetAIAnswer?: boolean;
   aiAnswerAutoGeneration?: boolean;
@@ -158,13 +158,13 @@ const resolveQuestionPipelineRouteDecision = (
     return { type: "NOOP" };
   }
 
-  if (state.embeddingStatus === "NONE") {
+  if (state.embeddingStatus === "NOT_STARTED") {
     return { type: "EMBED" };
   }
 
   if (
     state.embeddingStatus === "READY" &&
-    (state.similarQuestionsStatus === "NONE" ||
+    (state.similarQuestionsStatus === "NOT_STARTED" ||
       state.similarQuestionsStatus === "PENDING")
   ) {
     return { type: "SIMILAR" };

@@ -48,8 +48,10 @@ const editQuestion = async (
 
   const newVersion = Number(foundQuestion.currentVersion ?? 0) + 1;
   const session = await mongoose.startSession();
+
   let editedQuestion: any;
   let editedProcessingState: any;
+
   try {
     await session.withTransaction(async () => {
       editedQuestion = await Question.findOneAndUpdate(
@@ -86,8 +88,8 @@ const editQuestion = async (
           securityVerifierStatus: "NOT_REQUIRED",
           securityVerifierUpdatedAt: null,
           securityVerifierSourceVersion: newVersion,
-          embeddingStatus: "NONE",
-          similarQuestionsStatus: "NONE",
+          embeddingStatus: "NOT_STARTED",
+          similarQuestionsStatus: "NOT_STARTED",
           similarQuestionsComputedAt: null,
           similarQuestionsComputedVersion: null,
         },
