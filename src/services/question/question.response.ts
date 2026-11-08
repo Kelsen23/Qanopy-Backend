@@ -15,7 +15,12 @@ const toPublicQuestion = (
   currentVersion: question.currentVersion,
   basedOnVersion: question.basedOnVersion,
   canGetAISuggestion: processingState.canGetAISuggestion,
-  canGetAIAnswer: processingState.canGetAIAnswer,
+  canGetAIAnswer:
+    processingState.canGetAIAnswer &&
+    processingState.embeddingStatus === "READY" &&
+    processingState.similarQuestionsStatus === "READY" &&
+    processingState.similarQuestionsComputedVersion ===
+      processingState.questionVersion,
   aiAnswerAutoGeneration: settings?.aiAnswerAutoGeneration ?? false,
   similarQuestionsReady: processingState.similarQuestionsStatus === "READY",
   isActive: question.isActive ?? true,
@@ -77,6 +82,7 @@ const toPublicAiAnswer = (answer: any) => ({
   id: answer.id ?? answer._id,
   questionId: answer.questionId,
   questionVersion: answer.questionVersion,
+  aiAnswerVersion: answer.aiAnswerVersion ?? 1,
   body: answer.body,
   confidence: {
     overall: answer.confidence?.overall,

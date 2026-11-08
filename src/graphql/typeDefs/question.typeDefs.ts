@@ -28,6 +28,7 @@ const questionTypeDefs = gql`
 
     canGetAISuggestion: Boolean
     canGetAIAnswer: Boolean
+    aiAnswerAvailability: AiAnswerAvailability!
     similarQuestionsReady: Boolean
 
     aiAnswer: QuestionAiAnswer
@@ -104,12 +105,39 @@ const questionTypeDefs = gql`
   type QuestionAiAnswer {
     id: String!
     questionVersion: Int!
+    aiAnswerVersion: Int!
     body: String!
     confidence: QuestionAiAnswerConfidence!
     meta: JSON!
     isPublished: Boolean
     createdAt: String!
     updatedAt: String
+  }
+
+  type AiAnswerAvailability {
+    status: AiAnswerAvailabilityStatus!
+    canGenerateManually: Boolean!
+    unavailableReason: AiAnswerUnavailableReason
+  }
+
+  enum AiAnswerAvailabilityStatus {
+    NOT_READY
+    AVAILABLE
+    PLANNING
+    PAYMENT_PROCESSING
+    BLOCKED_INSUFFICIENT_TOKENS
+    RETRIEVING
+    GENERATING
+    ANSWERED
+    FAILED
+  }
+
+  enum AiAnswerUnavailableReason {
+    AUTO_GENERATION_ENABLED
+    QUESTION_NOT_READY
+    GENERATION_IN_PROGRESS
+    INSUFFICIENT_TOKENS
+    ALREADY_ANSWERED
   }
 
   type AiAnswerFeedback {
