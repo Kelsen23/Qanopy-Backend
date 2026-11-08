@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const AiSuggestionSchema = new Schema(
   {
+    userId: { type: String, required: true, immutable: true },
     questionId: {
       type: Schema.Types.ObjectId,
       ref: "Question",
