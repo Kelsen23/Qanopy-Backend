@@ -9,6 +9,7 @@ import maybeQueueNotification from "./maybeQueueNotification.service.js";
 
 const SYSTEM_EVENTS = new Set([
   "AI_ANSWER_READY",
+  "AI_ANSWER_PAYMENT_BLOCKED",
   "AI_SUGGESTION_READY",
   "QUESTION_ELIGIBILITY_UPDATE",
   "REPORT_UPDATE",
