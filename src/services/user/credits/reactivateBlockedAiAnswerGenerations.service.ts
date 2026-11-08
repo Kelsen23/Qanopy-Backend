@@ -24,7 +24,6 @@ const reactivateBlockedAiAnswerGenerations = async (userId: string) => {
     .lean();
 
   for (const generation of generations) {
-    const questionId = String(generation.questionId);
     const question = await Question.findOne({
       _id: generation.questionId,
       userId,
