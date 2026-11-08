@@ -38,7 +38,7 @@ const resetExpiredCreditPeriods = async (
 ) => {
   const now = new Date();
 
-  await Promise.all(
+  const results = await Promise.all(
     getCreditLimits().map(({ periodType }) =>
       tx.creditPeriodUsage.updateMany({
         where: {
@@ -53,6 +53,8 @@ const resetExpiredCreditPeriods = async (
       }),
     ),
   );
+
+  return results.some((result) => result.count > 0);
 };
 
 export { ensureCreditPeriodRows, getNextResetAt, resetExpiredCreditPeriods };

@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-const makeCircle = async (inputBuffer: any) => {
+const makeCircle = async (inputBuffer: Buffer | Uint8Array) => {
   const size = 200;
 
   const circleSvg = Buffer.from(`

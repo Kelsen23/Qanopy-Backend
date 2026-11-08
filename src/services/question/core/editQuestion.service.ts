@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { queueQuestionContentFinalize } from "../contentFinalize/contentFinalizeQueue.service.js";
 import { findOneAndUpdateQuestionProcessingState } from "../processingState/questionProcessingState.service.js";
 import { toPublicQuestion } from "../question.response.js";
-import getQuestionSettings from "../settings/getQuestionSettings.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
@@ -49,8 +48,10 @@ const editQuestion = async (
 
   const newVersion = Number(foundQuestion.currentVersion ?? 0) + 1;
   const session = await mongoose.startSession();
+
   let editedQuestion: any;
   let editedProcessingState: any;
+
   try {
     await session.withTransaction(async () => {
       editedQuestion = await Question.findOneAndUpdate(
@@ -87,8 +88,8 @@ const editQuestion = async (
           securityVerifierStatus: "NOT_REQUIRED",
           securityVerifierUpdatedAt: null,
           securityVerifierSourceVersion: newVersion,
-          embeddingStatus: "NONE",
-          similarQuestionsStatus: "NONE",
+          embeddingStatus: "NOT_STARTED",
+          similarQuestionsStatus: "NOT_STARTED",
           similarQuestionsComputedAt: null,
           similarQuestionsComputedVersion: null,
         },
@@ -119,15 +120,12 @@ const editQuestion = async (
   await clearQuestionDiscoveryCache();
   await clearVersionHistoryCache(questionId);
 
-  const settings = await getQuestionSettings(questionId);
+  const { aiAnswerAutoGeneration: _aiAnswerAutoGeneration, ...publicQuestion } =
+    toPublicQuestion(editedQuestion, editedProcessingState);
 
   return {
     message: "Successfully edited question",
-    editedQuestion: toPublicQuestion(
-      editedQuestion,
-      editedProcessingState,
-      settings,
-    ),
+    editedQuestion: publicQuestion,
   };
 };
 

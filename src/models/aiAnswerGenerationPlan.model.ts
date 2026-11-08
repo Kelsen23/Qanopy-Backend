@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const AiAnswerGenerationPlanSchema = new Schema(
   {
+    userId: { type: String, required: true, immutable: true },
     questionId: {
       type: Schema.Types.ObjectId,
       ref: "Question",
@@ -21,8 +22,7 @@ const AiAnswerGenerationPlanSchema = new Schema(
       required: true,
       immutable: true,
     },
-    plannerFallbackUsed: { type: Boolean, immutable: true },
-    plannerMetadata: { type: Schema.Types.Mixed, immutable: true },
+    metadata: { type: Schema.Types.Mixed, required: true, immutable: true },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

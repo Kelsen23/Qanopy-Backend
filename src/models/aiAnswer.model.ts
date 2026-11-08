@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const AiAnswerSchema = new Schema(
   {
+    userId: { type: String, required: true, immutable: true },
     questionId: {
       type: Schema.Types.ObjectId,
       ref: "Question",
@@ -9,6 +10,7 @@ const AiAnswerSchema = new Schema(
     },
 
     questionVersion: { type: Number, min: 1, required: true },
+    aiAnswerVersion: { type: Number, min: 1, required: true, immutable: true },
     body: { type: String, minlength: 20, maxlength: 20000, required: true },
 
     confidence: {
@@ -45,7 +47,10 @@ const AiAnswerSchema = new Schema(
   },
 );
 
-AiAnswerSchema.index({ questionId: 1, questionVersion: 1 });
+AiAnswerSchema.index(
+  { questionId: 1, questionVersion: 1, aiAnswerVersion: 1 },
+  { unique: true },
+);
 
 AiAnswerSchema.index(
   { questionId: 1, isPublished: 1 },

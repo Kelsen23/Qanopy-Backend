@@ -23,6 +23,7 @@ async function startWorker() {
           contentId: job.data.contentId,
           version: job.data.version,
           moderationRevision: job.data.moderationRevision,
+          routeKey: job.data.routeKey,
         }),
       );
     },

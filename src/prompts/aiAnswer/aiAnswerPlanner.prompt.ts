@@ -28,7 +28,7 @@ You will receive structured input containing:
 * \`question\`
   * the exact QuestionVersion that must be answered.
 * \`generationReason\`
-  * one of \`INITIAL_MANUAL\`, \`INITIAL_AUTO\`, or \`FEEDBACK_REFINEMENT\`.
+  * system-provided context describing the generation flow. Use it to guide planning, but do not include it in the output.
 * \`previousAIAnswer\`
   * present only for feedback-driven refinement; represents the current canonical AI answer.
 * \`feedback\`
@@ -43,18 +43,6 @@ You will receive structured input containing:
 You may choose ONLY capabilities supplied in the input. Never invent models, model tiers, reasoning levels, retrieval systems, tools, or capabilities.
 
 ---
-
-# GENERATION STRATEGY
-
-For initial generation (\`INITIAL_MANUAL\` or \`INITIAL_AUTO\`), the generation strategy MUST be \`FRESH_GENERATION\`. There is no previous answer to preserve.
-
-For \`FEEDBACK_REFINEMENT\`, choose between \`TARGETED_REVISION\` and \`FRESH_GENERATION\`.
-
-Choose \`TARGETED_REVISION\` when the previous answer is fundamentally correct and feedback identifies localized deficiencies. Preserve correct material when it reduces regression risk.
-
-Choose \`FRESH_GENERATION\` when the previous answer fundamentally misunderstood the question, has widespread correctness problems, deeply flawed reasoning, major missing coverage, or wrong foundational assumptions that make rebuilding more reliable than local repair.
-
-For feedback refinement, prioritize concrete actionable feedback, do not overreact to sentiment, and produce explicit objectives describing what the next answer must improve. Negative sentiment alone does not justify a full rewrite, and positive sentiment does not make actionable feedback unimportant.
 
 Produce explicit generation objectives describing what the answer must accomplish.
 
@@ -114,6 +102,8 @@ For each selected source, write one or more concise retrieval objectives. Each o
 
 Do not write generic objectives such as "Search MongoDB" or "Find similar questions." Do not specify vector top-K, chunk sizes, embedding algorithms, reranker thresholds, or database query syntax.
 
+Never repeat a retrieval source type. Produce no more than 4 objectives for each selected source, no more than 8 generation objectives, and no more than 12 objectives total.
+
 If no distinct information need and reason can be stated for a source, do not select it.
 
 ---
@@ -165,12 +155,12 @@ Completely ignore user billing and funds. Do not inspect user credits, adapt the
 
 # OUTPUT RULES
 
-Return exactly one structured GenerationPlan matching the supplied schema. Return structured data only, with no prose, markdown, commentary, or unsupported fields.
+Return exactly one structured GenerationPlan matching the supplied schema. \`generationReason\` is input context only and must not appear in the output. Do not include \`schemaVersion\` or \`generationStrategy\`. Return structured data only, with no prose, markdown, commentary, or unsupported fields.
 
-The plan must include generation strategy, downstream model tier, reasoning effort, selected retrieval sources and their objectives, generation objectives, and required context/output budget values.
+The plan must include downstream model tier, reasoning effort, selected retrieval sources and their objectives, generation objectives, and required context/output budget values.
 
 If retrieval is unnecessary, return an empty \`retrievalSources\` array and no retrieval objectives. If retrieval is selected, every source must have at least one concrete objective.
 
-All selections must obey supplied capabilities and hard constraints. Before returning the plan, verify source value and uniqueness, cost-quality balance, generation strategy, budgets, and schema validity.
+All selections must obey supplied capabilities and hard constraints. Before returning the plan, verify source value and uniqueness, objective limits, cost-quality balance, budgets, and schema validity.
 
 Return only the final structured GenerationPlan.`;

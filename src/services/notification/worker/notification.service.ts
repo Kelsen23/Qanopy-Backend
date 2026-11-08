@@ -54,6 +54,9 @@ const findAiSuggestionReadyNotification = ({
     "target.questionVersion": target.questionVersion,
   } as any);
 
+const findByIdempotencyKey = (idempotencyKey: string) =>
+  Notification.findOne({ "meta.idempotencyKey": idempotencyKey });
+
 const createNotification = async ({
   recipientId,
   actorId,
@@ -85,6 +88,18 @@ const createNotification = async ({
       if (existingNotification) {
         return { notification: existingNotification, created: false };
       }
+    }
+
+    if (
+      isDuplicateKeyError(error) &&
+      event === "AI_ANSWER_PAYMENT_BLOCKED" &&
+      typeof meta?.idempotencyKey === "string"
+    ) {
+      const existingNotification = await findByIdempotencyKey(
+        meta.idempotencyKey,
+      );
+      if (existingNotification)
+        return { notification: existingNotification, created: false };
     }
 
     throw error;

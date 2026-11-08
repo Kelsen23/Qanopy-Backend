@@ -8,6 +8,7 @@ import {
   findOneAndUpdateQuestionProcessingState,
   updateQuestionProcessingState,
 } from "../../processingState/questionProcessingState.service.js";
+
 import Question from "../../../../models/question.model.js";
 import QuestionVersion from "../../../../models/questionVersion.model.js";
 import QuestionEmbedding from "../../../../models/questionEmbedding.model.js";
@@ -35,7 +36,7 @@ const lockQuestionForEmbedding = async (questionId: string, version: number) =>
       securityVerifierStatus: {
         $in: downstreamAllowedSecurityVerifierStatuses,
       },
-      embeddingStatus: "NONE",
+      embeddingStatus: "NOT_STARTED",
     },
     set: { embeddingStatus: "PROCESSING" },
   });
@@ -78,7 +79,7 @@ const resetQuestionEmbeddingProcessing = async (
     match: {
       embeddingStatus: "PROCESSING",
     },
-    set: { embeddingStatus: "NONE" },
+    set: { embeddingStatus: "NOT_STARTED" },
   });
 
 const finalizeQuestionEmbedding = async ({
@@ -110,7 +111,7 @@ const finalizeQuestionEmbedding = async ({
         },
         set: {
           embeddingStatus: "READY",
-          similarQuestionsStatus: "NONE",
+          similarQuestionsStatus: "NOT_STARTED",
           similarQuestionsComputedAt: null,
           similarQuestionsComputedVersion: null,
         },

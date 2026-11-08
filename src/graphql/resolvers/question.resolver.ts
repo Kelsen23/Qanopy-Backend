@@ -153,11 +153,88 @@ const questionResolver = {
       return state.canGetAISuggestion;
     },
     canGetAIAnswer: async (parent: any, _: any, { loaders }: any) => {
-      if (typeof parent.canGetAIAnswer === "boolean") {
-        return parent.canGetAIAnswer;
-      }
       const state = await loadProcessingStateForQuestionField(parent, loaders);
-      return state.canGetAIAnswer;
+      return (
+        state.canGetAIAnswer &&
+        state.embeddingStatus === "READY" &&
+        state.similarQuestionsStatus === "READY" &&
+        state.similarQuestionsComputedVersion === state.questionVersion
+      );
+    },
+    aiAnswerAvailability: async (parent: any, _: any, { loaders }: any) => {
+      const questionId = String(parent.id ?? parent._id);
+      const questionVersion = Number(parent.currentVersion);
+      const [state, data] = await Promise.all([
+        loadProcessingStateForQuestionField(parent, loaders),
+        loaders.aiAnswerAvailabilityLoader.load(
+          `${questionId}:${questionVersion}`,
+        ),
+      ]);
+
+      const answerExists = Boolean(data.answer);
+      const generation = data.generation;
+      let status:
+        | "NOT_READY"
+        | "AVAILABLE"
+        | "PLANNING"
+        | "PAYMENT_PROCESSING"
+        | "BLOCKED_INSUFFICIENT_TOKENS"
+        | "RETRIEVING"
+        | "GENERATING"
+        | "ANSWERED"
+        | "FAILED";
+      let unavailableReason:
+        | "AUTO_GENERATION_ENABLED"
+        | "QUESTION_NOT_READY"
+        | "GENERATION_IN_PROGRESS"
+        | "INSUFFICIENT_TOKENS"
+        | "ALREADY_ANSWERED"
+        | null = null;
+
+      if (answerExists || generation?.status === "COMPLETED") {
+        status = "ANSWERED";
+        unavailableReason = "ALREADY_ANSWERED";
+      } else if (
+        !state.canGetAIAnswer ||
+        parent.isActive === false ||
+        parent.isDeleted === true
+      ) {
+        status = "NOT_READY";
+        unavailableReason = "QUESTION_NOT_READY";
+      } else if (generation) {
+        unavailableReason = "GENERATION_IN_PROGRESS";
+        if (generation.paymentStatus === "BLOCKED_INSUFFICIENT_TOKENS") {
+          status = "BLOCKED_INSUFFICIENT_TOKENS";
+          unavailableReason = "INSUFFICIENT_TOKENS";
+        } else if (
+          generation.status === "FAILED" ||
+          generation.planningStatus === "FAILED" ||
+          generation.paymentStatus === "FAILED" ||
+          generation.retrievalStatus === "FAILED" ||
+          generation.generationStatus === "FAILED"
+        ) {
+          status = "FAILED";
+        } else if (generation.planningStatus !== "COMPLETED") {
+          status = "PLANNING";
+        } else if (generation.paymentStatus !== "AUTHORIZED") {
+          status = "PAYMENT_PROCESSING";
+        } else if (generation.retrievalStatus !== "COMPLETED") {
+          status = "RETRIEVING";
+        } else {
+          status = "GENERATING";
+        }
+      } else {
+        status = "AVAILABLE";
+        if (data.autoGenerationEnabled)
+          unavailableReason = "AUTO_GENERATION_ENABLED";
+      }
+
+      return {
+        status,
+        canGenerateManually:
+          status === "AVAILABLE" && !data.autoGenerationEnabled,
+        unavailableReason,
+      };
     },
     similarQuestionsReady: async (parent: any, _: any, { loaders }: any) => {
       if (typeof parent.similarQuestionsReady === "boolean") {

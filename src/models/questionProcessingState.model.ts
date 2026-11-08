@@ -13,8 +13,8 @@ const QuestionProcessingStateSchema: Schema = new Schema(
 
     similarQuestionsStatus: {
       type: String,
-      enum: ["NONE", "PENDING", "PROCESSING", "READY"],
-      default: "NONE",
+      enum: ["NOT_STARTED", "PENDING", "PROCESSING", "READY"],
+      default: "NOT_STARTED",
       required: true,
     },
     similarQuestionsComputedAt: { type: Date, default: null },
@@ -22,8 +22,8 @@ const QuestionProcessingStateSchema: Schema = new Schema(
 
     embeddingStatus: {
       type: String,
-      enum: ["NONE", "PENDING", "PROCESSING", "READY"],
-      default: "NONE",
+      enum: ["NOT_STARTED", "PENDING", "PROCESSING", "READY"],
+      default: "NOT_STARTED",
       required: true,
     },
 

@@ -2,7 +2,8 @@ type PipelineRouterJobName =
   | "QUESTION"
   | "ANSWER"
   | "REPLY"
-  | "AI_ANSWER_FEEDBACK";
+  | "AI_ANSWER_FEEDBACK"
+  | "AI_ANSWER";
 
 type QuestionPipelineRouterJob = {
   contentType: "QUESTION";
@@ -11,12 +12,23 @@ type QuestionPipelineRouterJob = {
 };
 
 type NonQuestionPipelineRouterJob = {
-  contentType: Exclude<PipelineRouterJobName, "QUESTION">;
+  contentType: Exclude<PipelineRouterJobName, "QUESTION" | "AI_ANSWER">;
   contentId: string;
   moderationRevision?: number;
 };
 
+type AiAnswerPipelineRouterJob = {
+  contentType: "AI_ANSWER";
+  contentId: string;
+  routeKey?: string;
+};
+
 type PipelineRouterJobData =
+  | QuestionPipelineRouterJob
+  | AiAnswerPipelineRouterJob
+  | NonQuestionPipelineRouterJob;
+
+type ModeratablePipelineRouterJobData =
   | QuestionPipelineRouterJob
   | NonQuestionPipelineRouterJob;
 
@@ -27,7 +39,8 @@ const assertPipelineRouterJobName = (
     jobName === "QUESTION" ||
     jobName === "ANSWER" ||
     jobName === "REPLY" ||
-    jobName === "AI_ANSWER_FEEDBACK"
+    jobName === "AI_ANSWER_FEEDBACK" ||
+    jobName === "AI_ANSWER"
   ) {
     return jobName;
   }
@@ -40,11 +53,13 @@ const normalizePipelineRouterJobData = ({
   contentId,
   version,
   moderationRevision,
+  routeKey,
 }: {
   jobName: string;
   contentId: unknown;
   version?: unknown;
   moderationRevision?: unknown;
+  routeKey?: unknown;
 }): PipelineRouterJobData => {
   const contentType = assertPipelineRouterJobName(jobName);
 
@@ -64,6 +79,14 @@ const normalizePipelineRouterJobData = ({
     };
   }
 
+  if (contentType === "AI_ANSWER") {
+    return {
+      contentType,
+      contentId,
+      routeKey: typeof routeKey === "string" ? routeKey : undefined,
+    };
+  }
+
   return {
     contentType,
     contentId,
@@ -76,6 +99,8 @@ export { assertPipelineRouterJobName, normalizePipelineRouterJobData };
 
 export type {
   NonQuestionPipelineRouterJob,
+  AiAnswerPipelineRouterJob,
+  ModeratablePipelineRouterJobData,
   PipelineRouterJobData,
   PipelineRouterJobName,
   QuestionPipelineRouterJob,

@@ -11,6 +11,7 @@ import {
   editQuestion as editQuestionService,
   generateQuestionSuggestionRequest as generateQuestionSuggestionRequestService,
   generateAiAnswerRequest as generateAiAnswerRequestService,
+  retryBlockedAiAnswerGeneration as retryBlockedAiAnswerGenerationService,
   getQuestionSettings as getQuestionSettingsService,
   updateQuestionSettings as updateQuestionSettingsService,
   createFeedbackOnAiAnswer as createFeedbackOnAiAnswerService,
@@ -184,6 +185,21 @@ const generateAiAnswer = asyncHandler(
   },
 );
 
+const retryBlockedAiAnswerGeneration = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { id: userId } = req.user;
+    const { questionId } = req.params;
+
+    const result = await retryBlockedAiAnswerGenerationService({
+      userId,
+      questionId,
+      questionVersion: req.body.version,
+    });
+
+    return res.status(200).json({ request: result });
+  },
+);
+
 const updateQuestionSettings = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const { id: userId } = req.user;
@@ -259,6 +275,7 @@ export {
   rollbackVersion,
   generateQuestionSuggestion,
   generateAiAnswer,
+  retryBlockedAiAnswerGeneration,
   getQuestionSettings,
   updateQuestionSettings,
   createFeedbackOnAiAnswer,

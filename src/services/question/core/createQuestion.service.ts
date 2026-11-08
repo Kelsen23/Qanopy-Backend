@@ -72,9 +72,17 @@ const createQuestion = async ({
     }),
   ]);
 
+  const {
+    canGetAISuggestion: _canGetAISuggestion,
+    canGetAIAnswer: _canGetAIAnswer,
+    aiAnswerAutoGeneration: _aiAnswerAutoGeneration,
+    similarQuestionsReady: _similarQuestionsReady,
+    ...createdQuestion
+  } = toPublicQuestion(newQuestion, processingState);
+
   return {
     message: "Successfully created question",
-    question: toPublicQuestion(newQuestion, processingState),
+    question: createdQuestion,
   };
 };
 

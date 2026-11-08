@@ -11,6 +11,8 @@ const queueNotification = async ({
   target,
   meta,
 }: NotificationParams) => {
+  const idempotencyKey = meta.idempotencyKey;
+
   await notificationQueue.add(
     "CREATE_NOTIFICATION",
     {
@@ -32,6 +34,7 @@ const queueNotification = async ({
         target.entityId,
         target.parentId ?? "root",
         target.questionVersion ?? "latest",
+        typeof idempotencyKey === "string" ? idempotencyKey : "standard",
       ),
     },
   );

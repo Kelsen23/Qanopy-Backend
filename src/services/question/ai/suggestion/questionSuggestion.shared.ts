@@ -5,6 +5,7 @@ import type { QuestionSuggestionResult } from "../../../../validations/question.
 import routeNotification from "../../../notification/routeNotification.service.js";
 import calculateCreditCharge from "../../../user/credits/calculateCreditCharge.service.js";
 import chargeCredits from "../../../user/credits/chargeCredits.service.js";
+import makeCreditOperationKey from "../../../user/credits/creditOperationKey.shared.js";
 import refundCreditCharge from "../../../user/credits/refundCreditCharge.service.js";
 import { toPublicAiSuggestion } from "../../question.response.js";
 import { loadQuestionWithProcessingState } from "../../processingState/questionProcessingState.query.js";
@@ -73,7 +74,12 @@ const makeQuestionSuggestionCreditOperationKey = ({
   questionId,
   version,
 }: GenerateQuestionSuggestionRequestInput) =>
-  `AI_SUGGESTION:${userId}:${questionId}:${version}`;
+  makeCreditOperationKey({
+    type: "AI_SUGGESTION",
+    userId,
+    questionId,
+    version,
+  });
 
 const makeQuestionSuggestionCreditOwnerReason = () =>
   `AI_SUGGESTION_ATTEMPT:${crypto.randomUUID()}`;
@@ -290,12 +296,14 @@ const hasQuestionSuggestionReadyNotification = async ({
   );
 
 const createQuestionSuggestion = async ({
+  userId,
   questionId,
   version,
   suggestion,
   metadata,
   generatedAt,
 }: {
+  userId: string;
   questionId: string;
   version: number;
   suggestion: QuestionSuggestionResult;
@@ -304,6 +312,7 @@ const createQuestionSuggestion = async ({
 }) =>
   AiSuggestion.create({
     questionId,
+    userId,
     version,
     suggestedTitle: suggestion.suggestedTitle,
     suggestedBody: suggestion.suggestedBody,

@@ -9,7 +9,7 @@ import sanitizeUserForAuth from "../utils/auth/sanitizeUserForAuth.util.js";
 
 import asyncHandler from "./asyncHandler.middleware.js";
 
-type AuthenticatedUser = {
+export type AuthenticatedUser = {
   id: string;
   tokenVersion?: number;
   status?: string;
@@ -20,7 +20,7 @@ type AuthenticatedUser = {
 
 interface AuthenticatedRequest extends Request {
   cookies: {
-    token?: any;
+    token?: string;
   };
   user?: AuthenticatedUser;
 }

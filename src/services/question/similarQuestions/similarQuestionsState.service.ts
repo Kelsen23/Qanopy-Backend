@@ -27,7 +27,7 @@ const lockQuestionForSimilarQuestions = async (
     match: {
       ...publicQuestionProcessingStateMatch,
       embeddingStatus: "READY",
-      similarQuestionsStatus: { $in: ["NONE", "PENDING"] },
+      similarQuestionsStatus: { $in: ["NOT_STARTED", "PENDING"] },
     },
     set: { similarQuestionsStatus: "PROCESSING" },
   });
@@ -43,7 +43,7 @@ const resetSimilarQuestionsProcessing = async (
       similarQuestionsStatus: "PROCESSING",
     },
     set: {
-      similarQuestionsStatus: "NONE",
+      similarQuestionsStatus: "NOT_STARTED",
       similarQuestionsComputedAt: null,
       similarQuestionsComputedVersion: null,
     },
@@ -57,7 +57,7 @@ const invalidateSimilarQuestions = async (
     questionId,
     questionVersion: version,
     set: {
-      similarQuestionsStatus: "NONE",
+      similarQuestionsStatus: "NOT_STARTED",
       similarQuestionsComputedAt: null,
       similarQuestionsComputedVersion: null,
     },

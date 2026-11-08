@@ -11,6 +11,7 @@ type NotificationEvent =
   | "QUESTION_ELIGIBILITY_UPDATE"
   | "AI_SUGGESTION_READY"
   | "AI_ANSWER_READY"
+  | "AI_ANSWER_PAYMENT_BLOCKED"
   | "WARN"
   | "STRIKE"
   | "REPORT_UPDATE"
@@ -18,6 +19,7 @@ type NotificationEvent =
 
 type SystemEvent =
   | "AI_ANSWER_READY"
+  | "AI_ANSWER_PAYMENT_BLOCKED"
   | "AI_SUGGESTION_READY"
   | "QUESTION_ELIGIBILITY_UPDATE"
   | "REPORT_UPDATE"

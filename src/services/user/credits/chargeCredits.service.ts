@@ -5,6 +5,7 @@ import {
   resetExpiredCreditPeriods,
 } from "./creditPeriodUsage.shared.js";
 import getCreditLimits from "./getCreditLimits.service.js";
+import reactivateBlockedAiAnswerGenerations from "./reactivateBlockedAiAnswerGenerations.service.js";
 
 import prisma from "../../../config/prisma.config.js";
 
@@ -34,7 +35,7 @@ const chargeCredits = async ({
 }) => {
   if (amount <= 0) throw new HttpError("Invalid credit charge amount", 400);
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
       const existingOperation = await tx.creditOperation.findUnique({
         where: { operationKey },
@@ -49,7 +50,7 @@ const chargeCredits = async ({
       }
 
       await ensureCreditPeriodRows(tx, userId);
-      await resetExpiredCreditPeriods(tx, userId);
+      const didResetPeriod = await resetExpiredCreditPeriods(tx, userId);
 
       const periodRows: CreditPeriodResetRow[] =
         await tx.creditPeriodUsage.findMany({
@@ -123,10 +124,23 @@ const chargeCredits = async ({
         type: operation.type,
         amount: operation.chargeAmount,
         chargedNow: true,
+        didResetPeriod,
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+
+  if (result.didResetPeriod) {
+    await reactivateBlockedAiAnswerGenerations(userId).catch((error) => {
+      console.error(
+        "Failed to reactivate blocked AI Answer generations:",
+        error,
+      );
+    });
+  }
+
+  const { didResetPeriod: _, ...charge } = result;
+  return charge;
 };
 
 export default chargeCredits;

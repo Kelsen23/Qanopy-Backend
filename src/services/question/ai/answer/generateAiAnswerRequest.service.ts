@@ -1,6 +1,8 @@
 import { toPublicAiAnswer } from "../../question.response.js";
 import requestAiAnswer from "./requestAiAnswer.service.js";
 
+import HttpError from "../../../../utils/http/httpError.util.js";
+
 import AiAnswer from "../../../../models/aiAnswer.model.js";
 
 const generateAiAnswerRequest = async (
@@ -15,13 +17,12 @@ const generateAiAnswerRequest = async (
     generationReason: "INITIAL_MANUAL",
   });
 
-  if (request.status === "ALREADY_EXISTS") {
+  if (request.status === "ALREADY_ANSWERED") {
     const answer = await AiAnswer.findOne({
       questionId,
       questionVersion: version,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+      aiAnswerVersion: 1,
+    }).lean();
 
     if (answer) {
       return {
@@ -29,6 +30,10 @@ const generateAiAnswerRequest = async (
         answer: toPublicAiAnswer(answer),
       };
     }
+  }
+
+  if (request.status === "IN_PROGRESS") {
+    throw new HttpError("AI Answer generation is already in progress", 409);
   }
 
   return {

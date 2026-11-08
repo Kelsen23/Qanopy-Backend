@@ -109,6 +109,7 @@ const generateQuestionSuggestionRequest = async ({
 
           const generatedAt = new Date().toISOString();
           const newSuggestion = await createQuestionSuggestion({
+            userId,
             questionId,
             version,
             suggestion,

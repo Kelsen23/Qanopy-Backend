@@ -6,6 +6,7 @@ import {
   resetExpiredCreditPeriods,
 } from "./creditPeriodUsage.shared.js";
 import getCreditLimits from "./getCreditLimits.service.js";
+import reactivateBlockedAiAnswerGenerations from "./reactivateBlockedAiAnswerGenerations.service.js";
 
 import prisma from "../../../config/prisma.config.js";
 
@@ -24,22 +25,35 @@ const roundPercentage = (value: number) =>
 const getCredits = async ({ userId }: { userId: string }) => {
   const limits = getCreditLimits();
 
-  const periodUsages = await prisma.$transaction(async (tx) => {
-    await ensureCreditPeriodRows(tx, userId);
-    await resetExpiredCreditPeriods(tx, userId);
+  const { periodUsages, didResetPeriod } = await prisma.$transaction(
+    async (tx) => {
+      await ensureCreditPeriodRows(tx, userId);
+      const didResetPeriod = await resetExpiredCreditPeriods(tx, userId);
 
-    return tx.creditPeriodUsage.findMany({
-      where: {
-        userId,
-        periodType: { in: limits.map(({ periodType }) => periodType) },
-      },
-      select: {
-        periodType: true,
-        used: true,
-        resetAt: true,
-      },
+      const periodUsages = await tx.creditPeriodUsage.findMany({
+        where: {
+          userId,
+          periodType: { in: limits.map(({ periodType }) => periodType) },
+        },
+        select: {
+          periodType: true,
+          used: true,
+          resetAt: true,
+        },
+      });
+
+      return { periodUsages, didResetPeriod };
+    },
+  );
+
+  if (didResetPeriod) {
+    await reactivateBlockedAiAnswerGenerations(userId).catch((error) => {
+      console.error(
+        "Failed to reactivate blocked AI Answer generations:",
+        error,
+      );
     });
-  });
+  }
 
   const creditPeriods: CreditPeriodSummary[] = limits.map(
     ({ periodType, limit }) => {

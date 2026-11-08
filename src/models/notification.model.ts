@@ -23,6 +23,7 @@ const NotificationSchema = new Schema(
         "QUESTION_ELIGIBILITY_UPDATE",
         "AI_SUGGESTION_READY",
         "AI_ANSWER_READY",
+        "AI_ANSWER_PAYMENT_BLOCKED",
 
         "WARN",
         "STRIKE",
@@ -86,6 +87,17 @@ NotificationSchema.index(
       event: "AI_SUGGESTION_READY",
       "target.entityType": "QUESTION",
       "target.questionVersion": { $exists: true },
+    },
+  },
+);
+
+NotificationSchema.index(
+  { "meta.idempotencyKey": 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      event: "AI_ANSWER_PAYMENT_BLOCKED",
+      "meta.idempotencyKey": { $type: "string" },
     },
   },
 );
