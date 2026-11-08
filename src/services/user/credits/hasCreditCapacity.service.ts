@@ -1,6 +1,6 @@
-import prisma from "../../../config/prisma.config.js";
-
 import getCreditLimits from "./getCreditLimits.service.js";
+
+import prisma from "../../../config/prisma.config.js";
 
 const hasCreditCapacity = async (userId: string, amount: number) => {
   const usages = await prisma.creditPeriodUsage.findMany({

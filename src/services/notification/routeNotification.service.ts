@@ -3,9 +3,9 @@ import NotificationParams, {
   UserNotificationParams,
 } from "../../types/notification.type.js";
 
-import queueNotification from "../../utils/notification/queueNotification.util.js";
-
 import maybeQueueNotification from "./maybeQueueNotification.service.js";
+
+import queueNotification from "../../utils/notification/queueNotification.util.js";
 
 const SYSTEM_EVENTS = new Set([
   "AI_ANSWER_READY",

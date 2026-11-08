@@ -1,7 +1,8 @@
 import { Prisma } from "../../../generated/prisma/client.js";
 
-import prisma from "../../../config/prisma.config.js";
 import reactivateBlockedAiAnswerGenerations from "./reactivateBlockedAiAnswerGenerations.service.js";
+
+import prisma from "../../../config/prisma.config.js";
 
 const refundCreditCharge = async ({
   operationKey,
