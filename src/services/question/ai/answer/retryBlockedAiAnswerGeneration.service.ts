@@ -1,7 +1,7 @@
 import withAiAnswerRequestLock from "./aiAnswerRequest.lock.js";
+import { queueAiAnswerRoute } from "../../pipelineRouter/pipelineRouting.service.js";
 
 import HttpError from "../../../../utils/http/httpError.util.js";
-import { queueAiAnswerRoute } from "../../pipelineRouter/pipelineRouting.service.js";
 
 import AiAnswerGeneration from "../../../../models/aiAnswerGeneration.model.js";
 import AiAnswer from "../../../../models/aiAnswer.model.js";

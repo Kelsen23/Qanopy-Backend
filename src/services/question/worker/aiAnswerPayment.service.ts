@@ -9,10 +9,10 @@ import calculateCreditCharge, {
 import chargeCredits from "../../user/credits/chargeCredits.service.js";
 import makeCreditOperationKey from "../../user/credits/creditOperationKey.shared.js";
 import routeNotification from "../../notification/routeNotification.service.js";
+import { queueAiAnswerRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
 import prisma from "../../../config/prisma.config.js";
 
-import { queueAiAnswerRoute } from "../pipelineRouter/pipelineRouting.service.js";
 import HttpError from "../../../utils/http/httpError.util.js";
 
 import AiAnswerGeneration from "../../../models/aiAnswerGeneration.model.js";
