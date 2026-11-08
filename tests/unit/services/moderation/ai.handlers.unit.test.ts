@@ -230,7 +230,7 @@ describe("moderation AI handlers", () => {
         version: 4,
       },
       expect.objectContaining({
-        jobId: "contentPipelineRoute__question_1__4",
+        jobId: "contentPipelineRouter__question_1__4",
       }),
     );
     expect(
