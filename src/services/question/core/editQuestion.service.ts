@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { queueQuestionContentFinalize } from "../contentFinalize/contentFinalizeQueue.service.js";
 import { findOneAndUpdateQuestionProcessingState } from "../processingState/questionProcessingState.service.js";
 import { toPublicQuestion } from "../question.response.js";
-import getQuestionSettings from "../settings/getQuestionSettings.service.js";
 
 import { getRedisCacheClient } from "../../../config/redis.config.js";
 
@@ -119,15 +118,12 @@ const editQuestion = async (
   await clearQuestionDiscoveryCache();
   await clearVersionHistoryCache(questionId);
 
-  const settings = await getQuestionSettings(questionId);
+  const { aiAnswerAutoGeneration: _aiAnswerAutoGeneration, ...publicQuestion } =
+    toPublicQuestion(editedQuestion, editedProcessingState);
 
   return {
     message: "Successfully edited question",
-    editedQuestion: toPublicQuestion(
-      editedQuestion,
-      editedProcessingState,
-      settings,
-    ),
+    editedQuestion: publicQuestion,
   };
 };
 
