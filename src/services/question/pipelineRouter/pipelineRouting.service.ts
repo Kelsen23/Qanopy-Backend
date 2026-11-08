@@ -1,6 +1,9 @@
 import type { Queue } from "bullmq";
 
-import type { PipelineRouterJobData } from "./pipelineRouter.shared.js";
+import type {
+  ModeratablePipelineRouterJobData,
+  PipelineRouterJobData,
+} from "./pipelineRouter.shared.js";
 
 import ensureJobIsQueued from "../../../utils/job/ensureJobIsQueued.util.js";
 import { makeJobId } from "../../../utils/job/makeJobId.util.js";
@@ -43,15 +46,29 @@ const queueJobIfNeeded = async ({
   });
 };
 
-const makeContentPipelineRouteJobId = (job: PipelineRouterJobData) =>
+const makeContentPipelineRouterJobId = (job: PipelineRouterJobData) =>
   job.contentType === "QUESTION"
-    ? makeJobId("contentPipelineRoute", job.contentId, job.version)
-    : makeJobId(
-        "contentPipelineRoute",
-        job.contentType,
-        job.contentId,
-        job.moderationRevision,
-      );
+    ? makeJobId("contentPipelineRouter", job.contentId, job.version)
+    : job.contentType === "AI_ANSWER"
+      ? makeJobId(
+          "contentPipelineRouter",
+          job.contentType,
+          job.contentId,
+          job.routeKey,
+        )
+      : makeJobId(
+          "contentPipelineRouter",
+          job.contentType,
+          job.contentId,
+          job.moderationRevision,
+        );
+
+const queueAiAnswerRoute = (generationId: string, routeKey?: string) =>
+  queueContentPipelineRoute({
+    contentType: "AI_ANSWER",
+    contentId: generationId,
+    routeKey,
+  });
 
 const queueContentPipelineRoute = async (job: PipelineRouterJobData) =>
   queueJobIfNeeded({
@@ -60,14 +77,18 @@ const queueContentPipelineRoute = async (job: PipelineRouterJobData) =>
     data:
       job.contentType === "QUESTION"
         ? { contentId: job.contentId, version: job.version }
-        : {
-            contentId: job.contentId,
-            moderationRevision: job.moderationRevision,
-          },
-    jobId: makeContentPipelineRouteJobId(job),
+        : job.contentType === "AI_ANSWER"
+          ? { contentId: job.contentId, routeKey: job.routeKey }
+          : {
+              contentId: job.contentId,
+              moderationRevision: job.moderationRevision,
+            },
+    jobId: makeContentPipelineRouterJobId(job),
   });
 
-const queueContentModerationRoute = async (job: PipelineRouterJobData) =>
+const queueContentModerationRoute = async (
+  job: ModeratablePipelineRouterJobData,
+) =>
   queueJobIfNeeded({
     queue: contentModerationQueue,
     jobName: job.contentType,
@@ -80,7 +101,7 @@ const queueContentModerationRoute = async (job: PipelineRouterJobData) =>
           },
     jobId:
       job.contentType === "QUESTION"
-        ? makeJobId("moderation", job.contentId, job.version)
+        ? makeJobId("contentModeration", job.contentId, job.version)
         : makeJobId(
             "contentModeration",
             job.contentType,
@@ -123,7 +144,7 @@ const queueQuestionPipelineStep = async ({
       queue: questionEmbeddingQueue,
       jobName: "QUESTION_EMBEDDING",
       data: { questionId, version },
-      jobId: makeJobId("embedding", questionId, version),
+      jobId: makeJobId("questionEmbedding", questionId, version),
     });
   }
 
@@ -138,5 +159,6 @@ const queueQuestionPipelineStep = async ({
 export {
   queueContentModerationRoute,
   queueContentPipelineRoute,
+  queueAiAnswerRoute,
   queueQuestionPipelineStep,
 };
