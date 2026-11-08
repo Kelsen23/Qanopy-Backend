@@ -19,6 +19,9 @@ type QuestionReadinessInput = {
   questionEligibilityStatus?: unknown;
   securityVerifierStatus?: unknown;
   embeddingStatus?: unknown;
+  questionVersion?: number;
+  similarQuestionsStatus?: unknown;
+  similarQuestionsComputedVersion?: number | null;
 };
 
 type QuestionProcessingStateSet = Partial<{

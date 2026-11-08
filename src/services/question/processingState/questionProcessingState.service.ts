@@ -18,6 +18,9 @@ const deriveQuestionReadiness = ({
   questionEligibilityStatus,
   securityVerifierStatus,
   embeddingStatus,
+  questionVersion,
+  similarQuestionsStatus,
+  similarQuestionsComputedVersion,
 }: QuestionReadinessInput) => {
   const securityComplete = completedSecurityVerifierStatuses.includes(
     securityVerifierStatus as (typeof completedSecurityVerifierStatuses)[number],
@@ -31,7 +34,9 @@ const deriveQuestionReadiness = ({
     canGetAIAnswer:
       questionEligibilityStatus === "ALLOWED" &&
       securityComplete &&
-      embeddingStatus === "READY",
+      embeddingStatus === "READY" &&
+      similarQuestionsStatus === "READY" &&
+      similarQuestionsComputedVersion === questionVersion,
   };
 };
 
@@ -54,6 +59,8 @@ const readinessUpdateStage = {
           $in: ["$securityVerifierStatus", completedSecurityVerifierStatuses],
         },
         { $eq: ["$embeddingStatus", "READY"] },
+        { $eq: ["$similarQuestionsStatus", "READY"] },
+        { $eq: ["$similarQuestionsComputedVersion", "$questionVersion"] },
       ],
     },
   },
