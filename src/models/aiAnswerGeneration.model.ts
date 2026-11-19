@@ -52,30 +52,6 @@ const AiAnswerGenerationSchema = new Schema(
     manualRetryCount: { type: Number, default: 0, min: 0 },
     reservedAmount: { type: Number, min: 0 },
     pricingPolicyVersion: { type: String },
-    retrievalUsage: {
-      totalCalls: { type: Number, default: 0, min: 0 },
-      totalEvidenceTokens: { type: Number, default: 0, min: 0 },
-      sources: {
-        INTERNAL_AI_ANSWERS: {
-          calls: { type: Number, default: 0, min: 0 },
-          evidenceTokens: { type: Number, default: 0, min: 0 },
-        },
-        KNOWLEDGE_BASE: {
-          calls: { type: Number, default: 0, min: 0 },
-          evidenceTokens: { type: Number, default: 0, min: 0 },
-        },
-        WEB: {
-          calls: { type: Number, default: 0, min: 0 },
-          evidenceTokens: { type: Number, default: 0, min: 0 },
-        },
-      },
-      activeCallId: { type: String },
-      activeSourceType: {
-        type: String,
-        enum: ["INTERNAL_AI_ANSWERS", "KNOWLEDGE_BASE", "WEB"],
-      },
-      activeEvidenceTokenLimit: { type: Number, min: 1 },
-    },
     status: {
       type: String,
       enum: ["ACTIVE", "BLOCKED", "COMPLETED", "FAILED"],
