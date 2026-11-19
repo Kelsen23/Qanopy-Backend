@@ -179,7 +179,7 @@ const questionResolver = {
         | "PLANNING"
         | "PAYMENT_PROCESSING"
         | "BLOCKED_INSUFFICIENT_TOKENS"
-        | "RETRIEVING"
+        | "WAITING_FOR_GENERATION"
         | "GENERATING"
         | "ANSWERED"
         | "FAILED";
@@ -210,7 +210,6 @@ const questionResolver = {
           generation.status === "FAILED" ||
           generation.planningStatus === "FAILED" ||
           generation.paymentStatus === "FAILED" ||
-          generation.retrievalStatus === "FAILED" ||
           generation.generationStatus === "FAILED"
         ) {
           status = "FAILED";
@@ -218,8 +217,8 @@ const questionResolver = {
           status = "PLANNING";
         } else if (generation.paymentStatus !== "AUTHORIZED") {
           status = "PAYMENT_PROCESSING";
-        } else if (generation.retrievalStatus !== "COMPLETED") {
-          status = "RETRIEVING";
+        } else if (generation.generationStatus === "NOT_STARTED") {
+          status = "WAITING_FOR_GENERATION";
         } else {
           status = "GENERATING";
         }

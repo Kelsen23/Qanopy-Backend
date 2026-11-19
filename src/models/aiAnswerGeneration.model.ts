@@ -41,12 +41,6 @@ const AiAnswerGenerationSchema = new Schema(
       default: "NOT_STARTED",
       required: true,
     },
-    retrievalStatus: {
-      type: String,
-      enum: ["NOT_STARTED", "PROCESSING", "COMPLETED", "FAILED"],
-      default: "NOT_STARTED",
-      required: true,
-    },
     generationStatus: {
       type: String,
       enum: ["NOT_STARTED", "PROCESSING", "COMPLETED", "FAILED"],

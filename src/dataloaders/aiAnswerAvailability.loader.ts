@@ -30,7 +30,7 @@ const createAiAnswerAvailabilityLoader = () =>
         .lean(),
       AiAnswerGeneration.find({ $or: matches })
         .select(
-          "questionId questionVersion planningStatus paymentStatus retrievalStatus generationStatus status",
+          "questionId questionVersion planningStatus paymentStatus generationStatus status",
         )
         .lean(),
       AiAnswer.find({ $or: matches })
