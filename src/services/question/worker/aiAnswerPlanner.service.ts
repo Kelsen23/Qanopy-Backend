@@ -3,6 +3,8 @@ import withAiAnswerPlannerLock from "./aiAnswerPlanner.lock.js";
 
 import { queueAiAnswerRoute } from "../pipelineRouter/pipelineRouting.service.js";
 
+import aiAnswerRetrievalLimits from "../../../config/aiAnswerRetrieval.config.js";
+
 import AiAnswerGenerationPlan from "../../../models/aiAnswerGenerationPlan.model.js";
 import AiAnswerGeneration from "../../../models/aiAnswerGeneration.model.js";
 import QuestionVersion from "../../../models/questionVersion.model.js";
@@ -11,7 +13,7 @@ import { aiAnswerPlannerPrompt } from "../../../prompts/aiAnswer/aiAnswerPlanner
 import {
   createGenerationPlanSchema,
   GenerationPlanSchema,
-} from "../../../validations/aiAnswer/generationPlan.schema.js";
+} from "../../../validations/question/aiAnswer/generationPlan.schema.js";
 
 type AiAnswerGenerationReason = "INITIAL_AUTO" | "INITIAL_MANUAL";
 
@@ -51,10 +53,12 @@ const markPlanningCompleted = async (
 
 const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
   let claimed = false;
+
   try {
     await withAiAnswerPlannerLock(jobData, async (assertLockHeld) => {
       const { questionId, questionVersion, aiAnswerVersion, generationReason } =
         jobData;
+
       const planFilter = { questionId, questionVersion, aiAnswerVersion };
 
       const claim = await AiAnswerGeneration.findOneAndUpdate(
@@ -70,14 +74,18 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
         },
         { returnDocument: "after" },
       );
+
       if (!claim) {
         const current = await AiAnswerGeneration.findOne(planFilter)
           .select("_id planningStatus")
           .lean();
+
         if (current?.planningStatus === "COMPLETED")
           await wakeRouterAfterPlanning(String(current._id));
+
         return;
       }
+
       claimed = true;
 
       const existingPlan = await AiAnswerGenerationPlan.findOne({
@@ -86,9 +94,11 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
       })
         .select("_id")
         .lean();
+
       if (existingPlan) {
         await markPlanningCompleted(jobData, existingPlan._id);
         await wakeRouterAfterPlanning(String(claim._id));
+
         return;
       }
 
@@ -109,6 +119,7 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
 
       const limits = { maxContextTokens: 64000, maxOutputTokens: 8192 };
       const validationSchema = createGenerationPlanSchema(limits);
+
       const plannerResponse = await llmGateway.generate({
         feature: "aiAnswerPlanner",
         mode: "json",
@@ -126,7 +137,10 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
               generationReason,
               availableModels: ["BASIC", "STANDARD", "ADVANCED", "FRONTIER"],
               availableReasoningEfforts: ["LOW", "MEDIUM", "HIGH"],
-              constraints: limits,
+              constraints: {
+                ...limits,
+                retrieval: aiAnswerRetrievalLimits,
+              },
             }),
           },
         ],
@@ -139,9 +153,12 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
         throw new Error("AI Answer Planner response was not JSON");
 
       const plannerPlan = validationSchema.parse(plannerResponse.data);
+
       const { maxContextTokens, maxOutputTokens, ...generationPlanData } =
         plannerPlan;
+
       const generationPlan = GenerationPlanSchema.parse(generationPlanData);
+
       await assertLockHeld();
 
       try {
@@ -161,6 +178,7 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
             cost: plannerResponse.metadata.cost,
           },
         });
+
         await markPlanningCompleted(jobData, savedPlan._id);
       } catch (error) {
         if ((error as { code?: number }).code !== 11000) throw error;
@@ -169,11 +187,15 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
           ...planFilter,
           generationPlan: { $exists: true },
         });
+
         if (!planWonRace) throw error;
+
         const savedPlan = await AiAnswerGenerationPlan.findOne(planFilter)
           .select("_id")
           .lean();
+
         if (!savedPlan) throw error;
+
         await markPlanningCompleted(jobData, savedPlan._id);
       }
 
@@ -195,6 +217,7 @@ const processAiAnswerPlannerJob = async (jobData: AiAnswerPlannerJobData) => {
           },
         },
       );
+
     throw error;
   }
 };
