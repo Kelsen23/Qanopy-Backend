@@ -1,11 +1,9 @@
-import type {
-  GenerationPlan,
-  GenerationPlanMetadata,
-} from "../../../validations/aiAnswer/generationPlan.schema.js";
+import {
+  GenerationPlanMetadataSchema,
+  GenerationPlanSchema,
+} from "../../../validations/question/aiAnswer/generationPlan.schema.js";
 
-import calculateCreditCharge, {
-  AI_ANSWER_PRICING_POLICY,
-} from "../../user/credits/calculateCreditCharge.service.js";
+import { calculateAIAnswerPlanCharge } from "../../user/credits/calculateCreditCharge.service.js";
 import chargeCredits from "../../user/credits/chargeCredits.service.js";
 import makeCreditOperationKey from "../../user/credits/creditOperationKey.shared.js";
 import routeNotification from "../../notification/routeNotification.service.js";
@@ -38,10 +36,41 @@ const processAiAnswerPayment = async ({
 
   if (!generation)
     throw new Error("AI Answer generation lifecycle record not found");
+
   if (typeof generation.userId !== "string")
     throw new Error("AI Answer generation owner not found");
-  if (generation.generationReason === "FEEDBACK_REFINEMENT")
-    throw new Error("Feedback refinement payment not supported");
+
+  if (generation.planningStatus !== "COMPLETED" || !generation.generationPlanId)
+    throw new Error("AI Answer generation plan not complete");
+
+  const planDocument = await AiAnswerGenerationPlan.findById(
+    generation.generationPlanId,
+  )
+    .select("generationPlan metadata")
+    .lean();
+
+  if (!planDocument) throw new Error("Persisted AI Answer plan not found");
+
+  const plan = GenerationPlanSchema.parse(planDocument.generationPlan);
+  const metadata = GenerationPlanMetadataSchema.parse(planDocument.metadata);
+
+  if (generation.generationReason === "FEEDBACK_REFINEMENT") {
+    await AiAnswerGeneration.updateOne(
+      { _id: generation._id, paymentStatus: { $ne: "AUTHORIZED" } },
+      {
+        $set: {
+          paymentStatus: "AUTHORIZED",
+          status: "ACTIVE",
+          reservedAmount: 0,
+          pricingPolicyVersion: "platform-funded-v1",
+        },
+      },
+    );
+
+    await wakePipelineRouter(String(generation._id));
+
+    return;
+  }
 
   const operationKey = makeCreditOperationKey({
     type: "AI_ANSWER",
@@ -52,10 +81,12 @@ const processAiAnswerPayment = async ({
   let existingOperation = await prisma.creditOperation.findUnique({
     where: { operationKey },
   });
+
   if (!existingOperation) {
     const previousOperation = await prisma.creditOperation.findUnique({
       where: { operationKey: `ai-answer-generation:${generation._id}` },
     });
+
     if (previousOperation) {
       existingOperation = await prisma.creditOperation.update({
         where: { id: previousOperation.id },
@@ -63,6 +94,7 @@ const processAiAnswerPayment = async ({
       });
     }
   }
+
   if (existingOperation?.status === "CHARGED") {
     if (
       existingOperation.userId !== generation.userId ||
@@ -84,6 +116,7 @@ const processAiAnswerPayment = async ({
     );
 
     await wakePipelineRouter(String(generation._id));
+
     return;
   }
 
@@ -92,6 +125,7 @@ const processAiAnswerPayment = async ({
       { _id: generation._id, paymentStatus: { $ne: "AUTHORIZED" } },
       { $set: { paymentStatus: "REFUND_PENDING" } },
     );
+
     return;
   }
 
@@ -100,35 +134,29 @@ const processAiAnswerPayment = async ({
     questionVersion,
     aiAnswerVersion,
   });
+
   if (completedAnswer) {
     await AiAnswerGeneration.updateOne(
       { _id: generation._id },
       { $set: { generationStatus: "COMPLETED", status: "COMPLETED" } },
     );
+
     return;
   }
 
   if (generation.paymentStatus === "AUTHORIZED") return;
-  if (generation.planningStatus !== "COMPLETED" || !generation.generationPlanId)
-    throw new Error("AI Answer generation plan not complete");
 
-  const planDocument = await AiAnswerGenerationPlan.findById(
-    generation.generationPlanId,
-  )
-    .select("generationPlan metadata")
-    .lean();
-  if (!planDocument) throw new Error("Persisted AI Answer plan not found");
+  const planCharge =
+    typeof generation.reservedAmount === "number" &&
+    Number.isSafeInteger(generation.reservedAmount) &&
+    generation.reservedAmount > 0 &&
+    typeof generation.pricingPolicyVersion === "string"
+      ? {
+          amount: generation.reservedAmount,
+          pricingPolicyVersion: generation.pricingPolicyVersion,
+        }
+      : calculateAIAnswerPlanCharge(plan, metadata);
 
-  const plan = planDocument.generationPlan as GenerationPlan;
-  const amount = await calculateCreditCharge({
-    type: "AI_ANSWER",
-    plan,
-    metadata: planDocument.metadata as GenerationPlanMetadata,
-  });
-  const planCharge = {
-    amount,
-    pricingPolicyVersion: AI_ANSWER_PRICING_POLICY.version,
-  };
   const processingGeneration = await AiAnswerGeneration.findOneAndUpdate(
     {
       _id: generation._id,
@@ -152,6 +180,7 @@ const processAiAnswerPayment = async ({
     },
     { returnDocument: "after" },
   );
+
   if (!processingGeneration) return;
 
   try {

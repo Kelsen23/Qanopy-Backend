@@ -1,8 +1,7 @@
-import type { CreditOperationType } from "../../../generated/prisma/client.js";
 import type {
   GenerationPlan,
   GenerationPlanMetadata,
-} from "../../../validations/aiAnswer/generationPlan.schema.js";
+} from "../../../validations/question/aiAnswer/generationPlan.schema.js";
 
 import prisma from "../../../config/prisma.config.js";
 
@@ -10,15 +9,6 @@ const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
 const estimateTokens = (text: string) => Math.ceil(text.length / 4);
-
-const getBaseCharge = (type: CreditOperationType) => {
-  switch (type) {
-    case "AI_SUGGESTION":
-      return 25;
-    case "AI_ANSWER":
-      return 80;
-  }
-};
 
 const getReputationMultiplier = (reputationPoints: number) => {
   if (reputationPoints >= 1000) return 0.85;
@@ -29,7 +19,7 @@ const getReputationMultiplier = (reputationPoints: number) => {
 };
 
 export const AI_ANSWER_PRICING_POLICY = {
-  version: "ai-answer-pricing-v2",
+  version: "ai-answer-pricing-v3",
   baselineCredits: 40,
   baselineContextTokens: 16000,
   baselineOutputTokens: 2000,
@@ -40,20 +30,23 @@ export const AI_ANSWER_PRICING_POLICY = {
     FRONTIER: 2,
   },
   reasoningEffortMultipliers: { LOW: 0.8, MEDIUM: 1, HIGH: 1.35 },
-  retrievalSurcharges: {
-    INTERNAL_AI_ANSWERS: 0.1,
-    KNOWLEDGE_BASE: 0.2,
-    WEB: 0.3,
+  retrievalCallSurcharges: {
+    INTERNAL_AI_ANSWERS: 0.04,
+    KNOWLEDGE_BASE: 0.06,
+    WEB: 0.1,
   },
+  retrievalEvidenceTokensPerUnit: 1000,
+  retrievalEvidenceUnitSurcharge: 0.005,
   minBudgetMultiplier: 0.5,
   maxBudgetMultiplier: 2,
 } as const;
 
-const calculateAIAnswerPlanCharge = (
+export const calculateAIAnswerPlanCharge = (
   plan: GenerationPlan,
   metadata: GenerationPlanMetadata,
 ) => {
   const policy = AI_ANSWER_PRICING_POLICY;
+
   const budgetMultiplier = clamp(
     Math.sqrt(
       (metadata.maxContextTokens / policy.baselineContextTokens) *
@@ -62,12 +55,29 @@ const calculateAIAnswerPlanCharge = (
     policy.minBudgetMultiplier,
     policy.maxBudgetMultiplier,
   );
+
+  let callsRemaining = plan.maxTotalToolCalls;
+
+  const callSurcharge = [...plan.retrievalSources]
+    .sort(
+      (a, b) =>
+        policy.retrievalCallSurcharges[b.type] -
+        policy.retrievalCallSurcharges[a.type],
+    )
+    .reduce((total, source) => {
+      const calls = Math.min(callsRemaining, source.maxCalls);
+
+      callsRemaining -= calls;
+
+      return total + calls * policy.retrievalCallSurcharges[source.type];
+    }, 0);
+
+  const evidenceUnits = Math.ceil(
+    plan.maxTotalEvidenceTokens / policy.retrievalEvidenceTokensPerUnit,
+  );
+
   const retrievalMultiplier =
-    1 +
-    plan.retrievalSources.reduce(
-      (total, source) => total + policy.retrievalSurcharges[source.type],
-      0,
-    );
+    1 + callSurcharge + evidenceUnits * policy.retrievalEvidenceUnitSurcharge;
 
   return {
     amount: Math.ceil(
@@ -81,19 +91,11 @@ const calculateAIAnswerPlanCharge = (
   };
 };
 
-const calculateCreditCharge = async (
-  input:
-    | {
-        type: "AI_ANSWER";
-        plan: GenerationPlan;
-        metadata: GenerationPlanMetadata;
-      }
-    | { userId: string; type: CreditOperationType; content: string },
-): Promise<number> => {
-  if ("plan" in input) {
-    return calculateAIAnswerPlanCharge(input.plan, input.metadata).amount;
-  }
-
+const calculateCreditCharge = async (input: {
+  userId: string;
+  type: "AI_SUGGESTION";
+  content: string;
+}): Promise<number> => {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: {
@@ -111,8 +113,8 @@ const calculateCreditCharge = async (
 
   const reputationPoints = user?.stats?.reputationPoints ?? 0;
   const moderationStats = user?.moderationStats;
-  const fixedOverhead = input.type === "AI_ANSWER" ? 3600 : 800;
-  const estimatedTokens = estimateTokens(input.content) + fixedOverhead;
+
+  const estimatedTokens = estimateTokens(input.content) + 800;
   const contentMultiplier = clamp(1 + estimatedTokens / 6000, 1, 1.5);
   const reputationMultiplier = getReputationMultiplier(reputationPoints);
   const trustScore = moderationStats?.trustScore ?? 1;
@@ -127,10 +129,7 @@ const calculateCreditCharge = async (
   );
 
   return Math.ceil(
-    getBaseCharge(input.type) *
-      contentMultiplier *
-      reputationMultiplier *
-      moderationMultiplier,
+    25 * contentMultiplier * reputationMultiplier * moderationMultiplier,
   );
 };
 

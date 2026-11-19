@@ -1,9 +1,9 @@
-import type {
-  GenerationPlan,
-  GenerationPlanMetadata,
-} from "../../../validations/aiAnswer/generationPlan.schema.js";
+import {
+  GenerationPlanMetadataSchema,
+  GenerationPlanSchema,
+} from "../../../validations/question/aiAnswer/generationPlan.schema.js";
 
-import calculateCreditCharge from "./calculateCreditCharge.service.js";
+import { calculateAIAnswerPlanCharge } from "./calculateCreditCharge.service.js";
 import hasCreditCapacity from "./hasCreditCapacity.service.js";
 
 import { queueAiAnswerRoute } from "../../question/pipelineRouter/pipelineRouting.service.js";
@@ -36,19 +36,23 @@ const reactivateBlockedAiAnswerGenerations = async (userId: string) => {
 
     if (!question) continue;
 
-    const plan = generation.generationPlanId
-      ? await AiAnswerGenerationPlan.findById(generation.generationPlanId)
-          .select("generationPlan metadata")
-          .lean()
-      : null;
+    if (!generation.generationPlanId) continue;
+
+    const plan = await AiAnswerGenerationPlan.findById(
+      generation.generationPlanId,
+    )
+      .select("generationPlan metadata")
+      .lean();
+
     if (!plan) continue;
+
     const amount =
       generation.reservedAmount ??
-      (await calculateCreditCharge({
-        type: "AI_ANSWER",
-        plan: plan.generationPlan as GenerationPlan,
-        metadata: plan.metadata as GenerationPlanMetadata,
-      }));
+      calculateAIAnswerPlanCharge(
+        GenerationPlanSchema.parse(plan.generationPlan),
+        GenerationPlanMetadataSchema.parse(plan.metadata),
+      ).amount;
+
     if (!(await hasCreditCapacity(userId, amount))) continue;
 
     await queueAiAnswerRoute(String(generation._id), "quota-increased");
