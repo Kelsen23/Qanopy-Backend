@@ -1,89 +1,186 @@
+import crypto from "node:crypto";
+
 import type { GenerationPlan } from "../../../../validations/question/aiAnswer/generationPlan.schema.js";
 
 import aiAnswerRetrievalLimits from "../../../../config/aiAnswerRetrieval.config.js";
 
+import AiAnswerGeneration from "../../../../models/aiAnswerGeneration.model.js";
+import AiAnswerGenerationPlan from "../../../../models/aiAnswerGenerationPlan.model.js";
+
 import { GenerationPlanSchema } from "../../../../validations/question/aiAnswer/generationPlan.schema.js";
 
 type RetrievalSourceType = GenerationPlan["retrievalSources"][number]["type"];
-type RetrievalUsage = {
-  totalCalls: number;
-  totalEvidenceTokens: number;
-  sources: Partial<
-    Record<RetrievalSourceType, { calls: number; evidenceTokens: number }>
-  >;
-};
 
-const validCount = (value: number) => Number.isSafeInteger(value) && value >= 0;
+const beginRetrievalCall = async ({
+  generationId,
+  sourceType,
+  evidenceTokenLimit,
+}: {
+  generationId: string;
+  sourceType: RetrievalSourceType;
+  evidenceTokenLimit: number;
+}) => {
+  if (!Number.isSafeInteger(evidenceTokenLimit) || evidenceTokenLimit <= 0)
+    throw new Error("Invalid retrieval evidence token limit");
 
-const validateRetrievalUsage = (usage: RetrievalUsage) => {
-  const sourceUsage = Object.values(usage.sources);
+  const generation = await AiAnswerGeneration.findById(generationId)
+    .select("generationPlanId paymentStatus generationStatus status")
+    .lean();
 
-  const hasInvalidCount =
-    !validCount(usage.totalCalls) ||
-    !validCount(usage.totalEvidenceTokens) ||
-    sourceUsage.some(
-      (source) =>
-        source &&
-        (!validCount(source.calls) || !validCount(source.evidenceTokens)),
-    );
-
-  const countedCalls = sourceUsage.reduce(
-    (total, source) => total + (source?.calls ?? 0),
-    0,
-  );
-  const countedEvidenceTokens = sourceUsage.reduce(
-    (total, source) => total + (source?.evidenceTokens ?? 0),
-    0,
-  );
+  if (!generation?.generationPlanId)
+    throw new Error("AI Answer generation plan not found");
 
   if (
-    hasInvalidCount ||
-    countedCalls > usage.totalCalls ||
-    countedEvidenceTokens > usage.totalEvidenceTokens
-  ) {
-    throw new Error("Invalid retrieval usage counters");
-  }
-};
+    generation.paymentStatus !== "AUTHORIZED" ||
+    generation.generationStatus !== "PROCESSING" ||
+    generation.status !== "ACTIVE"
+  )
+    throw new Error("AI Answer generation is not authorized for retrieval");
 
-const getRetrievalAllowance = (
-  persistedPlan: unknown,
-  sourceType: RetrievalSourceType,
-  usage: RetrievalUsage,
-) => {
-  const plan = GenerationPlanSchema.parse(persistedPlan);
+  const planDocument = await AiAnswerGenerationPlan.findById(
+    generation.generationPlanId,
+  )
+    .select("generationPlan")
+    .lean();
 
-  validateRetrievalUsage(usage);
+  if (!planDocument) throw new Error("Persisted AI Answer plan not found");
 
+  const plan = GenerationPlanSchema.parse(planDocument.generationPlan);
   const source = plan.retrievalSources.find(({ type }) => type === sourceType);
+
   if (!source)
     throw new Error(`Retrieval source ${sourceType} is not authorized`);
 
-  const sourceUsage = usage.sources[sourceType] ?? {
-    calls: 0,
-    evidenceTokens: 0,
-  };
   const sourceLimits = aiAnswerRetrievalLimits.sources[sourceType];
+  const sourceField = `retrievalUsage.sources.${sourceType}`;
+  const callId = crypto.randomUUID();
 
-  const remainingCalls = Math.min(
-    source.maxCalls - sourceUsage.calls,
-    sourceLimits.maxCalls - sourceUsage.calls,
-    plan.maxTotalToolCalls - usage.totalCalls,
-    aiAnswerRetrievalLimits.maxTotalToolCalls - usage.totalCalls,
-  );
+  const totalCalls = { $ifNull: ["$retrievalUsage.totalCalls", 0] };
+  const sourceCalls = { $ifNull: [`$${sourceField}.calls`, 0] };
+  const totalEvidenceTokens = {
+    $ifNull: ["$retrievalUsage.totalEvidenceTokens", 0],
+  };
+  const sourceEvidenceTokens = {
+    $ifNull: [`$${sourceField}.evidenceTokens`, 0],
+  };
 
-  const remainingEvidenceTokens = Math.min(
-    source.maxEvidenceTokens - sourceUsage.evidenceTokens,
-    sourceLimits.maxEvidenceTokens - sourceUsage.evidenceTokens,
-    plan.maxTotalEvidenceTokens - usage.totalEvidenceTokens,
-    aiAnswerRetrievalLimits.maxTotalEvidenceTokens - usage.totalEvidenceTokens,
-  );
+  const started = await AiAnswerGeneration.findOneAndUpdate(
+    {
+      _id: generation._id,
+      generationPlanId: generation.generationPlanId,
+      paymentStatus: "AUTHORIZED",
+      generationStatus: "PROCESSING",
+      status: "ACTIVE",
+      "retrievalUsage.activeCallId": { $exists: false },
+      $expr: {
+        $and: [
+          {
+            $lt: [
+              totalCalls,
+              Math.min(
+                plan.maxTotalToolCalls,
+                aiAnswerRetrievalLimits.maxTotalToolCalls,
+              ),
+            ],
+          },
+          {
+            $lt: [
+              sourceCalls,
+              Math.min(source.maxCalls, sourceLimits.maxCalls),
+            ],
+          },
+          {
+            $lte: [
+              { $add: [totalEvidenceTokens, evidenceTokenLimit] },
+              Math.min(
+                plan.maxTotalEvidenceTokens,
+                aiAnswerRetrievalLimits.maxTotalEvidenceTokens,
+              ),
+            ],
+          },
+          {
+            $lte: [
+              { $add: [sourceEvidenceTokens, evidenceTokenLimit] },
+              Math.min(
+                source.maxEvidenceTokens,
+                sourceLimits.maxEvidenceTokens,
+              ),
+            ],
+          },
+        ],
+      },
+    },
+    {
+      $inc: {
+        "retrievalUsage.totalCalls": 1,
+        [`${sourceField}.calls`]: 1,
+      },
+      $set: {
+        "retrievalUsage.activeCallId": callId,
+        "retrievalUsage.activeSourceType": sourceType,
+        "retrievalUsage.activeEvidenceTokenLimit": evidenceTokenLimit,
+      },
+    },
+    { returnDocument: "after" },
+  )
+    .select("_id")
+    .lean();
 
-  if (remainingCalls <= 0) throw new Error("Retrieval call budget exhausted");
-  if (remainingEvidenceTokens <= 0)
-    throw new Error("Retrieval evidence budget exhausted");
+  if (!started)
+    throw new Error("Retrieval limit reached or another call is in progress");
 
-  return { remainingCalls, remainingEvidenceTokens };
+  return { callId, evidenceTokenLimit };
 };
 
-export { getRetrievalAllowance };
-export type { RetrievalSourceType, RetrievalUsage };
+const completeRetrievalCall = async ({
+  generationId,
+  callId,
+  sourceType,
+  evidenceTokens,
+}: {
+  generationId: string;
+  callId: string;
+  sourceType: RetrievalSourceType;
+  evidenceTokens: number;
+}) => {
+  if (!Number.isSafeInteger(evidenceTokens) || evidenceTokens < 0)
+    throw new Error("Invalid retrieval evidence token count");
+
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      aiAnswerRetrievalLimits.sources,
+      sourceType,
+    )
+  )
+    throw new Error("Invalid retrieval source type");
+
+  const sourceField = `retrievalUsage.sources.${sourceType}`;
+
+  const completed = await AiAnswerGeneration.updateOne(
+    {
+      _id: generationId,
+      "retrievalUsage.activeCallId": callId,
+      "retrievalUsage.activeSourceType": sourceType,
+      $expr: {
+        $gte: ["$retrievalUsage.activeEvidenceTokenLimit", evidenceTokens],
+      },
+    },
+    {
+      $inc: {
+        "retrievalUsage.totalEvidenceTokens": evidenceTokens,
+        [`${sourceField}.evidenceTokens`]: evidenceTokens,
+      },
+      $unset: {
+        "retrievalUsage.activeCallId": "",
+        "retrievalUsage.activeSourceType": "",
+        "retrievalUsage.activeEvidenceTokenLimit": "",
+      },
+    },
+  );
+
+  if (!completed.modifiedCount)
+    throw new Error("Retrieval call not active or evidence exceeds its limit");
+};
+
+export { beginRetrievalCall, completeRetrievalCall };
+export type { RetrievalSourceType };
