@@ -63,7 +63,6 @@ const judgeWebSearchBatch = async ({
     ],
     temperature: 0,
     maxTokens: 2500,
-    reasoning: { effort: "low" },
     structuredOutput: { enabled: true, required: false },
     schema: webSearchEvalJudgeBatchSchema,
   });
