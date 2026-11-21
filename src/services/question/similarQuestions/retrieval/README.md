@@ -23,14 +23,14 @@ Offline implementations must not be imported into application request or worker 
 
 ## Evaluation
 
-The runner is `evals/retrieval/run.ts` and defaults to `dense-v1`.
+The runner is `evals/similarQuestionsRetrieval/run.ts` and defaults to `dense-v1`.
 
 Run the production architecture with:
 
 ```bash
-npm run eval:retrieval -- --dataset=dev --retrieval=dense-v1
+npm run eval:similarQuestionsRetrieval -- --dataset=dev --retrieval=dense-v1
 ```
 
 Run an offline architecture only when its optional worker and configuration are installed.
 
-Reports are written to `.eval-results/retrieval/<dataset>/<retrieval-name>/`.
+Reports are written to `.eval-results/similarQuestionsRetrieval/<dataset>/<retrieval-name>/`.
