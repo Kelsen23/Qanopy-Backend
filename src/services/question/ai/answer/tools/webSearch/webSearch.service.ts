@@ -1,5 +1,12 @@
 import { RateLimiterRedis, RateLimiterRes } from "rate-limiter-flexible";
 
+import type {
+  WebSearchAdapterResult,
+  WebSearchEvidence,
+  WebSearchToolInput,
+  WebSearchToolExecutionResult,
+} from "../../../../../../validations/question/aiAnswer/webSearch.schema.js";
+
 import braveSearchConfig from "../../../../../../config/braveSearch.config.js";
 import { getRedisCacheClient } from "../../../../../../config/redis.config.js";
 
@@ -21,13 +28,6 @@ import {
   braveLlmContextResponseSchema,
   webSearchAdapterResultSchema,
   webSearchToolInputSchema,
-} from "../../../../../../validations/question/aiAnswer/webSearch.schema.js";
-
-import type {
-  WebSearchAdapterResult,
-  WebSearchEvidence,
-  WebSearchToolInput,
-  WebSearchToolExecutionResult,
 } from "../../../../../../validations/question/aiAnswer/webSearch.schema.js";
 
 const BRAVE_LLM_CONTEXT_ENDPOINT =
