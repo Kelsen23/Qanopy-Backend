@@ -46,7 +46,8 @@
     "eval:moderation": "tsx evals/moderation/run.ts",
     "eval:eligibility": "tsx evals/eligibility/run.ts",
     "eval:security": "tsx evals/security/run.ts",
-    "eval:retrieval": "tsx evals/retrieval/run.ts",
+    "eval:webSearch": "tsx evals/webSearch/run.ts",
+    "eval:similarQuestionsRetrieval": "tsx evals/similarQuestionsRetrieval/run.ts",
     "eval:suggestion": "tsx evals/suggestion/run.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
