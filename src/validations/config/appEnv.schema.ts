@@ -9,6 +9,7 @@ import {
   serverConfigSchema,
 } from "./base.schema.js";
 import { appStageEnvSchema } from "./appStage.schema.js";
+import { braveSearchEnvSchema } from "./braveSearch.schema.js";
 import { creditEnvSchema } from "./credits.schema.js";
 import {
   llmGatewayEnvSchema,
@@ -18,6 +19,7 @@ import { mongodbEnvSchema } from "./mongodb.schema.js";
 
 const appEnvSchema = serverConfigSchema
   .merge(appStageEnvSchema)
+  .merge(braveSearchEnvSchema)
   .merge(authConfigSchema)
   .merge(googleOAuthConfigSchema)
   .merge(prismaConfigSchema)
