@@ -176,6 +176,9 @@ type LlmGatewayEnvRulesInput = Partial<
     | "LLM_EVALS_SUGGESTION_JUDGE_PROVIDER"
     | "LLM_EVALS_SUGGESTION_JUDGE_MODEL"
     | "LLM_EVALS_SUGGESTION_JUDGE_EFFORT"
+    | "LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER"
+    | "LLM_EVALS_WEB_SEARCH_JUDGE_MODEL"
+    | "LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT"
     | "LLM_EMBEDDINGS_PROVIDER"
     | "LLM_QUESTION_GATE_FALLBACK_MODEL"
     | "LLM_SECURITY_VERIFIER_FALLBACK_MODEL"
@@ -204,6 +207,7 @@ const addRequiredProviderApiKeyIssues = (
     env.LLM_ANSWER_PLANNER_PRIMARY_PROVIDER,
     env.LLM_ANSWER_PLANNER_FALLBACK_PROVIDER,
     env.LLM_EVALS_SUGGESTION_JUDGE_PROVIDER,
+    env.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER,
     env.LLM_EMBEDDINGS_PROVIDER,
   ];
 
@@ -251,6 +255,7 @@ const validateLlmGatewayEnvRules = (
       "LLM_ANSWER_PLANNER_FALLBACK_MODEL",
     ],
     ["LLM_EVALS_SUGGESTION_JUDGE_PROVIDER", "LLM_EVALS_SUGGESTION_JUDGE_MODEL"],
+    ["LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER", "LLM_EVALS_WEB_SEARCH_JUDGE_MODEL"],
   ] as const;
 
   for (const [providerKey, modelKey] of fallbackPairs) {
@@ -456,6 +461,22 @@ const validateLlmGatewayEnvRules = (
   );
   validateFeatureProvider(
     ctx,
+    "webSearchEvalJudge",
+    env.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    "LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER",
+  );
+  validateReasoningProvider(
+    ctx,
+    env.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER as
+      | (typeof supportedProviders)[number]
+      | undefined,
+    env.LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT as LLMReasoningEffort | undefined,
+    "LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT",
+  );
+  validateFeatureProvider(
+    ctx,
     "embeddings",
     env.LLM_EMBEDDINGS_PROVIDER as
       | (typeof supportedProviders)[number]
@@ -548,6 +569,9 @@ const llmGatewayEnvSchema = z
     LLM_EVALS_SUGGESTION_JUDGE_PROVIDER: optionalProviderSchema,
     LLM_EVALS_SUGGESTION_JUDGE_MODEL: z.string().trim().optional(),
     LLM_EVALS_SUGGESTION_JUDGE_EFFORT: optionalReasoningEffortSchema,
+    LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER: optionalProviderSchema,
+    LLM_EVALS_WEB_SEARCH_JUDGE_MODEL: z.string().trim().optional(),
+    LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT: optionalReasoningEffortSchema,
 
     LLM_EMBEDDINGS_PROVIDER: requiredString("LLM_EMBEDDINGS_PROVIDER")
       .transform((value) => value.toLowerCase())
@@ -677,6 +701,19 @@ const llmGatewayConfigSchema: z.ZodType<LLMGatewayConfig> =
             env.LLM_EVALS_SUGGESTION_JUDGE_EFFORT,
           ),
         },
+        webSearchEvalJudge: {
+          primary: withReasoningEffort(
+            {
+              provider:
+                env.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER ??
+                env.LLM_SUGGESTION_GENERATION_PRIMARY_PROVIDER,
+              model:
+                env.LLM_EVALS_WEB_SEARCH_JUDGE_MODEL ??
+                env.LLM_SUGGESTION_GENERATION_PRIMARY_MODEL,
+            },
+            env.LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT,
+          ),
+        },
         embeddings: {
           primary: {
             provider: env.LLM_EMBEDDINGS_PROVIDER,
@@ -707,9 +744,22 @@ const suggestionEvalJudgeEnvSchema = z.object({
   LLM_EVALS_SUGGESTION_JUDGE_EFFORT: optionalReasoningEffortSchema,
 });
 
+const webSearchEvalJudgeEnvSchema = z.object({
+  LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER: requiredString(
+    "LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER",
+  )
+    .transform((value) => value.toLowerCase())
+    .pipe(providerSchema),
+  LLM_EVALS_WEB_SEARCH_JUDGE_MODEL: requiredString(
+    "LLM_EVALS_WEB_SEARCH_JUDGE_MODEL",
+  ),
+  LLM_EVALS_WEB_SEARCH_JUDGE_EFFORT: optionalReasoningEffortSchema,
+});
+
 export {
   llmGatewayConfigSchema,
   llmGatewayEnvSchema,
   suggestionEvalJudgeEnvSchema,
+  webSearchEvalJudgeEnvSchema,
   validateLlmGatewayEnvRules,
 };

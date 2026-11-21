@@ -107,7 +107,7 @@ const loadRetrievalEvalDataset = async (
 
     if (!result.success) {
       throw new Error(
-        `${filename}:${lineNumber}: invalid retrieval eval case: ${formatValidationIssues(result.error)}`,
+        `${filename}:${lineNumber}: invalid similarQuestions retrieval eval case: ${formatValidationIssues(result.error)}`,
       );
     }
 
@@ -118,7 +118,7 @@ const loadRetrievalEvalDataset = async (
 
   if (!result.success) {
     throw new Error(
-      `${filename}: invalid retrieval eval dataset: ${formatValidationIssues(result.error)}`,
+      `${filename}: invalid similarQuestions retrieval eval dataset: ${formatValidationIssues(result.error)}`,
     );
   }
 

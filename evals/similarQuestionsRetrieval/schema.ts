@@ -99,7 +99,7 @@ const retrievalEvalDatasetSchema = z
     );
 
     return new Set(sourceIdentities).size === sourceIdentities.length;
-  }, "Each source question/version may appear in only one retrieval eval case");
+  }, "Each source question/version may appear in only one similarQuestions retrieval eval case");
 
 type RetrievalCorpusQuestion = z.infer<typeof retrievalCorpusQuestionSchema>;
 type RetrievalCorpus = z.infer<typeof retrievalCorpusSchema>;

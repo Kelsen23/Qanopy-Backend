@@ -55,6 +55,7 @@ const featureCapability = {
   aiAnswer: "textGeneration",
   aiAnswerPlanner: "textGeneration",
   suggestionEvalJudge: "textGeneration",
+  webSearchEvalJudge: "textGeneration",
   embeddings: "embeddings",
 } as const satisfies Record<LLMFeature, keyof LLMProviderCapabilities>;
 

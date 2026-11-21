@@ -11,7 +11,7 @@ const datasetConfigs: Record<DatasetName, DatasetConfig> = {
     casesPath: fileURLToPath(new URL("./cases.dev.jsonl", import.meta.url)),
     corpusPath: fileURLToPath(new URL("./corpus.v1.jsonl", import.meta.url)),
     reportDirectory: fileURLToPath(
-      new URL("../../.eval-results/retrieval/dev/", import.meta.url),
+      new URL("../../.eval-results/similarQuestionsRetrieval/dev/", import.meta.url),
     ),
   },
   holdout: {
@@ -20,7 +20,7 @@ const datasetConfigs: Record<DatasetName, DatasetConfig> = {
     ),
     corpusPath: fileURLToPath(new URL("./corpus.v1.jsonl", import.meta.url)),
     reportDirectory: fileURLToPath(
-      new URL("../../.eval-results/retrieval/holdout-v1/", import.meta.url),
+      new URL("../../.eval-results/similarQuestionsRetrieval/holdout-v1/", import.meta.url),
     ),
   },
   regression: {
@@ -29,7 +29,7 @@ const datasetConfigs: Record<DatasetName, DatasetConfig> = {
     ),
     corpusPath: fileURLToPath(new URL("./corpus.v1.jsonl", import.meta.url)),
     reportDirectory: fileURLToPath(
-      new URL("../../.eval-results/retrieval/regression/", import.meta.url),
+      new URL("../../.eval-results/similarQuestionsRetrieval/regression/", import.meta.url),
     ),
   },
 };

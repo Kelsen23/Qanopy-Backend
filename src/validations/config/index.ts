@@ -2,6 +2,7 @@ export * from "./appEnv.schema.js";
 export * from "./appStage.schema.js";
 export * from "./aiAnswerRetrieval.schema.js";
 export * from "./base.schema.js";
+export * from "./braveSearch.schema.js";
 export * from "./credits.schema.js";
 export * from "./colbert.schema.js";
 export * from "./llmGateway.schema.js";

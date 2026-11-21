@@ -12,6 +12,7 @@ type LLMFeature =
   | "aiAnswerPlanner"
   | "aiSuggestion"
   | "suggestionEvalJudge"
+  | "webSearchEvalJudge"
   | "embeddings";
 
 type LLMRole = "system" | "user" | "assistant";

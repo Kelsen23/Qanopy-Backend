@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { RetrievalCandidate } from "../../../../src/services/question/similarQuestions/retrieval/retrieval.types.js";
 
-import { scoreRetrievalCase } from "../../../../evals/retrieval/score.js";
+import { scoreRetrievalCase } from "../../../../evals/similarQuestionsRetrieval/score.js";
 
 const evalCase = {
   id: "case-1",

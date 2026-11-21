@@ -6,7 +6,7 @@ import {
   recallAtK,
   relevanceGain,
   reciprocalRank,
-} from "../../../../evals/retrieval/metrics.js";
+} from "../../../../evals/similarQuestionsRetrieval/metrics.js";
 
 describe("retrieval metrics", () => {
   it("uses grade 2 as the binary relevance boundary for recall", () => {

@@ -25,6 +25,7 @@ const aiAnswerRouter = async (generationId: string) => {
     questionVersion,
     aiAnswerVersion,
   });
+
   if (answerExists) {
     await AiAnswerGeneration.updateOne(
       { questionId, questionVersion, aiAnswerVersion },
@@ -54,6 +55,7 @@ const aiAnswerRouter = async (generationId: string) => {
       removeOnComplete: true,
       removeOnFail: true,
     });
+
     return;
   }
 
