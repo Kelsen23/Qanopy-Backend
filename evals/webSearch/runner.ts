@@ -266,6 +266,20 @@ const runWebSearchEval = async ({
         remainingEvidenceTokens: evidenceTokenBudget,
       });
 
+      if (execution.status === "NO_RESULTS") {
+        states.push({
+          testCase,
+          evidence: [],
+          retrievalLatencyMs: dependencies.now() - startedAt,
+          evidenceTokensUsed: 0,
+          searchStatus: execution.status,
+        });
+
+        dependencies.log("  search returned no results");
+
+        continue;
+      }
+
       if (execution.status !== "SEARCH_COMPLETE") {
         states.push({
           testCase,
@@ -325,11 +339,51 @@ const runWebSearchEval = async ({
     }
   }
 
+  const noResultStates = states.filter(
+    (state) => state.searchStatus === "NO_RESULTS",
+  );
+
+  for (const state of noResultStates) {
+    try {
+      const score = dependencies.scoreCase(state.testCase, [], {
+        caseId: state.testCase.id,
+        resultJudgments: [],
+        unsupportedFactIds: [],
+      });
+
+      state.result = {
+        caseId: state.testCase.id,
+        description: state.testCase.description,
+        scenarioTags: state.testCase.scenarioTags,
+        query: state.testCase.input.query,
+        status: "PASS",
+        evidence: [],
+        score,
+        retrievalLatencyMs: state.retrievalLatencyMs,
+        evidenceTokensUsed: state.evidenceTokensUsed,
+        searchStatus: state.searchStatus,
+      };
+    } catch (error) {
+      state.result = {
+        caseId: state.testCase.id,
+        description: state.testCase.description,
+        scenarioTags: state.testCase.scenarioTags,
+        query: state.testCase.input.query,
+        status: "SCORING_FAILURE",
+        evidence: [],
+        scoringError: errorMessage(error),
+        retrievalLatencyMs: state.retrievalLatencyMs,
+        evidenceTokensUsed: state.evidenceTokensUsed,
+        searchStatus: state.searchStatus,
+      };
+    }
+  }
+
   const judgeableStates = states.filter(
     (
       state,
     ): state is WebSearchCaseState & { evidence: WebSearchEvalEvidence[] } =>
-      state.evidence !== null,
+      state.evidence !== null && state.searchStatus !== "NO_RESULTS",
   );
 
   const totalJudgeBatches = Math.ceil(judgeableStates.length / batchSize);
