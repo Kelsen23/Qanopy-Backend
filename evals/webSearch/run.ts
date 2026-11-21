@@ -5,6 +5,10 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import { executeWebSearch } from "../../src/services/question/ai/answer/tools/webSearch/webSearch.service.js";
+import {
+  redisCacheClient,
+  redisMessagingClientConnection,
+} from "../../src/config/redis.config.js";
 import { webSearchEvalJudgeEnvSchema } from "../../src/validations/config/llmGateway.schema.js";
 
 import { judgeWebSearchBatch } from "./judge.js";
@@ -122,27 +126,41 @@ const dependencies: WebSearchEvalRunnerDependencies = {
 };
 
 const run = async () => {
-  const args = process.argv.slice(2);
-  const dataset = parseDatasetName(args);
-  const caseId = parseArgument(args, "--case-id");
-  const evidenceTokenBudget = parsePositiveIntegerArgument(
-    args,
-    "--evidence-token-budget",
-    4000,
-  );
-  const batchSize = parsePositiveIntegerArgument(args, "--batch-size", 1);
-  const judgeRoute = webSearchEvalJudgeEnvSchema.parse(process.env);
+  try {
+    const args = process.argv.slice(2);
+    const dataset = parseDatasetName(args);
+    const caseId = parseArgument(args, "--case-id");
+    const evidenceTokenBudget = parsePositiveIntegerArgument(
+      args,
+      "--evidence-token-budget",
+      4000,
+    );
+    const batchSize = parsePositiveIntegerArgument(args, "--batch-size", 1);
+    const judgeRoute = webSearchEvalJudgeEnvSchema.parse(process.env);
 
-  await runWebSearchEval({
-    dataset,
-    datasetConfig: datasetConfigs[dataset],
-    dependencies,
-    judgeProvider: judgeRoute.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER,
-    judgeModel: judgeRoute.LLM_EVALS_WEB_SEARCH_JUDGE_MODEL,
-    evidenceTokenBudget,
-    batchSize,
-    caseId,
-  });
+    await runWebSearchEval({
+      dataset,
+      datasetConfig: datasetConfigs[dataset],
+      dependencies,
+      judgeProvider: judgeRoute.LLM_EVALS_WEB_SEARCH_JUDGE_PROVIDER,
+      judgeModel: judgeRoute.LLM_EVALS_WEB_SEARCH_JUDGE_MODEL,
+      evidenceTokenBudget,
+      batchSize,
+      caseId,
+    });
+  } finally {
+    const connections = [redisCacheClient, redisMessagingClientConnection];
+
+    await Promise.all(
+      connections.map(async (connection) => {
+        try {
+          await connection?.quit();
+        } catch {
+          connection?.disconnect();
+        }
+      }),
+    );
+  }
 };
 
 void run().catch((error) => {
