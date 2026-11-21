@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   loadRetrievalCorpus,
   loadRetrievalEvalDataset,
-} from "../../../../evals/retrieval/load.js";
+} from "../../../../evals/similarQuestionsRetrieval/load.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -124,7 +124,7 @@ describe("loadRetrievalEvalDataset", () => {
     );
 
     await expect(loadRetrievalEvalDataset(filename)).rejects.toThrow(
-      `${filename}:3: invalid retrieval eval case:`,
+      `${filename}:3: invalid similarQuestions retrieval eval case:`,
     );
   });
 
@@ -140,7 +140,7 @@ describe("loadRetrievalEvalDataset", () => {
       "Retrieval eval case IDs must be unique",
     );
     await expect(loadRetrievalEvalDataset(duplicateSources)).rejects.toThrow(
-      "Each source question/version may appear in only one retrieval eval case",
+      "Each source question/version may appear in only one similarQuestions retrieval eval case",
     );
   });
 });

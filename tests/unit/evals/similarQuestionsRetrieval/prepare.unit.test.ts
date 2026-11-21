@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   prepareColbertEvalCorpus,
   prepareDenseEvalCorpus,
-} from "../../../../evals/retrieval/prepare.js";
-import type { RetrievalCorpus } from "../../../../evals/retrieval/schema.js";
+} from "../../../../evals/similarQuestionsRetrieval/prepare.js";
+import type { RetrievalCorpus } from "../../../../evals/similarQuestionsRetrieval/schema.js";
 
 const corpus: RetrievalCorpus = [
   {

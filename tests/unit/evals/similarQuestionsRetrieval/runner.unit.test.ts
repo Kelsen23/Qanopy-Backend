@@ -10,11 +10,11 @@ import {
   runCase,
   runRetrievalEval,
   validateCorpusReferences,
-} from "../../../../evals/retrieval/runner.js";
+} from "../../../../evals/similarQuestionsRetrieval/runner.js";
 import type {
   RetrievalCorpus,
   RetrievalEvalCase,
-} from "../../../../evals/retrieval/schema.js";
+} from "../../../../evals/similarQuestionsRetrieval/schema.js";
 
 const testCase: RetrievalEvalCase = {
   id: "case-1",
@@ -50,7 +50,7 @@ const candidate: RetrievalCandidate = {
   representationVersion: "dense-v1",
 };
 
-describe("retrieval eval runner", () => {
+describe("similarQuestions retrieval eval runner", () => {
   it("resolves the source from the corpus and passes its representation to retrieval", async () => {
     const now = vi
       .fn<() => number>()
