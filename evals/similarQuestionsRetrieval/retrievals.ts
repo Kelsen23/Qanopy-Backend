@@ -51,7 +51,7 @@ const parseDatasetName = (args: string[]) => {
     return value;
 
   throw new Error(
-    `Unsupported retrieval eval dataset: ${value}. Expected dev, holdout, or regression.`,
+    `Unsupported similarQuestions retrieval eval dataset: ${value}. Expected dev, holdout, or regression.`,
   );
 };
 
@@ -85,7 +85,7 @@ const parseRetrievalName = (args: string[]): RetrievalName => {
   if (supported.includes(retrievalName)) return retrievalName as RetrievalName;
 
   throw new Error(
-    `Unsupported retrieval: ${retrievalName}. See evals/retrieval/retrievals.ts for supported retrieval selectors.`,
+    `Unsupported retrieval: ${retrievalName}. See evals/similarQuestionsRetrieval/retrievals.ts for supported retrieval selectors.`,
   );
 };
 
