@@ -89,14 +89,20 @@ const braveLlmContextResponseSchema = z
   })
   .passthrough();
 
+const webSearchEvidenceSnippetSchema = z
+  .object({
+    passageId: z.string().min(1),
+    text: z.string().min(1),
+  })
+  .strict();
+
 const webSearchEvidenceSchema = z
   .object({
     evidenceId: z.string().min(1),
-    passageId: z.string().min(1),
     title: z.string(),
     url: z.string().url(),
     sourceDomain: z.string().min(1),
-    text: z.string().min(1),
+    snippets: z.array(webSearchEvidenceSnippetSchema).min(1),
     retrievedAt: z.string().datetime(),
     fetchedContentAt: z.string().datetime().optional(),
   })
@@ -192,6 +198,7 @@ export {
   braveLlmContextResponseSchema,
   webSearchAdapterResultSchema,
   webSearchEvidenceSchema,
+  webSearchEvidenceSnippetSchema,
   webSearchToolInputSchema,
   webSearchToolExecutionResultSchema,
   webSearchToolResultSchema,
@@ -205,3 +212,6 @@ export type WebSearchToolExecutionResult = z.infer<
   typeof webSearchToolExecutionResultSchema
 >;
 export type WebSearchEvidence = z.infer<typeof webSearchEvidenceSchema>;
+export type WebSearchEvidenceSnippet = z.infer<
+  typeof webSearchEvidenceSnippetSchema
+>;
