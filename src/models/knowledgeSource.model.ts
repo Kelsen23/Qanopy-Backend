@@ -16,7 +16,7 @@ const KnowledgeSourceSchema = new Schema(
     excludedPathPrefixes: { type: [String], default: [] },
     enabled: { type: Boolean, required: true, default: false },
     crawl: {
-      cadenceHours: { type: Number, required: true, min: 1 },
+      cadenceHours: { type: Number, required: true, min: 1, default: 168 },
       maxPages: { type: Number, required: true, min: 1 },
       maxDepth: { type: Number, required: true, min: 0 },
       maxConcurrency: { type: Number, required: true, min: 1 },
