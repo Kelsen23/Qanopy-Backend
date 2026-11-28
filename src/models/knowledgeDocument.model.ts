@@ -36,6 +36,9 @@ const KnowledgeDocumentSchema = new Schema(
     },
     lastSeenAt: Date,
     lastCrawledAt: Date,
+    missingSince: Date,
+    missingConfirmationCount: { type: Number, min: 0, default: 0 },
+    lastMissingRunId: String,
   },
   {
     timestamps: true,
@@ -51,7 +54,7 @@ const KnowledgeDocumentSchema = new Schema(
 );
 
 KnowledgeDocumentSchema.index({ sourceId: 1, urlHash: 1 }, { unique: true });
-KnowledgeDocumentSchema.index({ sourceId: 1, status: 1 });
+KnowledgeDocumentSchema.index({ sourceId: 1, status: 1, lastCrawledAt: 1 });
 KnowledgeDocumentSchema.index({ activeRevisionId: 1 });
 
 export default mongoose.model(
