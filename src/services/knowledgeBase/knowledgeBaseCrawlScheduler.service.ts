@@ -10,6 +10,7 @@ const reconcileKnowledgeBaseCrawlSchedules = async () => {
   const enabledSources = await KnowledgeSource.find({ enabled: true })
     .select("_id crawl.cadenceHours")
     .lean();
+
   const desiredSchedulerIds = new Set<string>();
   const existingSchedulers = await knowledgeBaseCrawlQueue.getJobSchedulers();
   const existingSchedulersById = new Map(
@@ -23,10 +24,12 @@ const reconcileKnowledgeBaseCrawlSchedules = async () => {
     const cadenceHours =
       source.crawl?.cadenceHours ?? defaultKnowledgeBaseCrawlCadenceHours;
 
-    if (!Number.isFinite(cadenceHours) || cadenceHours < 1)
+    if (!Number.isFinite(cadenceHours) || cadenceHours < 1) {
       throw new Error(`Invalid crawl cadence for Knowledge Source ${sourceId}`);
+    }
 
     desiredSchedulerIds.add(schedulerId);
+
     const intervalMs = cadenceHours * millisecondsPerHour;
     const existingScheduler = existingSchedulersById.get(schedulerId);
     const schedulerIsCurrent =
@@ -34,7 +37,9 @@ const reconcileKnowledgeBaseCrawlSchedules = async () => {
       existingScheduler.name === knowledgeBaseCrawlJobName &&
       existingScheduler.template?.data?.sourceId === sourceId;
 
-    if (schedulerIsCurrent) continue;
+    if (schedulerIsCurrent) {
+      continue;
+    }
 
     await knowledgeBaseCrawlQueue.upsertJobScheduler(
       schedulerId,
@@ -53,11 +58,17 @@ const reconcileKnowledgeBaseCrawlSchedules = async () => {
     if (
       !scheduler.key.startsWith(knowledgeBaseCrawlSchedulerIdPrefix) ||
       desiredSchedulerIds.has(scheduler.key)
-    )
+    ) {
       continue;
+    }
 
-    if (await knowledgeBaseCrawlQueue.removeJobScheduler(scheduler.key))
+    const removed = await knowledgeBaseCrawlQueue.removeJobScheduler(
+      scheduler.key,
+    );
+
+    if (removed) {
       removedSchedules += 1;
+    }
   }
 
   return {
