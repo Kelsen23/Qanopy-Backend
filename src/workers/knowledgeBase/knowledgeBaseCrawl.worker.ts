@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 
 import { startKnowledgeBaseCrawlScheduleReconciliation } from "../../services/knowledgeBase/knowledgeBaseCrawlScheduleReconciliation.service.js";
+import { crawlKnowledgeBaseSource } from "../../services/knowledgeBase/worker/knowledgeBaseCrawl.service.js";
 
 import connectMongoDB from "../../config/mongodb.config.js";
 import { redisMessagingClientConnection } from "../../config/redis.config.js";
@@ -14,8 +15,14 @@ const startWorker = async () => {
   const handlers = createWorkerEventHandlers("knowledgeBaseCrawl");
   const worker = new Worker(
     "knowledgeBaseCrawlQueue",
-    async () => {
-      throw new Error("Knowledge Base crawl processing is not implemented yet");
+    async (job) => {
+      const sourceId = job.data?.sourceId;
+
+      if (typeof sourceId !== "string" || !sourceId) {
+        throw new Error("Knowledge Base crawl job requires a sourceId");
+      }
+
+      return crawlKnowledgeBaseSource(sourceId);
     },
     {
       connection: redisMessagingClientConnection,
